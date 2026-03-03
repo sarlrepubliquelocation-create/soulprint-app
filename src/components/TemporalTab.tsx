@@ -244,7 +244,7 @@ export default function TemporalTab({ data, psi }: Props) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{Math.round(forecast.next7.avg)}</div>
               </div>
               <div style={{ padding: '8px 10px', borderRadius: 8, background: '#ef44440a', border: '1px solid #ef444418' }}>
-                <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1 }}>Prudence</div>
+                <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1 }}>Énergie basse</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginTop: 2 }}>
                   {Math.round(forecast.next7.worst.score)}
                 </div>
@@ -253,7 +253,7 @@ export default function TemporalTab({ data, psi }: Props) {
             </div>
             {forecast.next7.goldDays > 0 && (
               <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginTop: 8 }}>
-                ✦ {forecast.next7.goldDays} jour{forecast.next7.goldDays > 1 ? 's' : ''} Gold cette semaine
+                ✦ {forecast.next7.goldDays} jour{forecast.next7.goldDays > 1 ? 's' : ''} Alignement fort cette semaine
               </div>
             )}
           </div>
@@ -262,11 +262,11 @@ export default function TemporalTab({ data, psi }: Props) {
             <div style={{ padding: '10px 12px', borderRadius: 8, background: P.surface }}>
               <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>30 jours</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: forecast.next30.trend === 'favorable' ? '#4ade80' : '#f97316', marginTop: 4 }}>
-                {forecast.next30.trend === 'favorable' ? '↗ Favorable' : '↘ Exigeant'}
+                {forecast.next30.trend === 'favorable' ? '↗ Bonne fenêtre' : '↘ Exigeant'}
               </div>
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                Moy. {Math.round(forecast.next30.avg)} · {forecast.next30.goldDays} Gold
-                {forecast.next30.cosmiqueDays > 0 && ` · ${forecast.next30.cosmiqueDays} Cosmique`}
+                Moy. {Math.round(forecast.next30.avg)} · {forecast.next30.goldDays} Alignement fort
+                {forecast.next30.cosmiqueDays > 0 && ` · ${forecast.next30.cosmiqueDays} Convergence rare`}
               </div>
             </div>
             <div style={{ padding: '10px 12px', borderRadius: 8, background: P.surface }}>
@@ -275,7 +275,7 @@ export default function TemporalTab({ data, psi }: Props) {
                 Moy. {Math.round(forecast.next90.avg)}
               </div>
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                {forecast.next90.goldDays} Gold · {forecast.next90.majorEvents.length} Cosmique
+                {forecast.next90.goldDays} Alignement fort · {forecast.next90.majorEvents.length} Convergence rare
               </div>
             </div>
           </div>

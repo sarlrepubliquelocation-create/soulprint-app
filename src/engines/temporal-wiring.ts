@@ -106,7 +106,7 @@ function adaptMercuryStatus(): TemporalMercuryStatus {
     const m = getMercuryStatus(new Date());
     return {
       phase: m.phase || 'direct',
-      score: typeof m.score === 'number' ? m.score : 0,
+      score: typeof m.points === 'number' ? m.points : 0,
       label: m.label || 'Direct',
     };
   } catch {

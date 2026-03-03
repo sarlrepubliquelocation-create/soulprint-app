@@ -107,7 +107,7 @@ export function calcPlanetaryReturns(
     const intensity = +gauss.toFixed(3);
 
     // Estimation jours via vitesse moyenne
-    const orbDays = cfg.speed !== 0 ? Math.round(orbDeg / Math.abs(cfg.speed)) : 0;
+    const orbDays = (cfg.speed as number) !== 0 ? Math.round(orbDeg / Math.abs(cfg.speed)) : 0;
 
     // Direction : la planète se rapproche-t-elle du point natal ?
     const tomorrow = new Date(today.getTime() + 86400000);

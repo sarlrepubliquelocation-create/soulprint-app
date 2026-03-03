@@ -16,7 +16,7 @@ import { getMoonPhase, getEclipseNatalImpacts } from './moon';
 import { getAyanamsa } from './nakshatras';
 import { calcInteractions, buildInteractionContext } from './interactions';
 import { calcCurrentDasha, calcDashaScore } from './vimshottari';
-import { type SystemBreakdown, SLOW_PLANETS } from './convergence.types';
+import { type SystemBreakdown, SLOW_PLANETS, type DashaCertaintyResult, type DashaCertaintyLevel } from './convergence.types';
 import { type DailyModuleResult } from './convergence-daily';
 import { calcTransitStellium } from './transit-stellium'; // V8.5 — P5
 
@@ -59,6 +59,58 @@ export function calcTemporalContext(slowAstroDelta: number): TemporalContext {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// ═══ DASHA CERTAINTY — V9 Sprint 1 ═══
+// Gemini 3.1 Pro : sans heure de naissance, la Mahadasha peut être fausse
+// si la Lune natale est proche d'une frontière de Nakshatra (chaque Nak = 13.33°)
+// Résultat : score [0.85–1.00] appliqué au dashaMultiplier en L2
+// ══════════════════════════════════════════════════════════════════
+
+function calculateDashaCertainty(
+  natalMoonSid: number,
+  birthtimeStr: string | null
+): DashaCertaintyResult {
+  const NAK_SIZE = 360 / 27;                                       // 13.333°
+  const nakshatraIndex  = Math.floor(natalMoonSid / NAK_SIZE);
+  const positionInNak   = (natalMoonSid % NAK_SIZE) / NAK_SIZE;   // 0.0–1.0
+
+  // Frontière ±5% : ±0.67° autour des jonctions entre Nakshatras
+  const BOUNDARY_THRESHOLD = 0.05;
+  const nearBoundary = positionInNak < BOUNDARY_THRESHOLD || positionInNak > (1 - BOUNDARY_THRESHOLD);
+
+  const birthtimeKnown = !!(birthtimeStr && /^\d{1,2}:\d{2}$/.test(birthtimeStr));
+
+  let certaintyLevel: DashaCertaintyLevel;
+  let score: number;
+  let warning: string | null;
+
+  if (birthtimeKnown) {
+    if (nearBoundary) {
+      certaintyLevel = 'MEDIUM'; score = 0.95;
+      warning = 'Lune natale en frontière de Nakshatra — Mahadasha potentiellement incertaine.';
+    } else {
+      certaintyLevel = 'HIGH'; score = 1.00; warning = null;
+    }
+  } else {
+    if (nearBoundary) {
+      certaintyLevel = 'LOW'; score = 0.85;
+      warning = "Heure de naissance inconnue + Lune proche d'une frontière — Mahadasha incertaine. Ajoutez votre heure de naissance.";
+    } else {
+      certaintyLevel = 'MEDIUM'; score = 0.92;
+      warning = 'Heure de naissance non fournie — certitude Dasha modérée.';
+    }
+  }
+
+  return { certaintyLevel, score, warning, nakshatraIndex, positionInNak, birthtimeKnown };
+}
+
+// Valeur par défaut quand astro est absent (pas de calcul possible)
+const DASHA_CERTAINTY_DEFAULT: DashaCertaintyResult = {
+  certaintyLevel: 'LOW', score: 0.85,
+  warning: 'Thème astral non disponible — certitude Dasha faible.',
+  nakshatraIndex: 0, positionInNak: 0.5, birthtimeKnown: false,
+};
+
+// ══════════════════════════════════════════════════════════════════
 // ═══ CALC SLOW MODULES — L2 ═══
 // Contient tous les modules lents de calcConvergence (L2182-L2519)
 // Option A : breakdown[], signals[], alerts[] passés par référence
@@ -72,13 +124,14 @@ export function calcSlowModules(
     astro: AstroChart | null;
     iching: IChingReading;
     bd: string;
+    bt?: string; // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
   },
   daily: DailyModuleResult,
   breakdown: SystemBreakdown[],
   signals: string[],
   alerts: string[]
-): number {
-  const { num, astro, iching, bd } = params;
+): { delta: number; ctxMult: number; dashaMult: number; dashaCertainty: DashaCertaintyResult } {
+  const { num, astro, iching, bd, bt } = params;
   const {
     dailyDeltaSnapshot,
     nakshatraData,
@@ -102,7 +155,7 @@ export function calcSlowModules(
   if (astro) {
     const natalLongs = extractNatalReturnLongs(astro);
     if (natalLongs) {
-      const nakQuality = nakshatraData?.quality ?? 0;
+      const nakQuality = nakshatraData?.globalBaseScore ?? 0;
       const returnsResult = calcPlanetaryReturns(new Date(), natalLongs, nakQuality);
       returnsScore = returnsResult.totalScore;
       hasJupiterReturn = returnsResult.breakdown.some(b => /jupiter/i.test(b)); // V6.0 S4
@@ -171,15 +224,22 @@ export function calcSlowModules(
   // ═══════════════════════════════════
 
   let dashaTotal = 0;
+  let dashaCertainityResult: DashaCertaintyResult = DASHA_CERTAINTY_DEFAULT;
   if (astro) {
     try {
-      const birthD        = new Date(bd + 'T12:00:00');
+      // V9 Sprint 1 : utiliser l'heure de naissance réelle si connue (au lieu de T12:00:00)
+      // La Lune se déplace ~0.54°/h → 11h d'écart = ~6° → peut changer de Nakshatra (13.33°)
+      const birthTimeStr  = bt && /^\d{1,2}:\d{2}$/.test(bt) ? bt : '12:00';
+      const birthD        = new Date(bd + 'T' + birthTimeStr + ':00');
       const birthYear     = birthD.getFullYear();
       const natalMoon     = getMoonPhase(birthD);
       const natalAyanamsa = getAyanamsa(birthYear);
       const natalMoonSid  = ((natalMoon.longitudeTropical - natalAyanamsa) % 360 + 360) % 360;
       const natalMoonIsWaxing = (natalMoon.phase ?? 0) <= 4;
       const transitLord = nakshatraData?.lord;
+
+      // V9 Sprint 1 — certitude Dasha (Gemini 3.1 Pro)
+      dashaCertainityResult = calculateDashaCertainty(natalMoonSid, bt || null);
 
       const dasha       = calcCurrentDasha(natalMoonSid, birthD, new Date());
       const dashaResult = calcDashaScore(dasha, { transitLord, natalMoonIsWaxing });
@@ -416,10 +476,12 @@ export function calcSlowModules(
 
   // V6.3 : Dasha = multiplicateur macro pur [0.91–1.09] — R19 GPT+Gemini unanime
   // Doctrine Jyotish : Dasha = terrain karmique, pas pénalité quotidienne additive
-  const dashaMultiplier = Math.max(0.91, Math.min(1.09, 1.0 + dashaTotal / 100));
+  // V9 Sprint 1 : × certainty.score [0.85–1.00] — atténue le Dasha si Nakshatra incertain
+  const dashaMultiplierRaw = Math.max(0.91, Math.min(1.09, 1.0 + dashaTotal / 100));
+  const dashaMultiplier = dashaMultiplierRaw * dashaCertainityResult.score;
   console.assert(
-    dashaMultiplier >= 0.91 && dashaMultiplier <= 1.09,
-    '[Dasha] Multiplicateur hors limites:', dashaMultiplier
+    dashaMultiplier >= 0.80 && dashaMultiplier <= 1.09,
+    '[Dasha] Multiplicateur hors limites après certitude:', dashaMultiplier
   );
 
   // Formule V7 : (quotidien + synergies) × ctx.multiplier × dashaMultiplier + offset_lent
@@ -462,5 +524,5 @@ export function calcSlowModules(
 
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));
-  return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier };
+  return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier, dashaCertainty: dashaCertainityResult };
 }

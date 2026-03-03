@@ -69,7 +69,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     shadowAspect: 'Extrémisme et jalousie',
     coreText: "Bharani connaît les extrêmes. Désir et discipline, intensité et retenue. Vous ressentez tout profondément, parfois secrètement. Votre âme traverse des cycles de transformation intérieure puissants. Lorsque vous acceptez votre profondeur au lieu de la craindre, vous devenez une force de maturation.",
     globalBaseScore: 0,
-    domainModifiers: { Business: 1.15, Amour: 0.8, Relations: 0.85, Créativité: 1.2, Introspection: 1.2, Vitalité: 0.9 },
+    domainModifiers: { Business: 1.15, Amour: 0.8, Relations: 0.85, Créativité: 1.2, Introspection: 1.2, Vitalité: 0.6 }, // V8.9 Gemini Q3 : Vitalité 0.9→0.6 (Yama, domaine de la mort)
   },
   {
     id: 3, name: 'Krittika', nameFr: 'La Pléiade',
@@ -93,7 +93,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     shadowAspect: 'Possessivité et matérialisme',
     coreText: "Rohini est la favorite de la Lune — le Nakshatra de la beauté, de la fertilité et de la manifestation. Vous avez un don naturel pour créer, attirer et nourrir. Le monde répond à votre appel. Le danger réside dans l'attachement excessif aux formes et aux personnes.",
     globalBaseScore: 1,
-    domainModifiers: { Business: 1.1, Amour: 1.3, Relations: 1.2, Créativité: 1.3, Introspection: 0.9, Vitalité: 1.1 },
+    domainModifiers: { Business: 1.3, Amour: 1.4, Relations: 1.2, Créativité: 1.5, Introspection: 0.9, Vitalité: 1.1 }, // V8.9 Gemini Q3 : Rohini — exaltation lunaire, magnétisme créatif maximal
   },
   {
     id: 5, name: 'Mrigashira', nameFr: 'La Tête du Cerf',
@@ -141,7 +141,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     shadowAspect: 'Contrôle et surprotection',
     coreText: "Pushya est le plus bénéfique des Nakshatras selon la tradition — favorable pour presque tout. C'est l'énergie du soin, de la nourriture spirituelle et de la croissance stable. Saturne donne ici sa face la plus constructive : discipline au service de la croissance durable.",
     globalBaseScore: 1,
-    domainModifiers: { Business: 1.2, Amour: 1.2, Relations: 1.3, Créativité: 1.0, Introspection: 1.2, Vitalité: 1.2 },
+    domainModifiers: { Business: 1.5, Amour: 0.8, Relations: 1.2, Créativité: 1.0, Introspection: 1.2, Vitalité: 1.2 }, // V8.9 Gemini Q3 : Pushya — excellent Business (1.5), maudit pour Amour (0.8)
   },
   {
     id: 9, name: 'Ashlesha', nameFr: "L'Étreinte du Serpent",
@@ -261,7 +261,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     shadowAspect: 'Arrogance et isolement',
     coreText: "Jyeshtha est l'aîné, celui qui porte le fardeau de la responsabilité. Ces jours peuvent amplifier un sentiment d'isolement ou de poids sur les épaules. Le courage de faire seul ce qui doit être fait est présent — mais le risque est de ne pas demander d'aide.",
     globalBaseScore: 0,
-    domainModifiers: { Business: 1.1, Amour: 0.85, Relations: 0.85, Créativité: 0.9, Introspection: 1.2, Vitalité: 0.9 },
+    domainModifiers: { Business: 1.2, Amour: 0.5, Relations: 0.6, Créativité: 0.9, Introspection: 1.5, Vitalité: 0.9 }, // V8.9 Gemini Q3 : Jyeshtha — isolement social fort (Amour 0.5, Relations 0.6), aiguise l'introspection
   },
   {
     id: 19, name: 'Mula', nameFr: 'La Racine',
@@ -273,7 +273,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     shadowAspect: 'Nihilisme et destruction aveugle',
     coreText: "Mula est la racine arrachée — ces jours portent une énergie de remise en question radicale. Nirriti, déesse de la dissolution, gouverne ce Nakshatra. Ce qui ne tient plus est arraché. Douloureux pour les domaines relationnels, mais puissant pour la recherche de vérité et la transformation.",
     globalBaseScore: -1,
-    domainModifiers: { Business: 0.85, Amour: 0.75, Relations: 0.8, Créativité: 1.1, Introspection: 1.3, Vitalité: 0.85 },
+    domainModifiers: { Business: 0.75, Amour: 0.65, Relations: 0.7, Créativité: 0.9, Introspection: 1.5, Vitalité: 0.7 }, // V8.9 Gemini Q3 : Mula — dissolution radicale, force l'introspection pure (Nirriti)
   },
   {
     id: 20, name: 'PurvaAshadha', nameFr: 'La Première Invincible',

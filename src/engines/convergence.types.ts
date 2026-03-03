@@ -9,6 +9,7 @@ import { type DayMasterDailyResult, type TenGodsResult, type ChangshengResult, t
 import { type InteractionResult } from './interactions';
 import { type ProfectionResult } from './profections';
 import { type LunarNodeTransit, type VoidOfCourseMoon } from './moon';
+import { type NuclearHexResult } from './iching';
 
 // ══════════════════════════════════════
 // ═══ VERSION ═══
@@ -172,6 +173,12 @@ export interface SystemBreakdown {
   alerts: string[];
 }
 
+// V9 Sprint 1 — résultat nuclearHexScore() à plat (attendu par ConvergenceTab.tsx)
+export interface NuclearHexScore extends NuclearHexResult {
+  points: number;
+  label: string;
+}
+
 export interface ConvergenceResult {
   score: number;
   level: string;
@@ -200,8 +207,27 @@ export interface ConvergenceResult {
   interactions: InteractionResult;
   profection?: ProfectionResult;
   rawFinal?: number;
-  ctxMult?: number;   // V8 — multiplicateur terrain [0.88–1.12]
-  dashaMult?: number; // V8 — multiplicateur karmique [0.91–1.09]
+  ctxMult?: number;        // V8 — multiplicateur terrain [0.88–1.12]
+  dashaMult?: number;      // V8 — multiplicateur karmique [0.91–1.09]
+  nuclearHex?: NuclearHexScore;       // V9 Sprint 1 — hex nucléaire câblé
+  dashaCertainty?: DashaCertaintyResult; // V9 Sprint 1 — fiabilité Dasha sans heure
+}
+
+// ══════════════════════════════════════
+// ═══ DASHA CERTAINTY — V9 Sprint 1 ═══
+// Gemini 3.1 Pro : sans heure de naissance exacte, la Mahadasha peut être incorrecte
+// si la Lune natale est proche d'une frontière de Nakshatra (±0.5°/13.33°)
+// ══════════════════════════════════════
+
+export type DashaCertaintyLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface DashaCertaintyResult {
+  certaintyLevel: DashaCertaintyLevel;
+  score: number;         // multiplicateur appliqué [0.80–1.00] — 1.00 = certitude totale
+  warning: string | null; // message badge affiché en UI (null si HIGH)
+  nakshatraIndex: number; // 0–26
+  positionInNak: number;  // 0.0–1.0 (fraction dans le nakshatra)
+  birthtimeKnown: boolean;
 }
 
 export interface TemporalConfidence {

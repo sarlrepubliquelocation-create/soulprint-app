@@ -418,6 +418,8 @@ export default function ProfileTab({ data, bd, bt, gender = 'M' }: { data: SoulD
           const dmStem = natalBazi.dailyStem;
           const peachBranch = peach.peachBranch;
           const peachLabel = peach.label;
+          const BAZI_COLORS: Record<string, string> = { 'Bois': '#4ade80', 'Feu': '#ef4444', 'Terre': '#eab308', 'Métal': '#94a3b8', 'Eau': '#60a5fa' };
+          const dmColor = BAZI_COLORS[dmStem.element] ?? '#94a3b8';
           return (
             <Sec icon="☯" title={`Pilier du Jour — ${dmStem.chinese} ${dmStem.pinyin}`}>
               <Cd>
@@ -426,10 +428,10 @@ export default function ProfileTab({ data, bd, bt, gender = 'M' }: { data: SoulD
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {/* Maître du Jour */}
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: `${natalBazi.dailyStem.color}10`, border: `1px solid ${natalBazi.dailyStem.color}25` }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: `${dmColor}10`, border: `1px solid ${dmColor}25` }}>
                     <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 6 }}>{dmStem.chinese}</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: P.text, textAlign: 'center' }}>{dmStem.pinyin}</div>
-                    <div style={{ fontSize: 11, color: natalBazi.dailyStem.color, textAlign: 'center', marginTop: 2 }}>{dmStem.element} {dmStem.polarity === 'yang' ? '☀️ Yang' : '🌙 Yin'}</div>
+                    <div style={{ fontSize: 11, color: dmColor, textAlign: 'center', marginTop: 2 }}>{dmStem.element} {dmStem.yinYang === 'Yang' ? '☀️ Yang' : '🌙 Yin'}</div>
                     <div style={{ fontSize: 10, color: P.gold, textAlign: 'center', marginTop: 4, fontWeight: 600 }}>
                       « {dmStem.archetype} »
                     </div>
@@ -450,9 +452,9 @@ export default function ProfileTab({ data, bd, bt, gender = 'M' }: { data: SoulD
 
                 {/* Lecture du Maître du Jour */}
                 <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
-                  <div style={{ fontSize: 10, color: natalBazi.dailyStem.color, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>☯ Votre signature énergétique</div>
+                  <div style={{ fontSize: 10, color: dmColor, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>☯ Votre signature énergétique</div>
                   <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
-                    <b style={{ color: natalBazi.dailyStem.color }}>{dmStem.pinyin}</b> ({dmStem.element} {dmStem.polarity === 'yang' ? 'Yang' : 'Yin'}), archétype « {dmStem.archetype} », est votre signature profonde — pas ce que vous montrez au monde, mais ce que vous <i>êtes</i> fondamentalement.{' '}
+                    <b style={{ color: dmColor }}>{dmStem.pinyin}</b> ({dmStem.element} {dmStem.yinYang === 'Yang' ? 'Yang' : 'Yin'}), archétype « {dmStem.archetype} », est votre signature profonde — pas ce que vous montrez au monde, mais ce que vous <i>êtes</i> fondamentalement.{' '}
                     <b style={{ color: P.green }}>Force :</b> {dmStem.strength}{' '}
                     <b style={{ color: '#ef4444' }}>Talon d'Achille :</b> {dmStem.risk}{' '}
                     <b style={{ color: P.gold }}>Conseil stratégique :</b> {dmStem.businessAdvice}

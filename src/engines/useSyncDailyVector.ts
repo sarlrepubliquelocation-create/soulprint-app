@@ -114,14 +114,17 @@ function parseCtxMultiplier(detail: string): { ctx: number; dasha: number } {
   };
 }
 
-/** Extrait le label court depuis conv.level */
+/** Extrait le label court depuis conv.level — V8.8 T2 (nouveaux noms + fallback anciens) */
 function extractLabel(level: string): string {
-  if (level.includes('Cosmique')) return 'Cosmique';
-  if (level.includes('Gold') || level.includes('Or')) return 'Or';
+  // Nouveaux labels V8.8 T2 + anciens en fallback pour compatibilité historique Firebase
+  if (level.includes('Convergence rare') || level.includes('Cosmique')) return 'Cosmique';
+  if (level.includes('Alignement fort') || level.includes('Gold') || level.includes('Or')) return 'Or';
+  if (level.includes('Bonne fen') || level.includes('Favorable')) return 'Favorable';
+  if (level.includes('Flux ordinaire') || level.includes('Routine')) return 'Routine';
+  if (level.includes('Énergie basse') || level.includes('Prudence')) return 'Prudence';
+  if (level.includes('Temps de retrait') || level.includes('Tempête')) return 'Tempête';
   if (level.includes('Argent')) return 'Argent';
   if (level.includes('Bronze')) return 'Bronze';
-  if (level.includes('Prudence')) return 'Prudence';
-  if (level.includes('Tempête')) return 'Tempête';
   if (level.includes('Équilibre')) return 'Équilibre';
   return level.split(' ').pop() ?? level;
 }

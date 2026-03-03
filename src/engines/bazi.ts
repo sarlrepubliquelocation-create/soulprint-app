@@ -1618,7 +1618,7 @@ export function getNaYin(date: Date): NaYinResult {
 // Plage totale : +0 à +6 (additif uniquement, négatifs = Clashes/Harms existants)
 // ═══════════════════════════════════════════════════════════════════
 
-export type ShenShaName = 'TianYi' | 'YiMa' | 'HuaGai' | 'HongLuan';
+export type ShenShaName = 'TianYi' | 'YiMa' | 'HuaGai' | 'HongLuan' | 'TaiSui' | 'SuiPo' | 'WenChang' | 'LuShen';
 
 export interface ShenShaInfo {
   name: ShenShaName;
@@ -1633,10 +1633,15 @@ export interface ShenShaInfo {
 }
 
 export const SHEN_SHA_INFO: Record<ShenShaName, ShenShaInfo> = {
-  TianYi:   { name: 'TianYi',   chinese: '天乙貴人', label_fr: 'Noble Star — aide inattendue',        global: +2, business: +2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
-  YiMa:     { name: 'YiMa',     chinese: '驛馬',     label_fr: 'Travel Horse — mouvement favorable',   global: +1, business: +2, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
-  HuaGai:   { name: 'HuaGai',   chinese: '華蓋',     label_fr: 'Canopy Star — solitude créative',      global:  0, business:  0, amour:  0, creativite: +3, vitalite:  0, introspection: +2 },
-  HongLuan: { name: 'HongLuan', chinese: '紅鸞',     label_fr: 'Red Phoenix — énergie romantique',     global: +1, business:  0, amour: +3, creativite:  0, vitalite:  0, introspection:  0 },
+  TianYi:   { name: 'TianYi',   chinese: '天乙貴人', label_fr: 'Noble Star — aide inattendue',          global: +2, business: +2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  YiMa:     { name: 'YiMa',     chinese: '驛馬',     label_fr: 'Travel Horse — mouvement favorable',     global: +1, business: +2, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
+  HuaGai:   { name: 'HuaGai',   chinese: '華蓋',     label_fr: 'Canopy Star — solitude créative',        global:  0, business:  0, amour:  0, creativite: +3, vitalite:  0, introspection: +2 },
+  HongLuan: { name: 'HongLuan', chinese: '紅鸞',     label_fr: 'Red Phoenix — énergie romantique',       global: +1, business:  0, amour: +3, creativite:  0, vitalite:  0, introspection:  0 },
+  // V8.9 Gemini Q2 : Shen Sha additionnels (San Ming Tong Hui / théorie standard)
+  TaiSui:   { name: 'TaiSui',   chinese: '太歲',     label_fr: 'Tai Sui — Offense au Grand Duc',         global: -5, business: -5, amour: -2, creativite:  0, vitalite: -3, introspection:  0 },
+  SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Sui Po — Clash briseur d\'année',        global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
+  WenChang: { name: 'WenChang', chinese: '文昌',     label_fr: 'Wen Chang — Étoile académique',          global: +2, business:  0, amour:  0, creativite: +4, vitalite:  0, introspection: +2 },
+  LuShen:   { name: 'LuShen',   chinese: '祿神',     label_fr: 'Lu Shen — Étoile de prospérité',         global: +3, business: +5, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
 };
 
 // ── Tian Yi 天乙貴人 ── basé sur Day Stem natal → branches cibles
@@ -1688,6 +1693,37 @@ const HUA_GAI_MAP: Record<number, number> = {
   11: 7,  // Hai   → Wei
 };
 
+// ── Wen Chang 文昌 ── basé sur Day Master Stem natal → branche cible du jour
+// Source : San Ming Tong Hui (Wan Minying)
+// Branches : 0=Zi, 1=Chou, 2=Yin, 3=Mao, 4=Chen, 5=Si, 6=Wu, 7=Wei, 8=Shen, 9=You, 10=Xu, 11=Hai
+const WEN_CHANG_TABLE: Record<number, number> = {
+  0: 5,  // Jia  → Si
+  1: 6,  // Yi   → Wu
+  2: 8,  // Bing → Shen
+  3: 9,  // Ding → You
+  4: 8,  // Wu   → Shen
+  5: 9,  // Ji   → You
+  6: 11, // Geng → Hai
+  7: 0,  // Xin  → Zi
+  8: 2,  // Ren  → Yin
+  9: 3,  // Gui  → Mao
+};
+
+// ── Lu Shen / Fu Xing 祿神 ── basé sur Day Master Stem natal → branche cible du jour
+// Lu = la branche de l'étoile de Prospérité propre au Tronc de la personne
+const LU_SHEN_TABLE: Record<number, number> = {
+  0: 2,  // Jia  → Yin
+  1: 3,  // Yi   → Mao
+  2: 5,  // Bing → Si
+  3: 6,  // Ding → Wu
+  4: 5,  // Wu   → Si
+  5: 6,  // Ji   → Wu
+  6: 8,  // Geng → Shen
+  7: 9,  // Xin  → You
+  8: 11, // Ren  → Hai
+  9: 0,  // Gui  → Zi
+};
+
 // ── Hong Luan 紅鸞 ── basé sur Year Branch natal → branche cible du jour
 // Formule : target = (3 - yearBranchIdx + 12) % 12
 const HONG_LUAN_MAP: Record<number, number> = {
@@ -1724,10 +1760,12 @@ export function checkShenSha(natalBirthDate: Date, targetDate: Date): ShenShaRes
   const natalDayPillar = calcDayMaster(natalBirthDate);
   const natalYearPillar = getYearPillar(natalBirthDate);
   const targetDayPillar = calcDayMaster(targetDate);
+  const currentYearPillar = getYearPillar(targetDate); // V8.9 : année courante pour Tai Sui / Sui Po
 
-  const natalDayStemIdx = natalDayPillar.stem.index;
+  const natalDayStemIdx    = natalDayPillar.stem.index;
   const natalYearBranchIdx = natalYearPillar.branchIdx;
-  const targetBranchIdx = targetDayPillar.branch.index;
+  const targetBranchIdx    = targetDayPillar.branch.index;
+  const currentYearBranch  = currentYearPillar.branchIdx; // V8.9
 
   const active: ShenShaInfo[] = [];
 
@@ -1749,6 +1787,27 @@ export function checkShenSha(natalBirthDate: Date, targetDate: Date): ShenShaRes
   // Hong Luan : Year Branch natal → branche cible
   if (HONG_LUAN_MAP[natalYearBranchIdx] === targetBranchIdx) {
     active.push(SHEN_SHA_INFO.HongLuan);
+  }
+
+  // V8.9 Gemini Q2 — Tai Sui 太歲 : jour courant = branche de l'année courante
+  if (targetBranchIdx === currentYearBranch) {
+    active.push(SHEN_SHA_INFO.TaiSui);
+  }
+
+  // V8.9 Gemini Q2 — Sui Po 歲破 : jour courant = branche opposée à l'année courante (+6 mod 12)
+  const suiPoBranch = (currentYearBranch + 6) % 12;
+  if (targetBranchIdx === suiPoBranch) {
+    active.push(SHEN_SHA_INFO.SuiPo);
+  }
+
+  // V8.9 Gemini Q2 — Wen Chang 文昌 : Day Master Stem natal → branche cible du jour
+  if (WEN_CHANG_TABLE[natalDayStemIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.WenChang);
+  }
+
+  // V8.9 Gemini Q2 — Lu Shen 祿神 : Day Master Stem natal → branche cible du jour
+  if (LU_SHEN_TABLE[natalDayStemIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.LuShen);
   }
 
   return {

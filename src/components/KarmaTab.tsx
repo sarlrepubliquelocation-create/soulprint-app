@@ -1,6 +1,6 @@
 import { type SoulData } from '../App';
 import { getNumberInfo, KARMIC_MEANINGS } from '../engines/numerology';
-import { getSouthNode, generateKarmicMission, detectKarmicTension, getKarmicLessons } from '../engines/karmic-mission';
+import { getSouthNode, generateKarmicMission, detectKarmicTension, getKarmicLessons, type ZodiacSign } from '../engines/karmic-mission';
 import { Sec, Cd, Orb, P } from './ui';
 
 // Descriptors for each count level
@@ -146,9 +146,9 @@ export default function KarmaTab({ data }: { data: SoulData }) {
       {/* V2.9.2: Mission Karmique (Nœud Sud + Mission + Tensions) */}
       {conv.lunarNodes && (() => {
         const nnSign = conv.lunarNodes.natal.northNode.sign;
-        const southNode = getSouthNode(nnSign);
-        const mission = generateKarmicMission(nnSign, num.lp.v);
-        const tension = detectKarmicTension(nnSign, num.lp.v, num.soul.v);
+        const southNode = getSouthNode(nnSign as ZodiacSign);
+        const mission = generateKarmicMission(nnSign as ZodiacSign, num.lp.v, num.soul.v);
+        const tension = detectKarmicTension(nnSign as ZodiacSign, num.lp.v, num.soul.v);
         const lessons = getKarmicLessons(num.kl);
         if (!southNode || !mission) return null;
 
@@ -189,14 +189,14 @@ export default function KarmaTab({ data }: { data: SoulData }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span style={{ fontSize: 22 }}>🧭</span>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: P.gold }}>{mission.titre}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: P.gold }}>{nnSign}</div>
                     <div style={{ fontSize: 11, color: P.textDim }}>CdV {num.lp.v} × Nœud Nord {nnSign}</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.7, marginBottom: 8 }}>{mission.mission}</div>
+                <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.7, marginBottom: 8 }}>{mission.northNode}</div>
                 <div style={{ padding: '8px 12px', borderRadius: 8, background: `${P.gold}0c`, border: `1px solid ${P.gold}20` }}>
                   <div style={{ fontSize: 9, color: P.gold, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Conseil stratégique</div>
-                  <div style={{ fontSize: 12, color: P.gold, fontWeight: 600, marginTop: 3, lineHeight: 1.5 }}>{mission.conseil}</div>
+                  <div style={{ fontSize: 12, color: P.gold, fontWeight: 600, marginTop: 3, lineHeight: 1.5 }}>{mission.cheminDeVie}</div>
                 </div>
               </div>
 
@@ -220,8 +220,8 @@ export default function KarmaTab({ data }: { data: SoulData }) {
                   <div style={{ display: 'grid', gap: 6 }}>
                     {lessons.map((l, i) => (
                       <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: P.bg, border: `1px solid ${P.cardBdr}` }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa' }}>{l.titre}</div>
-                        <div style={{ fontSize: 11, color: P.textMid, marginTop: 2, lineHeight: 1.5 }}>{l.description}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#a78bfa' }}>{`Leçon ${l.number}`}</div>
+                        <div style={{ fontSize: 11, color: P.textMid, marginTop: 2, lineHeight: 1.5 }}>{l.lesson}</div>
                       </div>
                     ))}
                   </div>

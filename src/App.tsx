@@ -111,7 +111,7 @@ export default function App() {
       const astro = calcAstro(L.bd, L.bt, L.bp, L.tz, today);
       const cz = calcChineseZodiac(L.bd);
       const iching = calcIChing(L.bd, today);
-      const conv = calcConvergence(num, astro, cz, iching, L.bd);
+      const conv = calcConvergence(num, astro, cz, iching, L.bd, L.bt || undefined); // V9 Sprint 1: bt pour DashaCertainty
       const luckPillars = calculateLuckPillars(new Date(L.bd + 'T00:00:00'), L.gn);
 
       // V5.2 — Vimshottari courant (Maha+Antar+Pratyantar) — useMemo([lock]) = dépend de bd uniquement
@@ -338,19 +338,19 @@ export default function App() {
 
         // I Ching tier pour ce jour
         const ichDay  = calcIChing(lock.bd, ds);
-        const tierStr = getHexTier(ichDay.hexagram).tier; // 'A'-'E'
+        const tierStr = getHexTier(ichDay.hexNum).tier; // 'A'-'E'
 
         // Mercure rétro
         const mercSt  = getMercuryStatus(d);
         const isRetro = mercSt.phase?.toLowerCase().includes('retro') ?? false;
 
         // Rétrogrades planétaires actifs
-        const retros    = getPlanetaryRetroScore ? getPlanetaryRetrogrades(d) : [];
+        const retros    = getPlanetaryRetrogrades(d);
         const retroCount = retros.filter((r: any) => r.points < 0).length;
 
         // VoC
-        const vocResult = getVoidOfCourseMoon(d);
-        const vocActive = vocResult?.active ?? false;
+        const vocResult = getVoidOfCourseMoon(ds);
+        const vocActive = vocResult?.isVoC ?? false;
 
         return buildPSIVector({
           pd:            pdVal,

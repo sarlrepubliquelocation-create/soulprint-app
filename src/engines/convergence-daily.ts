@@ -10,7 +10,7 @@ import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx }
 import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
 import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getPlanetaryRetroScore, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon';
-import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
+import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
 import { calcInteractions, buildInteractionContext, type InteractionResult } from './interactions';
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
 import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './nakshatras';
@@ -361,9 +361,10 @@ export function calcDailyModules(
   const baziSignals: string[] = [];
   const baziAlerts: string[] = [];
 
+  const birthDate = new Date(bd + 'T12:00:00');
+  const todayDate = new Date(todayStr + 'T12:00:00');
+
   try {
-    const birthDate = new Date(bd + 'T12:00:00');
-    const todayDate = new Date(todayStr + 'T12:00:00');
 
     baziResult = calcBaZiDaily(birthDate, todayDate, 50);
     baziDMPts = Math.max(-6, Math.min(6, Math.round(baziResult.totalScore * 2)));
@@ -489,23 +490,69 @@ export function calcDailyModules(
       const affinity = getNaYinAffinityFactor(natalEl, naYinResult.entry.element);
       naYinPts = 0; // V6.2: neutralisé (symbolisme poétique — R15/R16)
     }
-    if (false) { // signals NaYin supprimés V6.2
+    if (false && naYinResult) { // signals NaYin supprimés V6.2
       breakdown.push({
         system: 'Na Yin', icon: '纳',
-        value: naYinResult.entry.name_fr,
+        value: naYinResult!.entry.name_fr,
         points: naYinPts,
-        detail: `${naYinResult.entry.name_cn} — ${naYinResult.entry.description}`,
-        signals: naYinPts > 0 ? [naYinResult.advice] : [],
-        alerts: naYinPts < 0 ? [naYinResult.advice] : [],
+        detail: `${naYinResult!.entry.name_cn} — ${naYinResult!.entry.description}`,
+        signals: naYinPts > 0 ? [naYinResult!.advice] : [],
+        alerts: naYinPts < 0 ? [naYinResult!.advice] : [],
       });
     }
   } catch { /* Na Yin fail silently */ }
 
   // ═══════════════════════════════════
+  // 2f. JIAN CHU 建除 (12 Officers) — V8.9 T1
+  // Timing BaZi : qualité journalière via Branche Jour × Branche Mois
+  // Formule : officerIdx = (dayBranchIdx - monthBranchIdx + 12) % 12
+  // Amplitude ±2 conservatrice — signal pur, anti-bruit
+  // ═══════════════════════════════════
+
+  const JIAN_CHU_OFFICERS: Array<{ zh: string; fr: string; pts: number }> = [
+    { zh: '建', fr: 'Établir',    pts:  2 },  // 0 — lancer, commencer
+    { zh: '除', fr: 'Retirer',    pts:  0 },  // 1 — purification, transition
+    { zh: '满', fr: 'Remplir',    pts:  1 },  // 2 — abondance
+    { zh: '平', fr: 'Équilibrer', pts:  0 },  // 3 — stable, neutre
+    { zh: '定', fr: 'Fixer',      pts:  1 },  // 4 — contrats, stabilité
+    { zh: '执', fr: 'Saisir',     pts:  0 },  // 5 — exécution ordinaire
+    { zh: '破', fr: 'Briser',     pts: -2 },  // 6 — très défavorable, éviter
+    { zh: '危', fr: 'Danger',     pts: -1 },  // 7 — prudence, risques
+    { zh: '成', fr: 'Succès',     pts:  2 },  // 8 — le meilleur, toutes actions
+    { zh: '收', fr: 'Récolter',   pts:  1 },  // 9 — clôturer, encaisser
+    { zh: '开', fr: 'Ouvrir',     pts:  2 },  // 10 — débuter, voyager
+    { zh: '闭', fr: 'Fermer',     pts: -1 },  // 11 — éviter les actions
+  ];
+
+  let jianchuPts = 0;
+  let jianchuOfficer: { zh: string; fr: string; pts: number } | null = null;
+  try {
+    const jcDate        = new Date(todayStr + 'T12:00:00');
+    const dayBranchIdx  = calcDayMaster(jcDate).branch.index;
+    const monthBranchIdx = getMonthPillar(jcDate).branchIdx;
+    const officerIdx    = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
+    jianchuOfficer      = JIAN_CHU_OFFICERS[officerIdx];
+    const jianchuRaw    = jianchuOfficer.pts;
+    // V8.9 GPT Q1 : debias espérance +5/12 (ratio 6pos/3neu/3neg → E=+0.42) → centrage à 0
+    jianchuPts          = jianchuRaw - (5 / 12);
+    const officerLabel  = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
+    if (jianchuRaw > 0) signals.push(`${officerLabel} — officier favorable`);
+    else if (jianchuRaw < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
+    breakdown.push({
+      system: 'Jian Chu', icon: '建',
+      value:  officerLabel,
+      points: jianchuRaw, // valeur brute affichée (débias appliqué au delta, pas à l'affichage)
+      detail: `Officer ${officerIdx + 1}/12 · branche jour ${dayBranchIdx} / mois ${monthBranchIdx}`,
+      signals: jianchuRaw > 0 ? [`${officerLabel} → timing favorable`] : [],
+      alerts:  jianchuRaw < 0 ? [`${officerLabel} → timing difficile`]  : [],
+    });
+  } catch { /* Jian Chu fail silently */ }
+
+  // ═══════════════════════════════════
   // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4
   // ═══════════════════════════════════
 
-  const baziFamilyTotal = Math.max(-22, Math.min(22, baziCorePts + changshengPts)); // V8: shenShaPts retiré (narratif, delta=0)
+  const baziFamilyTotal = Math.max(-22, Math.min(22, baziCorePts + changshengPts + jianchuPts)); // V8.9: +jianchuPts T1
   delta += baziFamilyTotal;
 
   // Direct domain bonuses (Changsheng + Shen Sha per-domain)
@@ -529,13 +576,11 @@ export function calcDailyModules(
 
   let profectionResult: ProfectionResult | undefined;
   try {
-    const birthDate = new Date(bd + 'T12:00:00');
-    const todayDate = new Date(todayStr + 'T12:00:00');
     const sunSignFR = astro ? (SIGN_FR[astro.b3.sun] ?? undefined) : undefined;
     const ascSignFR = astro ? (SIGN_FR[astro.b3.asc] ?? undefined) : undefined;
-    profectionResult = calcProfection(birthDate, todayDate, sunSignFR, ascSignFR);
+    profectionResult = calcProfection(bd, todayStr, ascSignFR ?? null, sunSignFR ?? 'Bélier');
 
-    const profDomainScore = getDomainScore(profectionResult);
+    const profDomainScore = getDomainScore(profectionResult.domainMultiplier, profectionResult.activeHouse);
     if (profDomainScore > 0 && profectionResult.domainMultiplier !== 1.0) {
       const profDomainKey = profectionResult.domain.toUpperCase().replace('É', 'E').replace('Ê', 'E') as LifeDomain;
       const domainMap: Record<string, LifeDomain> = {
@@ -553,16 +598,16 @@ export function calcDailyModules(
       }
     }
 
-    if (profectionResult.house !== 1) {
-      signals.push(`🏠 Maison ${profectionResult.house} en profection — ${profectionResult.timeLord} domine l'année`);
+    if (profectionResult.activeHouse !== 1) {
+      signals.push(`🏠 Maison ${profectionResult.activeHouse} en profection — ${profectionResult.timeLord} domine l'année`);
     }
     breakdown.push({
       system: 'Profections',
       icon: '🏠',
-      value: `Maison ${profectionResult.house} (${profectionResult.sign})`,
+      value: `Maison ${profectionResult.activeHouse} (${profectionResult.activeSign})`,
       points: 0,
       detail: `${profectionResult.timeLord} — domaine ${profectionResult.domain} ×${profectionResult.domainMultiplier.toFixed(2)}`,
-      signals: [`Maison ${profectionResult.house}: ${profectionResult.domain}`],
+      signals: [`Maison ${profectionResult.activeHouse}: ${profectionResult.domain}`],
       alerts: [],
     });
   } catch { /* profections fail silently */ }
@@ -570,7 +615,7 @@ export function calcDailyModules(
   // V8.4 : Maisons planétaires → enrichissement domaines (R29 Grok)
   // Impact sur directDomainBonuses uniquement, pas sur delta global.
   if (astro) {
-    enrichDomainScoresWithHouses(astro, directDomainBonuses, profectionResult?.house);
+    enrichDomainScoresWithHouses(astro, directDomainBonuses, profectionResult?.activeHouse);
   }
 
   // ═══════════════════════════════════

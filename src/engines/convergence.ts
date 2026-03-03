@@ -13,7 +13,7 @@ import { type AstroChart, calcPersonalTransits, getPlanetLongitudeForDate } from
 import { calcProgressions } from './progressions';
 import { extractNatalReturnLongs, interpolateReturnIntensity } from './returns';
 import { type ChineseZodiac } from './chinese-zodiac';
-import { type IChingReading, calcIChing } from './iching';
+import { type IChingReading, calcIChing, nuclearHexScore } from './iching';
 import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, getPlanetaryRetroScore, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon';
 import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
 import { calcInteractions, buildInteractionContext } from './interactions';
@@ -57,17 +57,29 @@ function getTodayStr(): string {
 }
 
 // ══════════════════════════════════════
-// ═══ COMPRESSION — Puissance signée exp 1.4 ═══
+// ═══ COMPRESSION — tanh sigmoïdale V9 ═══
 // ══════════════════════════════════════
 
 function compress(delta: number): number {
-  // V8 : cœur BaZi+Nakshatra uniquement → max delta réaliste ~18
-  // maxDelta 37→18, exposant 1.22→1.05 (distribution recalibrée R25)
-  // Cible : ~7 Cosmique/an, ~22 Or/an — pics rares = vrais signaux
-  const maxDelta = 18;
+  // compress V8 — loi de puissance calibrée (p=1.05, quasi-linéaire)
+  // REVERT Sprint 1 V9 : compress_v2 tanh(2.2 * x^0.7) était concave (p<1)
+  //   → boostait les deltas modérés vers Cosmique (202 Cosmique/an observés !)
+  //   → paramètres k=2.2, p=0.7 faisaient l'inverse de l'intention
+  // TODO Sprint 2 : recalibrer tanh avec p>1 (convexe) sur distribution simulée
+  // compress(0)=50, output∈[5,97]
+  const maxDelta = 22; // V8.9 GPT Q5 : 18→22 pour calibrer distribution (cible ≥88 ~1.5%, <25 ~6%)
   const sign = Math.sign(delta);
   const normalized = Math.min(Math.abs(delta) / maxDelta, 1);
   return Math.round(50 + 45 * sign * Math.pow(normalized, 1.05));
+}
+
+/** Inverse approx de compress() — retourne le delta correspondant à un score donné.
+ *  V8.9 GPT Q4 : utilisé pour computeScoreRange (calcul en delta-space, pas score-space). */
+function decompressApprox(score: number, maxDelta = 22, p = 1.05): number {
+  const d = score - 50;
+  if (d === 0) return 0;
+  const u = Math.pow(Math.abs(d) / 45, 1 / p);
+  return maxDelta * Math.sign(d) * u;
 }
 
 // ══════════════════════════════════════
@@ -80,13 +92,13 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
 
   if (score === 50) {
     return {
-      name: '☯ Équilibre Cosmique', icon: '☯', color: '#60a5fa',
+      name: '☯ Équilibre parfait', icon: '☯', color: '#60a5fa',
       narrative: "Ton corps est au point zéro — ni tension ni élan. C'est une page blanche sensorielle : chaque micro-décision pèsera plus lourd que d'habitude."
     };
   }
   if (score >= 88 && mercuryPts < 0) {
     return {
-      name: '⚡ Alignement Cosmique', icon: '⚡', color: '#E0B0FF',
+      name: '⚡ Convergence rare', icon: '⚡', color: '#E0B0FF',
       narrative: "Tu sens une puissance brute dans la poitrine, mais ta gorge bloque — les mots veulent sortir trop vite. Agis en silence, relis avant d'envoyer, et laisse la force couler sans bruit."
     };
   }
@@ -96,7 +108,7 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       "Une chaleur dorée irradie depuis le plexus solaire. Chaque pas semble plus léger, chaque décision plus évidente. C'est le jour où tu signes, tu lances, tu oses.",
       "Tu te réveilles avec cette certitude rare dans les os : aujourd'hui, le courant te porte. Ne résiste pas, ne planifie pas — surfe."
     ];
-    return { name: '⚡ Alignement Cosmique', icon: '⚡', color: '#E0B0FF', narrative: narratives[variant] };
+    return { name: '⚡ Convergence rare', icon: '⚡', color: '#E0B0FF', narrative: narratives[variant] };
   }
   if (score >= 80) {
     const narratives = [
@@ -104,7 +116,7 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       "Tes mains veulent créer, ta voix porte plus loin que d'habitude. C'est un jour d'exécution rapide — les portes s'ouvrent avant que tu ne frappes.",
       "Une clarté mentale inhabituellement aiguë, comme si le brouillard s'était levé d'un coup. Profites-en pour les décisions que tu repousses depuis des jours."
     ];
-    return { name: '🌟 Gold', icon: '🌟', color: '#FFD700', narrative: narratives[variant] };
+    return { name: '🌟 Alignement fort', icon: '🌟', color: '#FFD700', narrative: narratives[variant] };
   }
   if (score >= 65) {
     const narratives = [
@@ -112,7 +124,7 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       "Tu ressens un calme productif dans la mâchoire et les épaules. Pas d'euphorie, mais un socle solide. Avance à ton rythme — le terrain est stable.",
       "Les gestes sont fluides, les conversations tombent juste. Rien de spectaculaire, mais tout fonctionne. Maintiens le cap sans forcer."
     ];
-    return { name: '✦ Favorable', icon: '✦', color: '#4ade80', narrative: narratives[variant] };
+    return { name: '✦ Bonne fenêtre', icon: '✦', color: '#4ade80', narrative: narratives[variant] };
   }
   if (score >= 40) {
     const narratives = [
@@ -120,7 +132,7 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       "Tu sens une légère lourdeur dans les jambes, un rythme plus lent que d'habitude. C'est un jour de maintenance — range, classe, prépare le terrain pour demain.",
       "Les sensations sont en sourdine. Pas de signal fort dans aucune direction. Concentre-toi sur l'essentiel et économise ton énergie pour les fenêtres à venir."
     ];
-    return { name: '☉ Routine', icon: '☉', color: '#60a5fa', narrative: narratives[variant] };
+    return { name: '☉ Flux ordinaire', icon: '☉', color: '#60a5fa', narrative: narratives[variant] };
   }
   if (score >= 25) {
     const narratives = [
@@ -128,14 +140,14 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       "Le souffle est court, les pensées tournent en boucle. Les cycles sont désynchronisés. Ralentis, observe, note ce qui coince — mais n'agis pas dessus maintenant.",
       "Tu sens une friction invisible sur chaque initiative. Comme marcher dans du sable. Avance avec tact, protège tes arrières, et garde l'énergie pour le rebond."
     ];
-    return { name: '☽ Prudence', icon: '☽', color: '#9890aa', narrative: narratives[variant] };
+    return { name: '☽ Énergie basse', icon: '☽', color: '#9890aa', narrative: narratives[variant] };
   }
   const narratives = [
     "Ton corps tire le frein à main — écoute-le. Reste dans ta forteresse. Annule ce qui peut l'être, reporte le reste. Ce n'est pas de la faiblesse, c'est de l'intelligence tactique.",
     "Une lourdeur dans tout le corps, comme un orage intérieur. Les cycles sont en collision. Aujourd'hui tu protèges, tu ne conquiers pas. Demain le ciel se dégage.",
     "Tout résiste : l'énergie, la concentration, la patience. Journée de haute turbulence sensorielle. Un seul objectif : traverser sans casse. Le rebond arrive."
   ];
-  return { name: '⛈ Tempête', icon: '⛈', color: '#ef4444', narrative: narratives[variant] };
+  return { name: '⛈ Temps de retrait', icon: '⛈', color: '#ef4444', narrative: narratives[variant] };
 }
 
 function scoreLevelColor(score: number): string {
@@ -440,7 +452,7 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
         delta += Math.max(-7, Math.min(7, r25mc + r27mc));
       } catch { /* silent */ }
 
-      scores.push(Math.max(5, Math.min(97, compress(Math.max(-18, Math.min(18, delta))))));
+      scores.push(Math.max(5, Math.min(97, compress(Math.max(-22, Math.min(22, delta))))));
     }
   }
 
@@ -448,14 +460,32 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
   return scores;
 }
 
+/** V8.9 GPT Q3 : correction statique du Rarity Index par Monte Carlo.
+ *  Construit une baseline L1+L2 simulée pour comparer le score full (L1+L2+L3)
+ *  à une distribution équitable — évite l'asymétrie L1-only vs full score. */
+function buildCorrectedBaseline(yearScoresL1: number[], samplesPerDay = 8): number[] {
+  const corrected: number[] = [];
+  for (const sL1 of yearScoresL1) {
+    const d1 = decompressApprox(sL1);
+    for (let k = 0; k < samplesPerDay; k++) {
+      const offsetPts = (Math.random() - 0.5) * 8;   // Uniform[-4, +4]
+      const ctxMult   = 0.95 + Math.random() * 0.10; // Uniform[0.95, 1.05]
+      corrected.push(compress((d1 + offsetPts) * ctxMult));
+    }
+  }
+  return corrected;
+}
+
 function computeRarityIndex(
   currentScore: number, positiveSystemCount: number, totalSystemCount: number,
   bd: string, num: NumerologyProfile, cz: ChineseZodiac, transitBonus: number
 ): RarityResult {
-  const yearScores = getYearScores(bd, num, cz, transitBonus);
-  const higherOrEqual = yearScores.filter(s => s >= currentScore).length;
-  const percentage = Math.max(0.1, (higherOrEqual / yearScores.length) * 100);
-  const rank = yearScores.filter(s => s > currentScore).length + 1;
+  const yearScoresL1  = getYearScores(bd, num, cz, transitBonus);
+  // V8.9 GPT Q3 : baseline corrigée (L1 + simulation L2) pour éviter biais asymétrique
+  const baseline      = buildCorrectedBaseline(yearScoresL1);
+  const higherOrEqual = baseline.filter(s => s >= currentScore).length;
+  const percentage    = Math.max(0.1, (higherOrEqual / baseline.length) * 100);
+  const rank          = baseline.filter(s => s > currentScore).length + 1;
   let label: string, icon: string;
   if (percentage <= 1) { label = 'Extrêmement rare'; icon = '💎'; }
   else if (percentage <= 5) { label = 'Rare'; icon = '🌟'; }
@@ -472,11 +502,11 @@ function computeRarityIndex(
 function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexKeyword: string): string {
   const t = dayType.type;
   if (score >= 88) {
-    if (t === 'decision')      return `⚡ ALIGNEMENT COSMIQUE — Prenez LA décision que vous repoussez. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
-    if (t === 'communication') return `⚡ ALIGNEMENT COSMIQUE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
-    if (t === 'expansion')     return `⚡ ALIGNEMENT COSMIQUE — Convergence totale vers la croissance. Lancez maintenant.`;
-    if (t === 'observation')   return `⚡ ALIGNEMENT COSMIQUE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
-    return `⚡ ALIGNEMENT COSMIQUE — Même en retrait, l'énergie est exceptionnelle. Semez avec intention.`;
+    if (t === 'decision')      return `⚡ CONVERGENCE RARE — Prenez LA décision que vous repoussez. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
+    if (t === 'communication') return `⚡ CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
+    if (t === 'expansion')     return `⚡ CONVERGENCE RARE — Convergence totale vers la croissance. Lancez maintenant.`;
+    if (t === 'observation')   return `⚡ CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
+    return `⚡ CONVERGENCE RARE — Même en retrait, l'énergie est exceptionnelle. Semez avec intention.`;
   }
   if (score >= 80) {
     if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hexName} (${hexKeyword}) : c'est le moment d'agir.`;
@@ -544,9 +574,19 @@ function computeCI(score: number, breakdownPoints: number[]): ConfidenceInterval
   const mean = breakdownPoints.reduce((s, v) => s + v, 0) / breakdownPoints.length;
   const variance = breakdownPoints.reduce((s, v) => s + (v - mean) ** 2, 0) / (breakdownPoints.length - 1);
   const se = Math.sqrt(variance / breakdownPoints.length);
-  const margin = Math.round(1.96 * se);
-  const lower = Math.max(5, score - margin);
-  const upper = Math.min(97, score + margin);
+
+  // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compress()
+  // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
+  const floorScore = 5;
+  const delta0 = decompressApprox(score);
+  const deltaAtPlus = decompressApprox(Math.min(score + floorScore, 97));
+  const floorDelta = Math.abs(deltaAtPlus - delta0);
+  const ciMarginDelta = Math.max(1.96 * se, floorDelta);
+
+  const lower = Math.max(5, compress(delta0 - ciMarginDelta));
+  const upper = Math.min(97, compress(delta0 + ciMarginDelta));
+  const margin = Math.round((upper - lower) / 2);
+
   let label: string;
   if (margin <= 4) label = 'Serré';
   else if (margin <= 8) label = 'Modéré';
@@ -784,7 +824,14 @@ export function calcDayPreview(
   // ── P3.1 : estimateL2Bonus — Retours planétaires interpolés (Saturne, Jupiter, Nœud Nord) ──
   // Objectif : réduire la divergence CalendarTab ↔ ConvergenceTab (Issue #1 audit V8.1)
   // Méthode : interpolation linéaire via vitesse moyenne (zéro appel Meeus — PSI de returns.ts)
-  // Amplitude cappée ±8 (sous le cap L2 ±12 — estimation, pas calcul exact)
+  //
+  // ⚠️ HORIZON LIMITÉ À 12 MOIS (V8.8 hotfix3)
+  // Pourquoi : l'interpolation linéaire est imprécise au-delà de ~12 mois car :
+  //   - Jupiter dévie ±15° par an (rétrogrades de 4 mois), Saturne ±8°/an
+  //   - Ces erreurs créent de fausses intensités de retour → biais annuels artificiels
+  // Exemple : Nœud return 2033 et Sat+Jup return 2037 → 17-20 Cosmiques/an au lieu de 5
+  // Fix : l2Bonus=0 si |deltaJours|>365. Le CalendarTab (<12 mois) reste précis.
+  // TODO Sprint 2 : éphémérides exactes (Meeus) pour horizon long (calcDayPreview refacto)
   try {
     if (astro) {
       const natalLongs = extractNatalReturnLongs(astro);
@@ -793,27 +840,32 @@ export function calcDayPreview(
         const targetD = new Date(targetDate + 'T12:00:00');
         const deltaJours = Math.round((targetD.getTime() - today.getTime()) / 86400000);
 
-        // Positions planétaires actuelles (1 seul appel par planète — réutilisées pour chaque jour via interpolation)
-        const satTodayLong  = getPlanetLongitudeForDate('saturn',    today);
-        const jupTodayLong  = getPlanetLongitudeForDate('jupiter',   today);
-        const nodeTodayLong = getPlanetLongitudeForDate('northNode', today);
+        // Horizon >12 mois : interpolation linéaire non fiable → skip l2Bonus
+        if (Math.abs(deltaJours) <= 365) {
+          // Positions planétaires actuelles (réutilisées via interpolation pour horizon court)
+          const satTodayLong  = getPlanetLongitudeForDate('saturn',    today);
+          const jupTodayLong  = getPlanetLongitudeForDate('jupiter',   today);
+          const nodeTodayLong = getPlanetLongitudeForDate('northNode', today);
 
-        const satIntensity  = interpolateReturnIntensity(natalLongs.saturn,    satTodayLong,  'saturn',    deltaJours);
-        const jupIntensity  = interpolateReturnIntensity(natalLongs.jupiter,   jupTodayLong,  'jupiter',   deltaJours);
-        const nodeIntensity = interpolateReturnIntensity(natalLongs.northNode, nodeTodayLong, 'northNode', deltaJours);
+          const satIntensity  = interpolateReturnIntensity(natalLongs.saturn,    satTodayLong,  'saturn',    deltaJours);
+          const jupIntensity  = interpolateReturnIntensity(natalLongs.jupiter,   jupTodayLong,  'jupiter',   deltaJours);
+          const nodeIntensity = interpolateReturnIntensity(natalLongs.northNode, nodeTodayLong, 'northNode', deltaJours);
 
-        // Conversion intensité → pts (amplitudes CONFIG : sat=±8, jup=±5, node=±6)
-        const satPts  = satIntensity  > 0.15 ? Math.round(satIntensity  * 8)  : 0;
-        const jupPts  = jupIntensity  > 0.15 ? Math.round(jupIntensity  * 5)  : 0;
-        const nodePts = nodeIntensity > 0.15 ? Math.round(nodeIntensity * 6)  : 0;
+          // Amplitudes réduites (sat=3, jup=2, node=2, cap=4) — V8.8 hotfix2
+          // Config.amp (8,5,6) était calibré pour le calcul L2 exact (via ctx.multiplier)
+          // Ici, l2Bonus est additif direct sur delta → divisé par ~3 pour équivalence
+          const satPts  = satIntensity  > 0.15 ? Math.round(satIntensity  * 3)  : 0;
+          const jupPts  = jupIntensity  > 0.15 ? Math.round(jupIntensity  * 2)  : 0;
+          const nodePts = nodeIntensity > 0.15 ? Math.round(nodeIntensity * 2)  : 0;
 
-        const l2Bonus = Math.max(-8, Math.min(8, satPts + jupPts + nodePts));
-        if (l2Bonus !== 0) {
-          delta += l2Bonus;
-          if (satPts > 0)  reasons.push(`🪐 Retour Saturne approche (est. +${satPts})`);
-          if (jupPts > 0)  reasons.push(`♃ Retour Jupiter actif (est. +${jupPts})`);
-          if (nodePts > 0) reasons.push(`☊ Nœud Nord en retour (est. +${nodePts})`);
-          if (l2Bonus < 0) reasons.push(`🔻 Tension retours planétaires (est. ${l2Bonus})`);
+          const l2Bonus = Math.max(-4, Math.min(4, satPts + jupPts + nodePts));
+          if (l2Bonus !== 0) {
+            delta += l2Bonus;
+            if (satPts > 0)  reasons.push(`🪐 Retour Saturne approche (est. +${satPts})`);
+            if (jupPts > 0)  reasons.push(`♃ Retour Jupiter actif (est. +${jupPts})`);
+            if (nodePts > 0) reasons.push(`☊ Nœud Nord en retour (est. +${nodePts})`);
+            if (l2Bonus < 0) reasons.push(`🔻 Tension retours planétaires (est. ${l2Bonus})`);
+          }
         }
       }
     }
@@ -865,7 +917,8 @@ export function calcConvergence(
   astro: AstroChart | null,
   cz: ChineseZodiac,
   iching: IChingReading,
-  bd: string = '1977-09-23'
+  bd: string = '1977-09-23',
+  bt?: string  // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
 ): ConvergenceResult {
   const signals: string[] = [];
   const alerts: string[] = [];
@@ -879,8 +932,8 @@ export function calcConvergence(
   );
 
   // ── L2 : Modules lents → finalDelta (après cap ±60) ──
-  const { delta: finalDelta, ctxMult, dashaMult } = calcSlowModules(
-    { num, astro, iching, bd },
+  const { delta: finalDelta, ctxMult, dashaMult, dashaCertainty } = calcSlowModules(
+    { num, astro, iching, bd, bt },
     daily, breakdown, signals, alerts
   );
 
@@ -945,6 +998,10 @@ export function calcConvergence(
     (window as unknown as Record<string, unknown>).__kRawDeltas = buf;
   }
 
+  // V9 Sprint 1 — nuclearHex câblé (engine existait dans iching.ts, non exposé)
+  const nhScore = nuclearHexScore(iching.hexNum);
+  const nuclearHexResult = { ...nhScore.result, points: nhScore.points, label: nhScore.label };
+
   return {
     score, level, lCol,
     signals, alerts,
@@ -970,6 +1027,8 @@ export function calcConvergence(
     rawFinal: finalDelta,
     ctxMult,
     dashaMult,
+    nuclearHex: nuclearHexResult,
+    dashaCertainty,
   };
 }
 
@@ -1092,7 +1151,7 @@ function detectForecastAlerts(bd: string, num: NumerologyProfile, year: number, 
   const events = getLunarEvents(new Date(year, month - 1, 15));
   for (const ev of events) {
     if (ev.status === 'upcoming' && ev.daysUntil <= 20 && ev.daysUntil >= -10) {
-      if (ev.type === 'solar_eclipse' || ev.type === 'lunar_eclipse') {
+      if (ev.type === 'eclipse_solar' || ev.type === 'eclipse_lunar') {
         alerts.push({ date: `${year}-${String(month).padStart(2, '0')}-15`, type: 'eclipse', message: `${ev.icon} ${ev.name} — turbulences possibles`, icon: ev.icon });
       }
     }
@@ -1290,7 +1349,7 @@ export function debugScoreDistribution(
       const interPts = 0; // conservateur : interactions = 0 en simulation MC
 
       // ── Delta V8 (sans ctxMult/dashaMult — approximés à 1.0) ──
-      const rawDelta = Math.max(-18, Math.min(18, baziDMPts + tgPts + nakPts + interPts));
+      const rawDelta = Math.max(-22, Math.min(22, baziDMPts + tgPts + nakPts + interPts)); // V8.9: maxDelta→22
       rawDeltas.push(rawDelta);
       scores.push(Math.max(5, Math.min(97, compress(rawDelta))));
 
@@ -1313,7 +1372,7 @@ export function debugScoreDistribution(
   const tempeteRate  = stat(25, 'lte');
 
   console.log(`\n=== DEBUG DISTRIBUTION V8 — ${days} jours autour d'aujourd'hui ===`);
-  console.log('Formule V8 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compress(maxDelta=18, exp=1.05)');
+  console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compress(maxDelta=22, exp=1.05)');
   console.table([{
     jours: scores.length,
     'Cosmique ≥88': cosmiqueRate.toFixed(1) + '%',

@@ -416,8 +416,8 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
 
           {/* Gold + Cosmique summary */}
           <div style={{ fontSize: 11, color: P.textDim, marginBottom: 6 }}>
-            {yearHeatmap.cosmiqueTotal > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{yearHeatmap.cosmiqueTotal}</span> Cosmique · </>}
-            <span style={{ color: P.gold, fontWeight: 700 }}>{yearHeatmap.goldTotal}</span> Gold · Pic <span style={{ color: yearHeatmap.peakScore >= 88 ? '#E0B0FF' : P.gold, fontWeight: 700 }}>{yearHeatmap.peakScore}%</span> en {MOIS_FR[yearHeatmap.peakMonth - 1]}
+            {yearHeatmap.cosmiqueTotal > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{yearHeatmap.cosmiqueTotal}</span> Convergence rare · </>}
+            <span style={{ color: P.gold, fontWeight: 700 }}>{yearHeatmap.goldTotal}</span> Alignement fort · Pic <span style={{ color: yearHeatmap.peakScore >= 88 ? '#E0B0FF' : P.gold, fontWeight: 700 }}>{yearHeatmap.peakScore}%</span> en {MOIS_FR[yearHeatmap.peakMonth - 1]}
           </div>
 
           {/* Month labels */}
@@ -490,9 +490,9 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
             {[20, 38, 48, 58, 68, 78].map(s => (
               <div key={s} style={{ width: 10, height: 10, borderRadius: 2, background: heatColor(s) }} />
             ))}
-            <span style={{ fontSize: 9, color: P.gold, fontWeight: 700 }}>Gold</span>
+            <span style={{ fontSize: 9, color: P.gold, fontWeight: 700 }}>Alignement fort</span>
             <span className="sp-star" style={{ fontSize: 10, color: '#E0B0FF' }}>✦</span>
-            <span style={{ fontSize: 9, color: '#E0B0FF', fontWeight: 700 }}>Cosmique</span>
+            <span style={{ fontSize: 9, color: '#E0B0FF', fontWeight: 700 }}>Convergence rare</span>
           </div>
         </Cd>
 
@@ -503,8 +503,8 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: P.text, letterSpacing: 1 }}>{MOIS_FR[month - 1]} {year}</div>
               <div style={{ fontSize: 11, color: P.textDim, marginTop: 3 }}>
-                {stats.cosmiqueDays.length > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{stats.cosmiqueDays.length}</span> Cosmique · </>}
-                <span style={{ color: P.gold, fontWeight: 700 }}>{stats.goldDays.length}</span> Gold
+                {stats.cosmiqueDays.length > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{stats.cosmiqueDays.length}</span> Convergence rare · </>}
+                <span style={{ color: P.gold, fontWeight: 700 }}>{stats.goldDays.length}</span> Alignement fort
                 {stats.bestDay && <> · Pic <span style={{ color: P.gold, fontWeight: 700 }}>{(stats.bestDay as DayPreview).score}%</span> le {(stats.bestDay as DayPreview).day}</>}
               </div>
             </div>
@@ -642,8 +642,8 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: col, letterSpacing: 2 }}>
                     {isCosm
-                      ? <><span className="sp-star" style={{ fontSize: 16 }}>✦</span> ALIGNEMENT COSMIQUE</>
-                      : '⚡ FENÊTRE STRATÉGIQUE MAJEURE'}
+                      ? <><span className="sp-star" style={{ fontSize: 16 }}>✦</span> CONVERGENCE RARE</>
+                      : '⚡ ALIGNEMENT FORT'}
                   </div>
                   <div style={{ fontSize: 11, color: col, opacity: 0.8, marginTop: 4 }}>
                     {isCosm ? 'Convergence exceptionnelle — moment extrêmement rare' : 'Alignement rare — toutes les conditions sont réunies'}
@@ -807,7 +807,7 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
           </div>
           {(stats.goldDays.length > 0 || stats.cosmiqueDays.length > 0) && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginBottom: 6 }}>🌟 Jours Gold & Cosmique (≥75)</div>
+              <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginBottom: 6 }}>🌟 Jours Alignement fort & Convergence rare (≥75)</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[...stats.cosmiqueDays, ...stats.goldDays].sort((a, b) => a.day - b.day).map(p => {
                   const isCosm = p.score >= 88;

@@ -183,7 +183,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               <div style={{ fontSize: 15, fontWeight: 800, color: isLowConf ? '#f59e0b' : isCosmique ? '#E0B0FF' : P.gold, letterSpacing: 2 }}>
                 {isLowConf
                   ? '⚡ POTENTIEL FORT — SIGNAUX MITIGÉS'
-                  : isCosmique ? '⚡ ALIGNEMENT COSMIQUE' : '⚡ FENÊTRE STRATÉGIQUE MAJEURE'}
+                  : isCosmique ? '⚡ CONVERGENCE RARE' : '⚡ ALIGNEMENT FORT'}
               </div>
               <div style={{ fontSize: 12, color: isLowConf ? '#f59e0b' : isCosmique ? '#E0B0FF' : P.gold, opacity: 0.8, marginTop: 5 }}>
                 {isLowConf
@@ -218,9 +218,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: 46, fontWeight: 700, color: cv.lCol }}>{cv.score}</span>
                 <span style={{ fontSize: 14, color: cv.lCol + 'aa' }}>%</span>
-                {/* V4.3b: Intervalle de confiance */}
-                {cv.ci && cv.ci.margin > 0 && (
-                  <span style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>± {cv.ci.margin}</span>
+                {/* V8.9 — Plage [low–high] (Grok Q1 + GPT Q4) — affichée si margin >= 4 */}
+                {cv.ci && cv.ci.margin >= 4 && cv.ci.lower !== cv.ci.upper && (
+                  <span style={{ fontSize: 10, color: P.textDim, opacity: 0.7, marginTop: 2, letterSpacing: 0.5 }}>
+                    {cv.ci.lower}–{cv.ci.upper}
+                  </span>
                 )}
               </div>
             </div>
@@ -281,7 +283,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 }}>
                   {cv.ci.label === 'Serré' ? 'Consensus fort' : cv.ci.label === 'Modéré' ? 'Consensus modéré' : 'Systèmes divisés'}
                 </span>
-                <span style={{ fontSize: 10, color: P.textDim }}>{cv.score - cv.ci.margin}–{cv.score + cv.ci.margin}%</span>
+                <span style={{ fontSize: 10, color: P.textDim }}>{cv.ci.lower}–{cv.ci.upper}%</span>
               </div>
             )}
 
@@ -298,6 +300,30 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: volatility.color }}>
                   {volatility.label}
                 </span>
+              </div>
+            )}
+
+            {/* V8.9 — Badge Dasha incertitude (Grok Q2) — masqué si HIGH */}
+            {cv.dashaCertainty && cv.dashaCertainty.certaintyLevel !== 'HIGH' && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                marginTop: 8, marginLeft: 6, padding: '5px 12px',
+                background: cv.dashaCertainty.certaintyLevel === 'LOW' ? '#ef44440c' : '#f59e0b0c',
+                border: `1px solid ${cv.dashaCertainty.certaintyLevel === 'LOW' ? '#ef444430' : '#f59e0b30'}`,
+                borderRadius: 20,
+              }}>
+                <span style={{ fontSize: 12 }}>🌙</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                  color: cv.dashaCertainty.certaintyLevel === 'LOW' ? '#ef4444' : '#f59e0b',
+                }}>
+                  {cv.dashaCertainty.certaintyLevel === 'LOW' ? 'Lune instable' : 'Transition Dasha'}
+                </span>
+                {cv.dashaCertainty.warning && (
+                  <span style={{ fontSize: 10, color: cv.dashaCertainty.certaintyLevel === 'LOW' ? '#ef4444aa' : '#f59e0baa' }}>
+                    — recul conseillé
+                  </span>
+                )}
               </div>
             )}
 
@@ -850,7 +876,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, width: 60 }}>{period}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: scale.color }}>{scale.label}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: P.textMid, marginTop: 3 }}>{scale.action}</div>
+                    <div style={{ fontSize: 12, color: P.textMid, marginTop: 3 }}>{scale.desc}</div>
                   </div>
                 </div>
               ))}
@@ -869,6 +895,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               {(() => {
                 const tg = cv.tenGods;
                 const dom = tg.dominant;
+                if (!dom) return null;
                 return (
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -882,7 +909,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                           {dom.label}
                         </div>
                         <div style={{ fontSize: 9, color: P.textDim, textAlign: 'center', marginTop: 2 }}>
-                          {dom.chinese} · {dom.isZheng ? 'Stable' : 'Intense'}
+                          {dom.label.split(' ')[0]} · {dom.isZheng ? 'Stable' : 'Intense'}
                         </div>
                       </div>
                       <div style={{ flex: 1 }}>
@@ -899,7 +926,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                         { label: 'Business', pts: tg.businessPts, icon: '💼', color: '#4ade80' },
                         { label: 'Relations', pts: tg.relationsPts, icon: '🤝', color: '#60a5fa' },
                         { label: 'Créativité', pts: tg.creativityPts, icon: '✨', color: '#f59e0b' },
-                        { label: 'Introspection', pts: tg.introspectionPts, icon: '🔮', color: '#c084fc' },
+                        { label: 'Introspection', pts: 0, icon: '🔮', color: '#c084fc' },
                       ].map(d => (
                         <div key={d.label} style={{
                           padding: '6px 8px', borderRadius: 6,

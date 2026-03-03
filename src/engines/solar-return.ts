@@ -33,7 +33,7 @@ export interface SolarReturnResult {
 // ── Constantes ──
 
 const TOLERANCE_DEG  = 0.0005;  // précision binary search
-const MAX_ITERATIONS = 20;      // guard boucle infinie
+const MAX_ITERATIONS = 50;      // V9 Sprint 1 : 20→50 (couvre 29 fév + ayanamsa lent)
 const SR_WINDOW_MS   = 183 * 24 * 60 * 60 * 1000; // ±6 mois en ms
 
 // ── Helpers ──
@@ -67,12 +67,13 @@ function findSolarReturnDate(
   birthDate: Date,
   targetYear: number,
 ): Date | null {
-  // Borne initiale : ±2 jours autour de la date anniversaire de l'année cible
+  // Borne initiale : ±3 jours autour de la date anniversaire de l'année cible
+  // V9 Sprint 1 : ±2j→±3j pour couvrir les cas limites (29 fév, épheméride lente)
   const approx = new Date(birthDate);
   approx.setFullYear(targetYear);
 
-  let lo = new Date(approx.getTime() - 2 * 86400000);
-  let hi = new Date(approx.getTime() + 2 * 86400000);
+  let lo = new Date(approx.getTime() - 3 * 86400000);
+  let hi = new Date(approx.getTime() + 3 * 86400000);
 
   // Gestion du crossing 0°/360° (natalSunLong ~359°)
   const loLong = sunLong(lo);

@@ -1388,9 +1388,9 @@ function buildVerdict(conv: ConvergenceResult, crossings: Crossing[], iching: IC
     return `☉ Consolidation (${conv.score}%) — phase neutre, énergie tournée vers l'intérieur. ${topTheme ? `Tendance : ${topTheme.theme.toLowerCase()}.` : ''} Prépare plutôt qu'agir.`;
   }
   if (conv.score >= 25) {
-    return `☽ Prudence (${conv.score}%) — résistances actives. ${topTheme ? `${topTheme.strength} systèmes freinent sur ${topTheme.theme.toLowerCase()}.` : 'Plusieurs signaux bloquants.'} Reporte les décisions non urgentes.`;
+    return `☽ Énergie basse (${conv.score}%) — résistances actives. ${topTheme ? `${topTheme.strength} systèmes freinent sur ${topTheme.theme.toLowerCase()}.` : 'Plusieurs signaux bloquants.'} Reporte les décisions non urgentes.`;
   }
-  return `⛈ Tempête (${conv.score}%) — ${topTheme ? `${topTheme.strength} systèmes en tension sur ${topTheme.theme.toLowerCase()}.` : 'Les cycles majeurs sont contraires.'} Journée de recul stratégique absolu — protège tes acquis.`;
+  return `⛈ Temps de retrait (${conv.score}%) — ${topTheme ? `${topTheme.strength} systèmes en tension sur ${topTheme.theme.toLowerCase()}.` : 'Les cycles majeurs sont contraires.'} Journée de recul stratégique absolu — protège tes acquis.`;
 }
 
 // ── V2.5: MODULE FENÊTRE MAJEURE ──
@@ -1421,7 +1421,7 @@ function buildMajorWindow(
   if (conv.score >= 90) {
     // V2.7: rank empirique au lieu du % théorique
     const rankText = rarity.rank ? `C'est le ${rarity.rank}${rarity.rank === 1 ? 'er' : 'ème'} meilleur jour de ton année.` : `Cette configuration se produit ${rarity.percentage.toFixed(1)}% des jours.`;
-    narrative = `🌌 ALIGNEMENT COSMIQUE — ${positiveSystems.length} systèmes convergent simultanément (${systemNames}). `
+    narrative = `🌌 CONVERGENCE RARE — ${positiveSystems.length} systèmes convergent simultanément (${systemNames}). `
       + `${rankText} `
       + `Ton ${cz.animal} de ${cz.elem}, ton jour ${num.ppd.v} (${pdInfo.k}), `
       + `et l'hexagramme ${iching.hexNum} (${iching.name}) disent la même chose : `
@@ -1467,7 +1467,7 @@ function buildMajorWindow(
   }
 
   return {
-    title: conv.score >= 90 ? '🌌 Alignement Cosmique' : conv.score >= 85 ? '🌟 Fenêtre Gold' : '✦ Fenêtre d\'Opportunité',
+    title: conv.score >= 90 ? '🌌 Convergence rare' : conv.score >= 85 ? '🌟 Alignement fort' : '✦ Fenêtre d\'Opportunité',
     narrative,
     systems: positiveSystems.map(s => s.system),
     strength: positiveSystems.length,
