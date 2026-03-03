@@ -288,7 +288,8 @@ function calculateContextualScores(
   pyv: number = 0,
   pmv: number = 0,
   directBonuses?: Partial<Record<LifeDomain, number>>,
-  nakshatraMods?: Record<string, number>
+  nakshatraMods?: Record<string, number>,
+  nakshatraAffinityOverride?: Record<LifeDomain, number>  // V9.0 P3 — affinités dynamiques par Nakshatra actif
 ): ContextualScores {
   const allDomains: LifeDomain[] = ['BUSINESS', 'AMOUR', 'RELATIONS', 'CREATIVITE', 'INTROSPECTION', 'VITALITE'];
   const domainRaw: Record<LifeDomain, number> = {
@@ -297,7 +298,10 @@ function calculateContextualScores(
 
   breakdown.forEach(b => {
     if (b.points === 0) return;
-    const affinities = DOMAIN_AFFINITY[b.system];
+    // V9.0 P3 : si Nakshatra actif + override dispo → remplace la ligne uniforme 0.5
+    const affinities = (b.system === 'Nakshatra' && nakshatraAffinityOverride)
+      ? nakshatraAffinityOverride
+      : DOMAIN_AFFINITY[b.system];
     if (!affinities) return;
     allDomains.forEach(domain => {
       const weight = getModuleDomainWeight(b.system, domain);
@@ -984,9 +988,18 @@ export function calcConvergence(
   const rarityIndex = computeRarityIndex(score, positiveSystemCount, breakdown.length, bd, num, cz, 0); // V6.3: 0 au lieu de transitBonusForRarity (Gemini R21)
 
   const nakshatraMods = daily.nakshatraData?.domainModifiers as Record<string, number> | undefined;
+  // V9.0 P3 — Nakshatra affinités dynamiques : traduit domainModifiers (0.5-1.5) → [0,1] pour DOMAIN_AFFINITY
+  const nakshatraAffinityOverride = nakshatraMods ? {
+    BUSINESS:      (nakshatraMods['Business']      ?? 1.0) / 1.5,
+    AMOUR:         (nakshatraMods['Amour']         ?? 1.0) / 1.5,
+    RELATIONS:     (nakshatraMods['Relations']     ?? 1.0) / 1.5,
+    CREATIVITE:    (nakshatraMods['Créativité']    ?? 1.0) / 1.5,
+    INTROSPECTION: (nakshatraMods['Introspection'] ?? 1.0) / 1.5,
+    VITALITE:      (nakshatraMods['Vitalité']      ?? 1.0) / 1.5,
+  } as Record<LifeDomain, number> : undefined;
   const contextualScores = calculateContextualScores(
     breakdown, score, num.py.v, num.pm.v,
-    daily.directDomainBonuses, nakshatraMods
+    daily.directDomainBonuses, nakshatraMods, nakshatraAffinityOverride
   );
 
   // V4.2 : Confiance temporelle
