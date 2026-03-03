@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { type SoulData } from '../App';
 import { getHexProfile } from '../engines/iching';
 import { getMoonPhase, getLunarEvents } from '../engines/moon';
@@ -8,6 +8,7 @@ import { getInteractionsSummary, type InteractionResult } from '../engines/inter
 import { type PSIResult } from '../engines/temporal';
 import { DASHA_NARRATIVES, PRATYANTAR_NARRATIVES } from '../engines/vimshottari'; // V5.2
 import { calcDayPreview, estimateSlowTransitBonus } from '../engines/convergence'; // V8 J+1 + momentum
+import { getDayFeedback, saveDayFeedback } from '../engines/validation-tracker'; // V9.0 P5
 import { calcMomentum } from '../engines/vectorEngine'; // V8 momentum EMA
 
 // V4.0: Couleurs des 6 domaines contextuels
@@ -98,6 +99,42 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [expertMode, setExpertMode] = useState(false);
+
+  // V9.0 P5 — Blind Check-in : note hier AVANT de voir les scores d'aujourd'hui
+  const [blindMode, setBlindMode] = useState<'ask' | 'result' | null>(null);
+  const [blindRating, setBlindRating] = useState<number>(3);
+  const [blindYesterday, setBlindYesterday] = useState<string>('');
+  const [blindPredicted, setBlindPredicted] = useState<number>(0);
+  const [blindLabel, setBlindLabel] = useState<string>('');
+  const STAR_LABELS = ['', 'Difficile', 'Mitigé', 'Correct', 'Bon', 'Excellent'];
+
+  useEffect(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+    const existing = getDayFeedback(yStr);
+    if (!existing?.userScore) {
+      setBlindYesterday(yStr);
+      setBlindMode('ask');
+      // Calcul du score prédit d'hier via calcDayPreview
+      try {
+        const tb = estimateSlowTransitBonus(data.astro ?? null);
+        const preview = calcDayPreview(bd, data.num, data.cz, yStr, tb);
+        if (preview) {
+          setBlindPredicted(preview.score);
+          setBlindLabel(preview.dayType.type);
+        }
+      } catch { /* fail silently — modal reste fonctionnel sans score */ }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submitBlindRating = useCallback(() => {
+    if (!blindYesterday) return;
+    const legacyRating: 'good' | 'neutral' | 'bad' = blindRating >= 4 ? 'good' : blindRating <= 2 ? 'bad' : 'neutral';
+    saveDayFeedback(blindYesterday, blindPredicted, blindLabel, legacyRating, undefined, undefined, blindRating);
+    setBlindMode('result');
+    setTimeout(() => setBlindMode(null), 4500);
+  }, [blindYesterday, blindRating, blindPredicted, blindLabel]);
   const [showMercuryInfo, setShowMercuryInfo] = useState(false);
   const [showEclipseInfo, setShowEclipseInfo] = useState(false);
   const hexProfile = getHexProfile(iching.hexNum);
@@ -160,6 +197,107 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
 
   return (
     <div>
+
+      {/* ══ V9.0 P5 — Blind Check-in : rating AVANT affichage score ══ */}
+      {blindMode === 'ask' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(10,10,18,0.95)', backdropFilter: 'blur(12px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 24, animation: 'fadeIn 0.4s ease'
+        }}>
+          <div style={{ fontSize: 13, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>
+            ✦ Check-in aveugle
+          </div>
+          <div style={{ fontSize: 22, color: '#f1f5f9', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>
+            Comment était ta journée d'hier ?
+          </div>
+          <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 28, textAlign: 'center' }}>
+            {blindYesterday ? new Date(blindYesterday + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+            <br /><span style={{ fontSize: 11, opacity: 0.6 }}>Note AVANT de voir le score — ça calibre le moteur</span>
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+            {[1, 2, 3, 4, 5].map(s => (
+              <button key={s} onClick={() => setBlindRating(s)} style={{
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 36,
+                filter: s <= blindRating ? 'none' : 'grayscale(1) opacity(0.3)',
+                transform: s <= blindRating ? 'scale(1.1)' : 'scale(0.9)',
+                transition: 'all 0.2s ease'
+              }}>⭐</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 14, color: '#C9A84C', fontWeight: 600, marginBottom: 28, minHeight: 20 }}>
+            {STAR_LABELS[blindRating]}
+          </div>
+          <button onClick={submitBlindRating} style={{
+            background: 'linear-gradient(135deg, #C9A84C, #f59e0b)', color: '#000',
+            border: 'none', borderRadius: 12, padding: '12px 40px', fontSize: 15,
+            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16,
+            boxShadow: '0 4px 20px #C9A84C40'
+          }}>
+            Valider ma note
+          </button>
+          <button onClick={() => setBlindMode(null)} style={{
+            background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer',
+            fontSize: 12, fontFamily: 'inherit', opacity: 0.5
+          }}>
+            Passer (fausse la calibration)
+          </button>
+        </div>
+      )}
+
+      {/* ══ V9.0 P5 — Blind Result : comparaison vécu vs prédit ══ */}
+      {blindMode === 'result' && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(10,10,18,0.95)', backdropFilter: 'blur(12px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 24, animation: 'fadeIn 0.4s ease'
+        }}>
+          <div style={{ fontSize: 13, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
+            ✦ Comparaison
+          </div>
+          {blindPredicted > 0 && (
+            <div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Ton vécu</div>
+                <div style={{ fontSize: 36 }}>{'⭐'.repeat(blindRating)}</div>
+                <div style={{ fontSize: 13, color: '#C9A84C', fontWeight: 600 }}>{STAR_LABELS[blindRating]}</div>
+              </div>
+              <div style={{ fontSize: 20, color: '#9ca3af' }}>vs</div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>Score prédit</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: blindPredicted >= 65 ? '#4ade80' : blindPredicted >= 40 ? '#60a5fa' : '#ef4444' }}>
+                  {blindPredicted}%
+                </div>
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>{blindLabel}</div>
+              </div>
+            </div>
+          )}
+          {(() => {
+            const expectedBracket = blindRating >= 4 ? 'high' : blindRating <= 2 ? 'low' : 'mid';
+            const predictedBracket = blindPredicted >= 65 ? 'high' : blindPredicted >= 40 ? 'mid' : 'low';
+            const match = expectedBracket === predictedBracket;
+            return (
+              <div style={{
+                fontSize: 14, fontWeight: 600, padding: '8px 20px', borderRadius: 8,
+                background: match ? '#4ade8015' : '#f59e0b15',
+                color: match ? '#4ade80' : '#f59e0b',
+                border: `1px solid ${match ? '#4ade8030' : '#f59e0b30'}`
+              }}>
+                {match ? '✓ Concordant — le moteur capte ton énergie' : '≠ Décalage — chaque feedback affine la précision'}
+              </div>
+            );
+          })()}
+          <button onClick={() => setBlindMode(null)} style={{
+            background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer',
+            fontSize: 12, fontFamily: 'inherit', marginTop: 20, opacity: 0.6
+          }}>
+            Voir aujourd'hui →
+          </button>
+        </div>
+      )}
+
       <Sec icon="⭐" title="Pilotage Stratégique">
         <Cd>
 
