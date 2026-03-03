@@ -15,7 +15,7 @@ import { type IChingReading } from './iching';
 import { getMoonPhase, getEclipseNatalImpacts } from './moon';
 import { getAyanamsa } from './nakshatras';
 import { calcInteractions, buildInteractionContext } from './interactions';
-import { calcCurrentDasha, calcDashaScore } from './vimshottari';
+import { calcCurrentDasha, calcDashaScore, composeDashaMultipliers, calcSandhiSmoothing, type CurrentDasha } from './vimshottari';
 import { type SystemBreakdown, SLOW_PLANETS, type DashaCertaintyResult, type DashaCertaintyLevel } from './convergence.types';
 import { type DailyModuleResult } from './convergence-daily';
 import { calcTransitStellium } from './transit-stellium'; // V8.5 — P5
@@ -223,7 +223,10 @@ export function calcSlowModules(
   // Cap individuel ±9 (V5.2)
   // ═══════════════════════════════════
 
-  let dashaTotal = 0;
+  let dashaTotal      = 0;
+  let dashaMahaScore  = 0;   // V9.0 P4 — hoistés pour composeDashaMultipliers()
+  let dashaAntarScore = 0;
+  let currentDasha: CurrentDasha | null = null;
   let dashaCertainityResult: DashaCertaintyResult = DASHA_CERTAINTY_DEFAULT;
   if (astro) {
     try {
@@ -244,6 +247,9 @@ export function calcSlowModules(
       const dasha       = calcCurrentDasha(natalMoonSid, birthD, new Date());
       const dashaResult = calcDashaScore(dasha, { transitLord, natalMoonIsWaxing });
       dashaTotal        = dashaResult.total;
+      dashaMahaScore    = dashaResult.mahaScore;   // V9.0 P4
+      dashaAntarScore   = dashaResult.antarScore;  // V9.0 P4
+      currentDasha      = dasha;                   // V9.0 P4
       currentDashaLord  = dasha.maha.lord; // V6.0 R21 + R24
 
       // ── V8 GARDE ANTI-DOUBLE-COMPTAGE Nakshatra lord ↔ Dasha lord ──
@@ -474,13 +480,16 @@ export function calcSlowModules(
     '[Context] Multiplicateur hors limites:', ctx.multiplier
   );
 
-  // V6.3 : Dasha = multiplicateur macro pur [0.91–1.09] — R19 GPT+Gemini unanime
-  // Doctrine Jyotish : Dasha = terrain karmique, pas pénalité quotidienne additive
-  // V9 Sprint 1 : × certainty.score [0.85–1.00] — atténue le Dasha si Nakshatra incertain
-  const dashaMultiplierRaw = Math.max(0.91, Math.min(1.09, 1.0 + dashaTotal / 100));
-  const dashaMultiplier = dashaMultiplierRaw * dashaCertainityResult.score;
+  // V9.0 P4 — composition géométrique Maha × Antar [0.80–1.25] + lissage Sandhi sigmoïdal
+  // Remplace (1.0 + dashaTotal/100) par √(mahaMult × antarMult) — produit karmique fidèle
+  // Range : pire (−4,−2) → 0.80 clamped | meilleur (+4,+2) → 1.25 clamped
+  const dashaMultiplierRaw = composeDashaMultipliers(dashaMahaScore, dashaAntarScore);
+  const dashaMultSmoothed  = currentDasha
+    ? calcSandhiSmoothing(currentDasha, dashaMultiplierRaw, new Date())
+    : dashaMultiplierRaw;
+  const dashaMultiplier = dashaMultSmoothed * dashaCertainityResult.score;
   console.assert(
-    dashaMultiplier >= 0.80 && dashaMultiplier <= 1.09,
+    dashaMultiplier >= 0.64 && dashaMultiplier <= 1.25,
     '[Dasha] Multiplicateur hors limites après certitude:', dashaMultiplier
   );
 

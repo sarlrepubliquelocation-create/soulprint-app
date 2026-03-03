@@ -398,6 +398,56 @@ export function calcDashaScore(
   return { mahaScore, antarScore, pratyanScore, synergyBonus, total, tone, breakdown };
 }
 
+// ══════════════════════════════════════════════════════════════════
+// ═══ V9.0 P4 — composeDashaMultipliers + calcSandhiSmoothing ═════
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * Composition géométrique Maha × Antar.
+ * Remplace l'approche additive (1.0 + dashaTotal/100) par un produit
+ * plus fidèle à la doctrine Jyotish : les deux périodes sont des terrains
+ * indépendants dont les effets se composent multiplicativement.
+ *
+ * Scaling calibré pour remplir le range [0.80, 1.25] :
+ *   mahaMult  = 1.0 + mahaScore  × 0.10  → mahaScore ±4 → [0.60, 1.40]
+ *   antarMult = 1.0 + antarScore × 0.075 → antarScore ±2 → [0.85, 1.15]
+ *   composedMult = clamp(√(mahaMult × antarMult), 0.80, 1.25)
+ *
+ * Pire cas  (−4, −2) : √(0.60 × 0.85) = 0.714 → clamped à 0.80
+ * Meilleur  (+4, +2) : √(1.40 × 1.15) = 1.269 → clamped à 1.25
+ */
+export function composeDashaMultipliers(mahaScore: number, antarScore: number): number {
+  const mahaMult  = 1.0 + mahaScore  * 0.10;
+  const antarMult = 1.0 + antarScore * 0.075;
+  const raw = Math.sqrt(Math.max(0, mahaMult * antarMult));
+  return Math.max(0.80, Math.min(1.25, raw));
+}
+
+/**
+ * Lissage sigmoïdal ±30j autour d'une transition Mahadasha (Dasha Sandhi).
+ * Interpolation entre le multiplicateur du Maha courant et celui du Maha suivant.
+ *
+ * σ(x) = 1 / (1 + e^(−x/10)),  x = jours depuis la fin du Maha courant
+ *   x = −30j : σ ≈ 0.05 → Dasha courant quasi-complet
+ *   x =   0  : σ = 0.50 → transition, blend 50/50
+ *   x = +30j : σ ≈ 0.95 → Dasha suivant quasi-complet
+ *
+ * nextMahaMult estimé depuis DASHA_QUALITY[nextMaha.lord] × 4 (antarMult = 0 : inconnu)
+ */
+export function calcSandhiSmoothing(
+  dasha: CurrentDasha,
+  currentMult: number,
+  today: Date
+): number {
+  if (!dasha.maha.isTransition) return currentMult;
+  const MS_PER_DAY  = 24 * 3600 * 1000;
+  const daysFromEnd = (today.getTime() - dasha.maha.endDate.getTime()) / MS_PER_DAY;
+  const sigma       = 1 / (1 + Math.exp(-daysFromEnd / 10));
+  const nextMahaQ   = DASHA_QUALITY[dasha.nextMaha.lord] ?? 0;
+  const nextMult    = composeDashaMultipliers(nextMahaQ * 4, 0);
+  return currentMult * (1 - sigma) + nextMult * sigma;
+}
+
 /**
  * Retourne l'index (0-8) du seigneur Antardasha pour une date donnée.
  * Utilisé comme dimension dans le vecteur PSI (temporal.ts).
