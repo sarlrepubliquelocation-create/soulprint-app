@@ -1,0 +1,297 @@
+// ══════════════════════════════════════
+// ═══ CONVERGENCE TYPES — V6.0 ═══
+// Extrait de convergence.ts (Step 5 split L1/L2/L3)
+// Contient : interfaces exportées + constantes partagées
+// Ne contient AUCUNE logique — zéro fonction
+// ══════════════════════════════════════
+
+import { type DayMasterDailyResult, type TenGodsResult, type ChangshengResult, type ShenShaResult } from './bazi';
+import { type InteractionResult } from './interactions';
+import { type ProfectionResult } from './profections';
+import { type LunarNodeTransit, type VoidOfCourseMoon } from './moon';
+
+// ══════════════════════════════════════
+// ═══ VERSION ═══
+// ══════════════════════════════════════
+
+export const ALGO_VERSION = '8.0';
+
+// ══════════════════════════════════════
+// ═══ CONSTANTES PARTAGÉES ═══
+// ══════════════════════════════════════
+
+// Utilisée dans convergence-daily.ts (L1) + convergence-slow.ts (V5.3) + convergence.ts (estimateSlowTransitBonus)
+export const SLOW_PLANETS = new Set(['jupiter', 'saturn', 'uranus', 'neptune', 'pluto']);
+
+// ══════════════════════════════════════
+// ═══ NIVEAUX DE SCORE ═══
+// ══════════════════════════════════════
+
+export interface ScoreLevel {
+  name: string;
+  icon: string;
+  color: string;
+  narrative: string;
+}
+
+// ══════════════════════════════════════
+// ═══ DAY TYPE SYSTEM ═══
+// ══════════════════════════════════════
+
+export type DayType = 'decision' | 'observation' | 'communication' | 'retrait' | 'expansion';
+
+export interface DayTypeInfo {
+  type: DayType;
+  label: string;
+  icon: string;
+  desc: string;
+  color: string;
+}
+
+// ══════════════════════════════════════
+// ═══ ACTION RECOMMANDÉE ═══
+// ══════════════════════════════════════
+
+export type ActionVerb = 'lance' | 'prepare' | 'observe' | 'protege';
+
+export interface ActionReco {
+  verb: ActionVerb;
+  icon: string;
+  label: string;
+  conseil: string;
+  color: string;
+}
+
+// ══════════════════════════════════════
+// ═══ CLIMAT ═══
+// ══════════════════════════════════════
+
+export interface ClimateScale {
+  label: string;
+  icon: string;
+  color: string;
+  desc: string;
+}
+
+export interface ClimateResult {
+  week: ClimateScale;
+  month: ClimateScale;
+  year: ClimateScale;
+}
+
+// ══════════════════════════════════════
+// ═══ 6 DOMAINES CONTEXTUELS ═══
+// ══════════════════════════════════════
+
+export type LifeDomain = 'BUSINESS' | 'AMOUR' | 'RELATIONS' | 'CREATIVITE' | 'INTROSPECTION' | 'VITALITE';
+
+export interface DomainScore {
+  domain: LifeDomain;
+  label: string;
+  icon: string;
+  color: string;
+  score: number; // 0-100
+  directive: string;
+}
+
+export interface ContextualScores {
+  domains: DomainScore[];
+  bestDomain: LifeDomain;
+  worstDomain: LifeDomain;
+  conseil: string;
+}
+
+// ══════════════════════════════════════
+// ═══ RARITY INDEX ═══
+// ══════════════════════════════════════
+
+export interface RarityResult {
+  percentage: number;
+  label: string;
+  activeSignals: number;
+  totalSignals: number;
+  icon: string;
+  rank: number;
+}
+
+// ══════════════════════════════════════
+// ═══ V4.3b: TURBULENCE + MAD + CI ═══
+// ══════════════════════════════════════
+
+export interface TurbulenceIndex {
+  sigma: number;
+  level: 'calme' | 'modéré' | 'agité' | 'extrême';
+  label: string;
+}
+
+export interface OutlierFlag {
+  isOutlier: boolean;
+  modifiedZ: number;
+  direction: 'high' | 'low' | null;
+}
+
+export interface ConfidenceInterval {
+  lower: number;
+  upper: number;
+  margin: number;
+  label: string;
+}
+
+// ══════════════════════════════════════
+// ═══ DAY PREVIEW ═══
+// ══════════════════════════════════════
+
+export interface DayPreview {
+  date: string;
+  day: number;
+  pdv: number;
+  dayType: DayTypeInfo;
+  score: number;
+  lCol: string;
+  hexNum: number;
+  hexName: string;
+  hexKeyword: string;
+  reasons: string[];
+  conseil: string;
+  rarityPct: number;
+  turbulence?: TurbulenceIndex;  // V4.3b
+  outlier?: OutlierFlag;         // V4.3b
+}
+
+// ══════════════════════════════════════
+// ═══ MAIN RESULT — calcConvergence ═══
+// ══════════════════════════════════════
+
+export interface SystemBreakdown {
+  system: string;
+  icon: string;
+  value: string;
+  points: number;
+  detail: string;
+  signals: string[];
+  alerts: string[];
+}
+
+export interface ConvergenceResult {
+  score: number;
+  level: string;
+  lCol: string;
+  signals: string[];
+  alerts: string[];
+  theme: string;
+  dayType: DayTypeInfo;
+  climate: ClimateResult;
+  breakdown: SystemBreakdown[];
+  actionReco: ActionReco;
+  moonTransit: { sign: string; element: string; icon: string };
+  rarityIndex: RarityResult;
+  lunarNodes: LunarNodeTransit;
+  baziDaily: DayMasterDailyResult | null;
+  tenGods: TenGodsResult | null;
+  changsheng: ChangshengResult | null;
+  shenSha: ShenShaResult | null;
+  trinity: boolean;
+  scoreLevel: ScoreLevel;
+  algoVersion: string;
+  contextualScores: ContextualScores;
+  temporalConfidence: TemporalConfidence;
+  voidOfCourse: VoidOfCourseMoon | null;
+  ci: ConfidenceInterval;
+  interactions: InteractionResult;
+  profection?: ProfectionResult;
+  rawFinal?: number;
+  ctxMult?: number;   // V8 — multiplicateur terrain [0.88–1.12]
+  dashaMult?: number; // V8 — multiplicateur karmique [0.91–1.09]
+}
+
+export interface TemporalConfidence {
+  score: number;
+  label: string;
+  reason: string;
+  agreementRatio: number;
+}
+
+// ══════════════════════════════════════
+// ═══ FORECAST 36 MOIS — V4.1 ═══
+// ══════════════════════════════════════
+
+export interface ActionWindow {
+  startDate: string;
+  endDate: string;
+  days: number;
+  domain: LifeDomain;
+  label: string;
+  avgScore: number;
+}
+
+export interface ForecastAlert {
+  date: string;
+  type: 'eclipse' | 'retrograde' | 'transition_py' | 'transition_pinnacle';
+  message: string;
+  icon: string;
+}
+
+export interface MonthForecast {
+  year: number;
+  month: number;
+  score: number;
+  label: string;
+  labelIcon: string;
+  labelColor: string;
+  trend: 'rising' | 'falling' | 'stable';
+  dominantDomains: LifeDomain[];
+  windows: ActionWindow[];
+  alerts: ForecastAlert[];
+  narrative: string;
+  baseline: number;
+  stats: {
+    avg: number;
+    goodDays: number;
+    peakDays: number;
+    criticalDays: number;
+    goldDays: number;
+  };
+}
+
+// ══════════════════════════════════════
+// ═══ OPTION C — VECTEUR QUOTIDIEN V8 ═══
+// Décision R26 : stocker deltas BRUTS (source de vérité)
+// Normalisation calculée à la volée au moment de la cosine similarity
+// schemaVersion obligatoire pour forward compatibility
+// ══════════════════════════════════════
+
+export interface DailyVectorRaw {
+  bazi_dm: number;      // delta brut [-6, +6]
+  bazi_10g: number;     // delta brut [-6, +6]
+  nak_total: number;    // delta brut [-7, +7]
+  ctx_mult: number;     // multiplicateur terrain [0.88–1.12]
+  dasha_mult: number;   // multiplicateur karmique [0.91–1.09]
+}
+
+export interface DailyVectorNarrative {
+  iching: number;       // ichRes.pts [-9, +9]
+  lune: number;         // moonScore [-4, +4]
+  pd: number;           // pdPts [-7, +7]
+  hex_num: number;      // hexagramme [1–64]
+  moon_phase: number;   // phaseIdx [0–7]
+}
+
+export interface DailyVectorFeedback {
+  note: -1 | 0 | 1;    // -1 : En deçà / 0 : Dans le mille / +1 : Au-delà
+  ts: number;           // timestamp epoch ms (donné le lendemain matin)
+}
+
+export interface DailyVectorRecord {
+  v: 1;                              // schemaVersion — non négociable (migration future)
+  score: number;                     // score final affiché [5–97]
+  label: string;                     // "Cosmique" | "Or" | "Argent" | "Bronze" | "Prudence" | "Tempête"
+  raw: DailyVectorRaw;               // deltas bruts — source de vérité
+  narrative: DailyVectorNarrative;   // modules narratifs — pour Option B future
+  feedback?: DailyVectorFeedback;    // ajouté le lendemain (semaine 3-4)
+}
+
+// Firestore : users/{uid}/history/{YYYY-MM}
+// Clé dans days : "01" | "02" | ... | "31"
+export interface MonthlyHistoryDoc {
+  days: Record<string, DailyVectorRecord>;
+}

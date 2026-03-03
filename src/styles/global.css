@@ -5,15 +5,21 @@
 }
 
 body {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  background: #080612;
-  color: #e8e0f0;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #09090b;
+  color: #e4e4e7;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 input, select, button {
   font-family: inherit;
 }
+
+/* Scrollbar premium */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
 
 @keyframes pulse {
   0%, 100% { opacity: 0.4; }
