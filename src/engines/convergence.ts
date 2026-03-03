@@ -569,11 +569,39 @@ function flagMADOutlier(scores: number[], index: number): OutlierFlag {
   return { isOutlier, modifiedZ, direction };
 }
 
-function computeCI(score: number, breakdownPoints: number[]): ConfidenceInterval {
-  if (breakdownPoints.length < 3) return { lower: score, upper: score, margin: 0, label: 'Serré' };
-  const mean = breakdownPoints.reduce((s, v) => s + v, 0) / breakdownPoints.length;
-  const variance = breakdownPoints.reduce((s, v) => s + (v - mean) ** 2, 0) / (breakdownPoints.length - 1);
-  const se = Math.sqrt(variance / breakdownPoints.length);
+// V9.0 P2 — ESS (Effective Sample Size) : regroupe les modules corrélés
+// pour éviter la sous-estimation de la variance (ex: 7 modules BaZi ≠ 7 observations indep.)
+const CORRELATION_GROUPS: Record<string, string> = {
+  'BaZi': 'bazi', '10 Gods': 'bazi', 'Changsheng': 'bazi',
+  'Na Yin': 'bazi', 'Jian Chu': 'bazi', 'Shen Sha': 'bazi', 'Peach Blossom': 'bazi',
+  'Lune': 'lune', 'Nakshatra': 'lune', 'Transit Lunaire': 'lune',
+  'Lune Hors Cours': 'lune', 'Nœuds Lunaires': 'lune', 'Vimshottari Dasha': 'lune',
+  'Astrologie': 'ephemeris', 'Planètes': 'ephemeris', 'Retours Planétaires': 'ephemeris',
+  'Progressions': 'ephemeris', 'Révolution Solaire': 'ephemeris',
+  'Éclipses Natales': 'ephemeris', 'Mercure': 'ephemeris', 'Cycles de Vie': 'ephemeris',
+  'Numérologie': 'num',
+};
+
+function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): ConfidenceInterval {
+  if (breakdown.length < 3) return { lower: score, upper: score, margin: 0, label: 'Serré' };
+
+  // Regroupement ESS : chaque groupe → 1 observation (sa moyenne)
+  const groupMap = new Map<string, number[]>();
+  breakdown.forEach((b, i) => {
+    const group = CORRELATION_GROUPS[b.system] ?? `indep_${i}`;
+    if (!groupMap.has(group)) groupMap.set(group, []);
+    groupMap.get(group)!.push(b.points);
+  });
+  const groupMeans = Array.from(groupMap.values()).map(
+    pts => pts.reduce((s, v) => s + v, 0) / pts.length
+  );
+
+  const n = groupMeans.length;
+  if (n < 2) return { lower: score, upper: score, margin: 0, label: 'Serré' };
+
+  const mean = groupMeans.reduce((s, v) => s + v, 0) / n;
+  const variance = groupMeans.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
+  const se = Math.sqrt(variance / n);
 
   // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compress()
   // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
@@ -989,7 +1017,7 @@ export function calcConvergence(
     : `Score à contre-courant des cycles longs. Journée atypique.`;
   const temporalConfidence: TemporalConfidence = { score: confScore, label: confLabel, reason: confReason, agreementRatio };
 
-  const ci = computeCI(score, breakdown.map(b => b.points));
+  const ci = computeCorrelatedCI(score, breakdown);
 
   // V4.8 debug : capture passive
   if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__kDebug) {
