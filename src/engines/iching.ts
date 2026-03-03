@@ -23,23 +23,7 @@ const KW = [
   [26,41,22,27,18,4,52,23],[11,19,36,24,46,7,15,2]
 ];
 
-// ── djb2 hash (deterministic, excellent distribution) ──
-function djb2(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-// Day of year (1-366)
-function dayOfYear(dateStr: string): number {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const start = new Date(y, 0, 1);
-  const current = new Date(y, m - 1, d);
-  return Math.floor((current.getTime() - start.getTime()) / 86400000) + 1;
-}
+// ── djb2 et dayOfYear supprimés V4.0 — remplacés par Mei Hua Yi Shu (Shao Yong) ──
 
 // ── Hexagram names (French) ──
 const HEX_NAMES: Record<number, string> = {
@@ -233,19 +217,19 @@ export interface IChingReading {
 
 export function calcIChing(bd: string, today: string): IChingReading {
   const pday = calcPersonalDay(bd, today).v;
-  const doy = dayOfYear(today);
 
-  // Primary hash: birth date + target date + personal day → hexagram
-  // V3.0: deux hashes indépendants (fix corrélation lower/upper — audit Grok)
-  const lowerHash = djb2(`lower|${bd}|${today}|${pday}`);
-  const upperHash = djb2(`upper|${bd}|${today}|${pday}`);
-  const lower = biasedTrigram(lowerHash);
-  const upper = biasedTrigram(upperHash);
+  // Mei Hua Yi Shu (Shao Yong 1012-1077) — V4.0 : somme des nombres temporels
+  // Remplace djb2 (hash arbitraire) par formule doctrinale : année + mois + jour + heure
+  // upperSum = signal du jour (pday = nombre personnel → personnalisé par naissance)
+  // lowerSum = upperSum + 12 (heure midi, cohérent avec calcul T12:00:00)
+  // Trigrammes via YANG_BIAS (68% yang, calibré V2.6) — conservé
+  const [y, m, d] = today.split('-').map(Number);
+  const upperSum = y + m + d + pday;
+  const lowerSum = upperSum + 12;
+  const upper = biasedTrigram(upperSum);
+  const lower = biasedTrigram(lowerSum);
   const hexNum = KW[lower][upper];
-
-  // Secondary hash: different seed → changing line (independent)
-  const chHash = djb2(`changing|${bd}|${today}|${doy}`);
-  const changing = chHash % 6;
+  const changing = (upperSum + lowerSum) % 6;
 
   // Lines from trigrams
   const lines = [...TRIGRAMS[lower], ...TRIGRAMS[upper]];
@@ -260,15 +244,16 @@ export function calcIChing(bd: string, today: string): IChingReading {
 
 // ── V3: Natal hexagram (fixed, based on birth date only) ──
 export function calcNatalIChing(bd: string): IChingReading {
-  // V3.0: deux hashes indépendants (fix corrélation lower/upper — audit Grok)
-  const lowerHash = djb2(`natal-lower|${bd}`);
-  const upperHash = djb2(`natal-upper|${bd}`);
-  const lower = biasedTrigram(lowerHash);
-  const upper = biasedTrigram(upperHash);
+  // Mei Hua Yi Shu natal — V4.0 : somme des nombres de naissance (Shao Yong)
+  // Trigramme haut = année + mois + jour de naissance
+  // Trigramme bas  = somme + 12 (heure midi par défaut — heure natale non disponible)
+  const [by, bm, bd_] = bd.split('-').map(Number);
+  const upperSum = by + bm + bd_;
+  const lowerSum = upperSum + 12;
+  const upper = biasedTrigram(upperSum);
+  const lower = biasedTrigram(lowerSum);
   const hexNum = KW[lower][upper];
-
-  const chHash = djb2(`natal-changing|${bd}`);
-  const changing = chHash % 6;
+  const changing = (upperSum + lowerSum) % 6;
 
   const lines = [...TRIGRAMS[lower], ...TRIGRAMS[upper]];
 
