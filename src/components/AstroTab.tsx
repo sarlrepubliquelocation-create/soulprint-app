@@ -21,14 +21,14 @@ function buildNatalContext(astro: any): string {
   parts.push(`Ascendant : ${astro.b3.asc}`);
   if (astro.b3.mc) parts.push(`MC : ${astro.b3.mc}`);
   if (astro.dominant?.length) parts.push(`Dominante : ${astro.dominant[0].k}`);
-  astro.stelliums?.forEach(s => {
+  astro.stelliums?.forEach((s: Stellium) => {
     if (s.planets.length >= 3)
       parts.push(`Stellium ${s.type} ${s.name} (${s.planets.length} planètes) : ${s.planets.join(', ')}`);
   });
-  astro.grandTrines?.forEach(gt => {
+  astro.grandTrines?.forEach((gt: GrandTrine) => {
     parts.push(`Grand Trigone ${gt.element} : ${gt.planets.join(' – ')}`);
   });
-  astro.tSquares?.forEach(ts => {
+  astro.tSquares?.forEach((ts: TSquare) => {
     parts.push(`T-Carré apex ${ts.apex} (opposition : ${ts.opposition.join(' / ')})`);
   });
   const topAspects = [...(astro.as || [])].sort((a, b) => a.o - b.o).slice(0, 8);
@@ -217,14 +217,12 @@ export default function AstroTab({ data }: { data: SoulData }) {
     const interval = setInterval(() => { setLoadingText(LOADING_TEXTS[++li % LOADING_TEXTS.length]); }, 900);
     try {
       const context = buildNatalContext(astro as any);
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/.netlify/functions/claude-portrait', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1200,
           system: PORTRAIT_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: `Génère le portrait astral pour ce thème natal :\n\n${context}` }],
+          context: `Génère le portrait astral pour ce thème natal :\n\n${context}`,
         }),
       });
       const d = await res.json();
@@ -465,9 +463,9 @@ export default function AstroTab({ data }: { data: SoulData }) {
               {!astro.noTime && (() => {
                 const ascLon = SIGNS.indexOf(astro.b3.asc) * 30 + astro.ad;
                 const [ax, ay] = polar(ascLon, R1 + 10);
-                const mcSign = astro.mc || '';
+                const mcSign = astro.mcSign || '';
                 const mcLon = mcSign ? SIGNS.indexOf(mcSign) * 30 + (astro.mcDeg || 0) : null;
-                const pofLon = astro.partOfFortune;
+                const pofLon = astro.pof;
                 return (
                   <>
                     <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" fontSize={9} fontWeight={700} fill={P.gold}>AC<title>Ascendant {SIGN_FR[astro.b3.asc]}</title></text>
