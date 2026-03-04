@@ -370,3 +370,103 @@ export function calcChandrabala(
 
   return { position, delta, label };
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ═══ CHANDRA YOGA — Sprint I — V10.3 ═══
+// Source : Parashara BPHS Ch.36 (Yogas lunaires)
+// Placement : L2 (slow) — basé sur planètes transitantes vs Lune natale
+// Consensus Ronde 12 : GPT valide L2 · "faible redondance" (non indépendant mais peu corrélé)
+// ══════════════════════════════════════════════════════════════════
+//
+// DÉFINITIONS :
+//   Maison 2 de la Lune natale = signe suivant (Anapha)
+//   Maison 12 de la Lune natale = signe précédent (Sunaphya)
+//
+//   Sunaphya  : planète bénéfique en maison 12 de la Lune natale → +2
+//   Anapha    : planète bénéfique en maison 2  de la Lune natale → +2
+//   Durudhura : bénéfiques en 2 ET 12 simultanément → +2
+//   Kemadruma : aucune planète majeure en 2 ni 12 → −3 (Lune "seule")
+//   Neutral   : planètes maléfiques en 2/12 seulement → 0
+//
+// BÉNÉFIQUES (pour yogas positifs) : Jupiter, Vénus
+// PLANÈTES MAJEURES (pour Kemadruma) : Jupiter, Vénus, Saturne, Mars, Mercure
+// ── Constantes ─────────────────────────────────────────────────────
+
+const CHANDRA_BENEFICS    = new Set(['jupiter', 'venus']);
+const CHANDRA_MAJOR_PLANETS = new Set(['jupiter', 'venus', 'saturn', 'mars', 'mercury']);
+
+// ── Interface ───────────────────────────────────────────────────────
+
+export interface TransitPlanetSid {
+  name: string;   // 'jupiter' | 'venus' | 'saturn' | 'mars' | 'mercury'
+  sidLon: number; // longitude sidérale (0–360°)
+}
+
+export interface ChandraYogaResult {
+  yoga: 'Sunaphya' | 'Anapha' | 'Durudhura' | 'Kemadruma' | 'Neutral';
+  delta: number;
+  label: string;
+  detail: string;
+}
+
+// ── calcChandraYoga ─────────────────────────────────────────────────
+export function calcChandraYoga(
+  natalMoonSidLon: number,
+  transitPlanets: TransitPlanetSid[],
+): ChandraYogaResult {
+  const natalSign  = Math.floor(((natalMoonSidLon % 360) + 360) % 360 / 30) % 12;
+  const house2Sign  = (natalSign + 1)  % 12; // Anapha — maison 2
+  const house12Sign = (natalSign + 11) % 12; // Sunaphya — maison 12
+
+  const getSign = (sidLon: number) =>
+    Math.floor(((sidLon % 360) + 360) % 360 / 30) % 12;
+
+  const planetsInH2   = transitPlanets.filter(p => getSign(p.sidLon) === house2Sign);
+  const planetsInH12  = transitPlanets.filter(p => getSign(p.sidLon) === house12Sign);
+
+  const beneficInH2   = planetsInH2.some(p => CHANDRA_BENEFICS.has(p.name));
+  const beneficInH12  = planetsInH12.some(p => CHANDRA_BENEFICS.has(p.name));
+  const majorInH2orH12 = [...planetsInH2, ...planetsInH12].some(p => CHANDRA_MAJOR_PLANETS.has(p.name));
+
+  const planetsH2Names  = planetsInH2.map(p => p.name).join(', ');
+  const planetsH12Names = planetsInH12.map(p => p.name).join(', ');
+
+  if (beneficInH2 && beneficInH12) {
+    return {
+      yoga: 'Durudhura',
+      delta: 2,
+      label: `⭐ Durudhura (+2) — bénéfiques M2:${planetsH2Names} + M12:${planetsH12Names}`,
+      detail: 'Planètes bénéfiques des deux côtés de la Lune natale (BPHS Ch.36)',
+    };
+  }
+  if (beneficInH2) {
+    return {
+      yoga: 'Anapha',
+      delta: 2,
+      label: `⭐ Anapha (+2) — ${planetsH2Names} en M2 Lune natale`,
+      detail: 'Planète bénéfique en maison 2 de la Lune natale (BPHS Ch.36)',
+    };
+  }
+  if (beneficInH12) {
+    return {
+      yoga: 'Sunaphya',
+      delta: 2,
+      label: `⭐ Sunaphya (+2) — ${planetsH12Names} en M12 Lune natale`,
+      detail: 'Planète bénéfique en maison 12 de la Lune natale (BPHS Ch.36)',
+    };
+  }
+  if (!majorInH2orH12) {
+    return {
+      yoga: 'Kemadruma',
+      delta: -3,
+      label: `⚠️ Kemadruma (−3) — Lune natale sans support planétaire`,
+      detail: 'Aucune planète majeure en M2 ou M12 de la Lune natale (BPHS Ch.36)',
+    };
+  }
+  return {
+    yoga: 'Neutral',
+    delta: 0,
+    label: '',
+    detail: 'Planètes maléfiques en 2/12 — neutre (pas de yoga bénéfique)',
+  };
+}

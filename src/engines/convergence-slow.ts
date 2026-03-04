@@ -21,6 +21,7 @@ import { type DailyModuleResult } from './convergence-daily';
 import { calcTransitStellium } from './transit-stellium'; // V8.5 — P5
 import { calcAshtakavarga } from './ashtakavarga'; // Sprint D4 — ASV ☉♂ migré depuis L1
 import { calcJieqi }        from './jieqi';        // Sprint E3 — Jieqi 节气 L2 semi-mensuel
+import { calcChandraYoga, type TransitPlanetSid } from './panchanga'; // Sprint I — Chandra Yoga L2
 
 // ══════════════════════════════════════
 // ═══ V6.0 : CONTEXTE MULTIPLICATEUR ═══
@@ -606,6 +607,49 @@ export function calcSlowModules(
     }
     console.assert(Math.abs(jieqiResult.total) <= 2.1, '[Jieqi] Cap ±2 percé:', jieqiResult.total);
   } catch { /* Jieqi fail silently */ }
+
+  // ═══════════════════════════════════
+  // CHANDRA YOGA — Sprint I (L2 slow)
+  // Yogas lunaires Parashara BPHS Ch.36 — planètes transitantes vs Lune natale
+  // Sunaphya(+2) · Anapha(+2) · Durudhura(+2) · Kemadruma(−3) · cap ±3
+  // ═══════════════════════════════════
+  try {
+    const evalD_cy = params.evalDate ?? new Date();
+    const ay_cy    = getAyanamsa(evalD_cy.getFullYear());
+
+    // Lune natale sidérale
+    const birthD_cy      = new Date(bd + 'T12:00:00');
+    const natalMoon_cy   = getMoonPhase(birthD_cy);
+    const natalAy_cy     = getAyanamsa(birthD_cy.getFullYear());
+    const natalMoonSid_cy = ((natalMoon_cy.longitudeTropical - natalAy_cy) % 360 + 360) % 360;
+
+    // Planètes transitantes sidérales (Jupiter, Vénus, Saturne, Mars, Mercure)
+    const transitPlanets_cy: TransitPlanetSid[] = [];
+    for (const pl of ['jupiter', 'venus', 'saturn', 'mars', 'mercury'] as const) {
+      try {
+        const tropLon = getPlanetLongitudeForDate(pl, evalD_cy);
+        const sidLon  = ((tropLon - ay_cy) % 360 + 360) % 360;
+        transitPlanets_cy.push({ name: pl, sidLon });
+      } catch { /* planet fail silent */ }
+    }
+
+    const cyResult = calcChandraYoga(natalMoonSid_cy, transitPlanets_cy);
+    const cyDelta  = Math.max(-3, Math.min(3, cyResult.delta));
+
+    if (cyDelta !== 0) {
+      delta += cyDelta;
+      if (cyDelta > 0) signals.push(cyResult.label);
+      else             alerts.push(cyResult.label);
+      breakdown.push({
+        system: 'Chandra Yoga', icon: '🌙',
+        value:  cyResult.yoga,
+        points: cyDelta,
+        detail: cyResult.detail,
+        signals: cyDelta > 0 ? [cyResult.label] : [],
+        alerts:  cyDelta < 0 ? [cyResult.label] : [],
+      });
+    }
+  } catch { /* Chandra Yoga fail silently */ }
 
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));
