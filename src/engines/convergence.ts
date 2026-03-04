@@ -619,11 +619,15 @@ function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): Confi
 
   // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compress()
   // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
+  // V9.6 Sprint B2 : facteur correctif bootstrap CI — n=4 groupes ESS, distribution t (df=3)
+  // sous-estime la couverture réelle → correction 1.10 (coverage_hat ≈ 0.86 → c = 0.95/0.86)
+  // Source : GPT Ronde IA 2 (2026-03-04).
+  const CI_BOOTSTRAP_CORRECTION = 1.10;
   const floorScore = 5;
   const delta0 = decompressApprox(score);
   const deltaAtPlus = decompressApprox(Math.min(score + floorScore, 97));
   const floorDelta = Math.abs(deltaAtPlus - delta0);
-  const ciMarginDelta = Math.max(1.96 * se, floorDelta);
+  const ciMarginDelta = Math.max(1.96 * CI_BOOTSTRAP_CORRECTION * se, floorDelta);
 
   const lower = Math.max(5, compress(delta0 - ciMarginDelta));
   const upper = Math.min(97, compress(delta0 + ciMarginDelta));
