@@ -403,23 +403,34 @@ export function calcDashaScore(
 // ══════════════════════════════════════════════════════════════════
 
 /**
- * Composition géométrique Maha × Antar.
- * Remplace l'approche additive (1.0 + dashaTotal/100) par un produit
- * plus fidèle à la doctrine Jyotish : les deux périodes sont des terrains
- * indépendants dont les effets se composent multiplicativement.
+ * Composition log-pondérée Maha × Antar — V9.6 Sprint B1.
+ * Remplace la moyenne géométrique 50/50 (√(m×a)) par une moyenne log-pondérée
+ * wM=0.65, wA=0.35 : la Mahadasha (terrain 7-20 ans) pèse plus que l'Antardasha
+ * (sous-période 7-20 mois), conformément à la doctrine Jyotish.
+ *
+ * Formule : exp(0.65·ln(mahaMult) + 0.35·ln(antarMult))
+ * Ancienne : √(mahaMult × antarMult) = exp(0.50·ln(m) + 0.50·ln(a))
  *
  * Scaling calibré pour remplir le range [0.80, 1.25] :
  *   mahaMult  = 1.0 + mahaScore  × 0.10  → mahaScore ±4 → [0.60, 1.40]
  *   antarMult = 1.0 + antarScore × 0.075 → antarScore ±2 → [0.85, 1.15]
- *   composedMult = clamp(√(mahaMult × antarMult), 0.80, 1.25)
  *
- * Pire cas  (−4, −2) : √(0.60 × 0.85) = 0.714 → clamped à 0.80
- * Meilleur  (+4, +2) : √(1.40 × 1.15) = 1.269 → clamped à 1.25
+ * Vérification :
+ *   Neutre  ( 0,  0) : exp(0)                             = 1.000
+ *   Pire    (−4, −2) : exp(0.65·ln(0.60)+0.35·ln(0.85))  ≈ 0.678 → clamped 0.80
+ *   Meilleur(+4, +2) : exp(0.65·ln(1.40)+0.35·ln(1.15))  ≈ 1.307 → clamped 1.25
+ *   Sandhi  (any,  0) : exp(0.65·ln(mahaMult))            = mahaMult^0.65 ✓
+ *
+ * Source : GPT Ronde IA 2 (2026-03-04).
  */
 export function composeDashaMultipliers(mahaScore: number, antarScore: number): number {
   const mahaMult  = 1.0 + mahaScore  * 0.10;
   const antarMult = 1.0 + antarScore * 0.075;
-  const raw = Math.sqrt(Math.max(0, mahaMult * antarMult));
+  // Log-pondéré wM=0.65, wA=0.35 — guard 1e-9 anti-ln(≤0) (valeurs toujours >0 en pratique)
+  const raw = Math.exp(
+    0.65 * Math.log(Math.max(1e-9, mahaMult)) +
+    0.35 * Math.log(Math.max(1e-9, antarMult))
+  );
   return Math.max(0.80, Math.min(1.25, raw));
 }
 
