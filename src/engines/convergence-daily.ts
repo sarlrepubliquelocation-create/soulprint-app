@@ -7,7 +7,7 @@
 // ══════════════════════════════════════
 
 import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx } from './numerology';
-import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits } from './astrology';
+import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
 import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getPlanetaryRetroScore, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon';
 import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
@@ -18,6 +18,7 @@ import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
+import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -807,8 +808,35 @@ export function calcDailyModules(
     }
   } catch { /* VoC fail silently */ }
 
-  // V9.6 Sprint A2 — Application cap groupe LUNE ±11
-  delta += Math.max(-11, Math.min(11, luneGroupPts));
+  // ═══════════════════════════════════
+  // 4d. ASHTAKAVARGA LUNAIRE — V9.6 Sprint C
+  // BAV Lune natale → Bindus dans le signe sidéral transitant → delta ±2
+  // ═══════════════════════════════════
+
+  if (astro) {
+    try {
+      const todayD       = new Date(todayStr + 'T12:00:00Z');
+      const moonTropLon  = getMoonPhase(todayD).longitudeTropical;
+      const ayToday      = getAyanamsa(todayD.getFullYear());
+      const moonSidLon   = ((moonTropLon - ayToday) + 360) % 360;
+      const ashMoon      = calcAshtakavarga('moon', moonSidLon, astro, bd);
+      if (ashMoon.delta !== 0) {
+        luneGroupPts += ashMoon.delta; // Sprint C: groupe LUNE
+        signals.push(...ashMoon.signals);
+        alerts.push(...ashMoon.alerts);
+        breakdown.push({
+          system: 'Ashtakavarga ☽', icon: '⭕',
+          value:  `${ashMoon.signName} — ${ashMoon.bindus} Bindus`,
+          points: ashMoon.delta,
+          detail: `Lune sidérale en ${ashMoon.signName} | BAV Lune natale`,
+          signals: ashMoon.signals, alerts: ashMoon.alerts,
+        });
+      }
+    } catch { /* Ashtak Moon fail silently */ }
+  }
+
+  // V9.6 Sprint A2/C — Application cap groupe LUNE ±13 (élargi pour Ashtakavarga)
+  delta += Math.max(-13, Math.min(13, luneGroupPts));
 
   // ═══════════════════════════════════
   // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)
@@ -1018,8 +1046,54 @@ export function calcDailyModules(
     }
   } catch { /* fixed stars fail silently */ }
 
-  // V9.6 Sprint A2 — Application cap groupe EPHEM ±12
-  delta += Math.max(-12, Math.min(12, ephemGroupPts));
+  // ═══════════════════════════════════
+  // 12d. ASHTAKAVARGA SOLAIRE + MARS — V9.6 Sprint C
+  // BAV natale → Bindus du signe sidéral transitant → delta ±2 par planète
+  // ═══════════════════════════════════
+
+  if (astro) {
+    try {
+      const todayD   = new Date(todayStr + 'T12:00:00Z');
+      const ayToday  = getAyanamsa(todayD.getFullYear());
+
+      // Soleil (rythme mensuel — tendance du mois)
+      const sunTropLon = getPlanetLongitudeForDate('sun', todayD);
+      const sunSidLon  = ((sunTropLon - ayToday) + 360) % 360;
+      const ashSun     = calcAshtakavarga('sun', sunSidLon, astro, bd);
+      if (ashSun.delta !== 0) {
+        ephemGroupPts += ashSun.delta; // Sprint C: groupe EPHEM
+        signals.push(...ashSun.signals);
+        alerts.push(...ashSun.alerts);
+        breakdown.push({
+          system: 'Ashtakavarga ☉', icon: '⭕',
+          value:  `${ashSun.signName} — ${ashSun.bindus} Bindus`,
+          points: ashSun.delta,
+          detail: `Soleil sidéral en ${ashSun.signName} | BAV Soleil natale`,
+          signals: ashSun.signals, alerts: ashSun.alerts,
+        });
+      }
+
+      // Mars (rythme ~2 mois/signe — dynamisme/action)
+      const marsTropLon = getPlanetLongitudeForDate('mars', todayD);
+      const marsSidLon  = ((marsTropLon - ayToday) + 360) % 360;
+      const ashMars     = calcAshtakavarga('mars', marsSidLon, astro, bd);
+      if (ashMars.delta !== 0) {
+        ephemGroupPts += ashMars.delta; // Sprint C: groupe EPHEM
+        signals.push(...ashMars.signals);
+        alerts.push(...ashMars.alerts);
+        breakdown.push({
+          system: 'Ashtakavarga ♂', icon: '⭕',
+          value:  `${ashMars.signName} — ${ashMars.bindus} Bindus`,
+          points: ashMars.delta,
+          detail: `Mars sidéral en ${ashMars.signName} | BAV Mars natale`,
+          signals: ashMars.signals, alerts: ashMars.alerts,
+        });
+      }
+    } catch { /* Ashtak Sun/Mars fail silently */ }
+  }
+
+  // V9.6 Sprint A2/C — Application cap groupe EPHEM ±14 (élargi pour Ashtakavarga)
+  delta += Math.max(-14, Math.min(14, ephemGroupPts));
 
   // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4
