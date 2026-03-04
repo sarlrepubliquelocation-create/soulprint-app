@@ -126,7 +126,8 @@ export function calcSlowModules(
     astro: AstroChart | null;
     iching: IChingReading;
     bd: string;
-    bt?: string; // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
+    bt?: string;       // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
+    evalDate?: Date;   // Sprint F — date d'évaluation pour forecast J+X (undefined = aujourd'hui)
   },
   daily: DailyModuleResult,
   breakdown: SystemBreakdown[],
@@ -588,7 +589,7 @@ export function calcSlowModules(
   // Cap ±2 — anti-double-comptage avec pilier mensuel BaZi (L1)
   // ═══════════════════════════════════
   try {
-    const sunTropJ    = getPlanetLongitudeForDate('sun', new Date());
+    const sunTropJ    = getPlanetLongitudeForDate('sun', params.evalDate ?? new Date()); // Sprint F: date injectée pour forecast
     const jieqiResult = calcJieqi(sunTropJ);
     if (jieqiResult.total !== 0) {
       delta += jieqiResult.total;
