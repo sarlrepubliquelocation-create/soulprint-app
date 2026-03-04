@@ -19,7 +19,7 @@ import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, 
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
-import { calcPanchanga, type PanchangaResult } from './panchanga'; // Sprint D3
+import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult } from './panchanga'; // Sprint D3 + Sprint G
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -706,6 +706,39 @@ export function calcDailyModules(
       alerts:  nakCompositeResult.alerts,
     });
 
+    // ── Sprint G : Tarabala + Chandrabala (additif, Ronde 11 consensus 2/3) ──
+    if (natalMoonSidForNak !== null) {
+      try {
+        const tarabalaRes    = calcTarabala(moonLongSidereal, natalMoonSidForNak);
+        const chandrabalaRes = calcChandrabala(moonLongSidereal, natalMoonSidForNak);
+
+        luneGroupPts += tarabalaRes.delta;
+        luneGroupPts += chandrabalaRes.delta;
+
+        if (tarabalaRes.delta > 0)    signals.push(tarabalaRes.label);
+        else if (tarabalaRes.delta < 0) alerts.push(tarabalaRes.label);
+        if (chandrabalaRes.delta > 0)    signals.push(chandrabalaRes.label);
+        else if (chandrabalaRes.delta < 0) alerts.push(chandrabalaRes.label);
+
+        breakdown.push({
+          system: 'Tarabala', icon: '⭐',
+          value: `${tarabalaRes.name} (pos.${tarabalaRes.index})`,
+          points: tarabalaRes.delta,
+          detail: `Nakshatra transit vs natal — Muhurta Chintamani §12-18`,
+          signals: tarabalaRes.delta > 0 ? [tarabalaRes.label] : [],
+          alerts:  tarabalaRes.delta < 0 ? [tarabalaRes.label] : [],
+        });
+        breakdown.push({
+          system: 'Chandrabala', icon: '🌙',
+          value: `Position ${chandrabalaRes.position}/12`,
+          points: chandrabalaRes.delta,
+          detail: `Lune transit vs signe natal${chandrabalaRes.position === 8 ? ' — Astama Chandra ⚠️' : ''}`,
+          signals: chandrabalaRes.delta > 0 ? [chandrabalaRes.label] : [],
+          alerts:  chandrabalaRes.delta < 0 ? [chandrabalaRes.label] : [],
+        });
+      } catch { /* Tarabala/Chandrabala silently */ }
+    }
+
     // ── R31 : Cohérence lunaire Nakshatra × Phase (V8 — Synth. védique) ──
     // Doctrine Jyotish : L'effet du Nakshatra est amplifié si la Lune est croissante sur un Nakshatra
     // harmonique (Chandra Bala renforcé), et atténué si elle est décroissante sur un Nakshatra maléfique.
@@ -866,8 +899,9 @@ export function calcDailyModules(
     });
   } catch { /* panchanga fail silently */ }
 
-  // Sprint E4 — Application cap groupe LUNE ±14 (Nakshatra + R31 + VoC + Ash☽ + Panchanga + Karana)
-  delta += Math.max(-14, Math.min(14, luneGroupPts));
+  // Sprint G — Application cap groupe LUNE ±16 (Nakshatra + R31 + VoC + Ash☽ + Panchanga + Karana + Tarabala + Chandrabala)
+  // Cap élargi de ±14 → ±16 : +Tarabala(±3) +Chandrabala(±3), Ronde 11 consensus 2/3
+  delta += Math.max(-16, Math.min(16, luneGroupPts));
 
   // ═══════════════════════════════════
   // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)

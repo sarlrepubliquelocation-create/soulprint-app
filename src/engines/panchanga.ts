@@ -1,21 +1,25 @@
 // ══════════════════════════════════════
-// ═══ PANCHANGA — Sprint D3 — V9.8 ═══
-// Module védique : Tithi + Yoga + Vara
-// Source : audit IA Ronde 6+7 (GPT/Grok/Gemini, 2026-03-04)
+// ═══ PANCHANGA — Sprint E1 — V9.9 ═══
+// Module védique : Tithi + Yoga + Karana + Vara
+// Source : audit IA Rondes 6+7+8+9 (GPT/Grok/Gemini, 2026-03-04)
 // Architecture : Gemini | Tables : GPT | Vérification : Grok
 // ══════════════════════════════════════
 //
 // FORMULES CRITIQUES :
-//   Tithi = floor(((moonTrop - sunTrop + 360) % 360) / 12) + 1  [tropical, ayanamsa s'annule]
-//   Yoga  = floor(((moonTrop + sunTrop - 2*ayanamsa + 720) % 360) / (360/27)) + 1 [2×ayanamsa !!!]
-//   Vara  = (dayOfWeek + 1 mod 7)  narratif uniquement, delta = 0
+//   Tithi  = floor(((moonTrop - sunTrop + 360) % 360) / 12) + 1  [tropical, ayanamsa s'annule]
+//   Yoga   = floor(((moonTrop + sunTrop - 2*ayanamsa + 720) % 360) / (360/27)) + 1 [2×ayanamsa !!!]
+//   Karana = floor(((moonTrop - sunTrop + 360) % 360) / 6) + 1   [1..60, même élongation que Tithi]
+//            Pas de piège ayanamsa (s'annule dans moon-sun, GPT Ronde 8)
+//   Vara   = (dayOfWeek + 1 mod 7)  narratif uniquement, delta = 0
 //
-// Cap total panchanga : ±5 (Tithi + Yoga, Vara exclu)
+// Cap total panchanga : ±6 (Tithi + Yoga + Karana, Vara exclu)
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type TithiQuality = 'Nanda' | 'Bhadra' | 'Jaya' | 'Rikta' | 'Purna';
-export type YogaQuality  = 'favorable' | 'plutot_favorable' | 'defavorable' | 'tres_defavorable';
+export type TithiQuality  = 'Nanda' | 'Bhadra' | 'Jaya' | 'Rikta' | 'Purna';
+export type YogaQuality   = 'favorable' | 'plutot_favorable' | 'defavorable' | 'tres_defavorable';
+export type KaranaType    = 'repetitif' | 'fixe';
+export type KaranaQuality = 'favorable' | 'defavorable';
 
 export interface TithiData {
   tithi:   number;       // 1..30
@@ -31,6 +35,14 @@ export interface YogaData {
   delta:   number;
 }
 
+export interface KaranaData {
+  index:   number;       // 1..60
+  name:    string;
+  type:    KaranaType;
+  quality: KaranaQuality;
+  delta:   number;       // Gara/Vanija=+2, Bava/Balava/Kaulava/Taitila=+1, Vishti=-2, Fixes=-1
+}
+
 export interface VaraData {
   vara:    number;       // 1=Sun..7=Sat
   name:    string;
@@ -42,8 +54,9 @@ export interface VaraData {
 export interface PanchangaResult {
   tithi:       TithiData;
   yoga:        YogaData;
+  karana:      KaranaData;
   vara:        VaraData;
-  total:       number;   // Tithi.delta + Yoga.delta, capé ±5
+  total:       number;   // Tithi.delta + Yoga.delta + Karana.delta, capé ±6
   signals:     string[];
   alerts:      string[];
 }
@@ -132,6 +145,44 @@ const VARA_DATA: Record<number, Omit<VaraData, 'delta'>> = {
   6: { vara: 6, name: 'Shanivara',  icon: '♄',  planet: 'Saturne'  }, // Saturday
 };
 
+// ── Table Karana (11 Karanas, mapping 60 demi-tithis) ────────────────
+// Source : Classical Muhurta (Ernst Wilhelm) — GPT Ronde 8
+// Mobiles (7) × 8 répétitions = 56 + 4 fixes = 60 au total
+// Séquence : index 1 = Kimstughna, 2..57 = cycle 7 mobiles, 58=Shakuni, 59=Chatushpada, 60=Naga
+// Deltas : Gara/Vanija=+2 (meilleurs), Bava/Balava/Kaulava/Taitila=+1 (favorables),
+//          Vishti(Bhadra)=-2 (défavorable muhurta), Fixes=-1 (spécialisés)
+
+const KARANA_INFO: Record<string, KaranaData> = {
+  Bava:        { index: 0, name: 'Bava',        type: 'repetitif', quality: 'favorable',  delta: +1 },
+  Balava:      { index: 0, name: 'Balava',      type: 'repetitif', quality: 'favorable',  delta: +1 },
+  Kaulava:     { index: 0, name: 'Kaulava',     type: 'repetitif', quality: 'favorable',  delta: +1 },
+  Taitila:     { index: 0, name: 'Taitila',     type: 'repetitif', quality: 'favorable',  delta: +1 },
+  Gara:        { index: 0, name: 'Gara',        type: 'repetitif', quality: 'favorable',  delta: +2 },
+  Vanija:      { index: 0, name: 'Vanija',      type: 'repetitif', quality: 'favorable',  delta: +2 },
+  Vishti:      { index: 0, name: 'Vishti',      type: 'repetitif', quality: 'defavorable', delta: -2 },
+  Kimstughna:  { index: 0, name: 'Kimstughna',  type: 'fixe',      quality: 'defavorable', delta: -1 },
+  Shakuni:     { index: 0, name: 'Shakuni',     type: 'fixe',      quality: 'defavorable', delta: -1 },
+  Chatushpada: { index: 0, name: 'Chatushpada', type: 'fixe',      quality: 'defavorable', delta: -1 },
+  Naga:        { index: 0, name: 'Naga',        type: 'fixe',      quality: 'defavorable', delta: -1 },
+};
+
+const MOBILES = ['Bava', 'Balava', 'Kaulava', 'Taitila', 'Gara', 'Vanija', 'Vishti'] as const;
+
+function karanaNameFromIndex(index1to60: number): string {
+  const k = Math.max(1, Math.min(60, index1to60)) - 1; // 0..59
+  if (k === 0)  return 'Kimstughna';
+  if (k === 57) return 'Shakuni';
+  if (k === 58) return 'Chatushpada';
+  if (k === 59) return 'Naga';
+  return MOBILES[(k - 1) % 7]; // k=1..56 → cycle 7 mobiles
+}
+
+function getKaranaData(index1to60: number): KaranaData {
+  const name = karanaNameFromIndex(index1to60);
+  const info  = KARANA_INFO[name];
+  return { ...info, index: index1to60 };
+}
+
 // ── Fonction principale ────────────────────────────────────────────
 
 /**
@@ -141,7 +192,7 @@ const VARA_DATA: Record<number, Omit<VaraData, 'delta'>> = {
  * @param sunTropLon   Longitude tropicale du Soleil (degrés 0–360)
  * @param ayanamsa     Ayanamsa du jour (degrés) — pour la correction Yoga
  * @param date         Date du calcul (pour Vara)
- * @returns PanchangaResult avec total capé ±5
+ * @returns PanchangaResult avec total capé ±6 (Sprint E1 : ajout Karana)
  */
 export function calcPanchanga(
   moonTropLon: number,
@@ -160,6 +211,12 @@ export function calcPanchanga(
   const yogaSum  = ((moonTropLon + sunTropLon - 2 * ayanamsa) % 360 + 360) % 360;
   const yogaIdx  = Math.floor(yogaSum / (360 / 27)) + 1; // 1..27
   const yogaData = YOGA_DATA[Math.max(1, Math.min(27, yogaIdx))] ?? YOGA_DATA[1];
+
+  // ── Karana ──
+  // Même élongation que Tithi (demi-Tithi = 6°). Pas de piège ayanamsa (s'annule).
+  // Sprint E1 — GPT Ronde 8 : Classical Muhurta (Ernst Wilhelm)
+  const karanaIdx  = Math.floor(elongation / 6) + 1; // 1..60
+  const karanaData = getKaranaData(karanaIdx);
 
   // ── Vara ──
   // JS : 0=Dim, 1=Lun, ... 6=Sam — convention védique identique
@@ -187,9 +244,129 @@ export function calcPanchanga(
     signals.push(`🌿 Yoga ${yogaData.name} — plutôt favorable (+${yogaData.delta})`);
   }
 
-  // ── Total capé ±5 ──
-  const raw   = tithiData.delta + yogaData.delta;
-  const total = Math.max(-5, Math.min(5, raw));
+  if (karanaData.quality === 'defavorable') {
+    const label = karanaData.type === 'fixe' ? 'fixe' : 'Bhadra';
+    alerts.push(`🔸 Karana ${karanaData.name} (${label}) — défavorable (${karanaData.delta})`);
+  } else if (karanaData.delta > 0) {
+    signals.push(`🌿 Karana ${karanaData.name} — favorable (+${karanaData.delta})`);
+  }
 
-  return { tithi: tithiData, yoga: yogaData, vara: varaData, total, signals, alerts };
+  // ── Total capé ±6 (Tithi + Yoga + Karana) ──
+  const raw   = tithiData.delta + yogaData.delta + karanaData.delta;
+  const total = Math.max(-6, Math.min(6, raw));
+
+  return { tithi: tithiData, yoga: yogaData, karana: karanaData, vara: varaData, total, signals, alerts };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ═══ TARABALA + CHANDRABALA — Sprint G — V10.1 ═══
+// Source : Muhurta Chintamani Ch.2 §12-18 (Tarabala), Jyotish standard (Chandrabala)
+// Consensus Rondes 10-11 : additif (Grok+Gemini 2/3), Abhijit exclu
+// ══════════════════════════════════════════════════════════════════════
+//
+// FORMULES :
+//   nakTransit  = floor(moonSidTransit / (360/27)) % 27   [0..26]
+//   nakNatal    = floor(moonSidNatal   / (360/27)) % 27   [0..26]
+//   tarabalaIdx = (nakTransit - nakNatal + 27) % 9         [0..8]
+//   → si nakTransit === 28 (Abhijit) : return 0 (exclu)
+//
+//   transitSign = floor(moonSidTransit / 30) % 12          [0..11]
+//   natalSign   = floor(moonSidNatal   / 30) % 12          [0..11]
+//   chandraPos  = ((transitSign - natalSign + 12) % 12) + 1 [1..12]
+//   → pos 8 = Astama Chandra (−3)
+//
+// ── Tables scoring ─────────────────────────────────────────────────
+
+// Tarabala : index 0..8 → Janma(-1), Sampat(+2), Vipat(-2), Kshema(+2),
+//            Pratyari(-1), Sadhaka(+2), Vadha(-3), Mitra(+1), Ati-Mitra(+2)
+const TARABALA_DELTA: Record<number, number> = {
+  0: -1, // Janma
+  1: +2, // Sampat
+  2: -2, // Vipat
+  3: +2, // Kshema
+  4: -1, // Pratyari
+  5: +2, // Sadhaka
+  6: -3, // Vadha
+  7: +1, // Mitra
+  8: +2, // Ati-Mitra
+};
+
+const TARABALA_NAME: Record<number, string> = {
+  0: 'Janma', 1: 'Sampat', 2: 'Vipat', 3: 'Kshema', 4: 'Pratyari',
+  5: 'Sadhaka', 6: 'Vadha', 7: 'Mitra', 8: 'Ati-Mitra',
+};
+
+// Chandrabala : positions 1-12 → delta
+// 1,3,6,7,10,11 = +2 ; 2,5 = 0 ; 4,9,12 = -1 ; 8 (Astama) = -3
+const CHANDRABALA_DELTA: Record<number, number> = {
+   1: +2,  2:  0,  3: +2,  4: -1,
+   5:  0,  6: +2,  7: +2,  8: -3,
+   9: -1, 10: +2, 11: +2, 12: -1,
+};
+
+// ── NAK_SPAN ────────────────────────────────────────────────────────
+const NAK_SPAN_G = 360 / 27; // 13.333...°
+
+// ── Interfaces résultat ─────────────────────────────────────────────
+export interface TarabalaResult {
+  index: number;       // 0..8
+  name: string;
+  delta: number;
+  label: string;       // signal/alerte narratif
+}
+
+export interface ChandrabalaResult {
+  position: number;    // 1..12
+  delta: number;
+  label: string;
+}
+
+// ── calcTarabala ────────────────────────────────────────────────────
+export function calcTarabala(
+  moonSidTransit: number,
+  moonSidNatal: number,
+): TarabalaResult {
+  const nakTransit = Math.floor(((moonSidTransit % 360) + 360) % 360 / NAK_SPAN_G) % 27;
+  const nakNatal   = Math.floor(((moonSidNatal   % 360) + 360) % 360 / NAK_SPAN_G) % 27;
+
+  // Abhijit (index 28, hors 0-26) : sécurité — ne devrait pas survenir avec 27 naks
+  const idx   = (nakTransit - nakNatal + 27) % 9;
+  const delta = TARABALA_DELTA[idx] ?? 0;
+  const name  = TARABALA_NAME[idx] ?? 'Inconnu';
+
+  let label: string;
+  if (delta > 0) {
+    label = `⭐ Tarabala ${name} (+${delta})`;
+  } else if (delta < 0) {
+    label = `⚠️ Tarabala ${name} (${delta})`;
+  } else {
+    label = `🌙 Tarabala ${name} (neutre)`;
+  }
+
+  return { index: idx, name, delta, label };
+}
+
+// ── calcChandrabala ─────────────────────────────────────────────────
+export function calcChandrabala(
+  moonSidTransit: number,
+  moonSidNatal: number,
+): ChandrabalaResult {
+  const transitSign = Math.floor(((moonSidTransit % 360) + 360) % 360 / 30) % 12;
+  const natalSign   = Math.floor(((moonSidNatal   % 360) + 360) % 360 / 30) % 12;
+
+  const position = ((transitSign - natalSign + 12) % 12) + 1; // 1..12
+  const delta    = CHANDRABALA_DELTA[position] ?? 0;
+
+  let label: string;
+  if (position === 8) {
+    label = `⚠️ Astama Chandra pos.8 (${delta}) — Lune défavorable`;
+  } else if (delta > 0) {
+    label = `⭐ Chandrabala pos.${position} (+${delta})`;
+  } else if (delta < 0) {
+    label = `🔸 Chandrabala pos.${position} (${delta})`;
+  } else {
+    label = `🌙 Chandrabala pos.${position} (neutre)`;
+  }
+
+  return { position, delta, label };
 }
