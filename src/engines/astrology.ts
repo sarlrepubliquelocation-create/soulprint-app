@@ -746,6 +746,28 @@ const NATAL_MULTIPLIERS: Record<string, number> = {
   asc:  1.2,   // Ascendant représenté comme point natal dans Transit.np
 };
 
+// ── Sprint F — Vitesses planétaires de référence (°/j) ──
+// Valeurs médianes (directes + rétrogrades confondues) — Meeus Astronomical Algorithms
+const PLANET_VREF: Record<string, number> = {
+  jupiter: 0.083,
+  saturn:  0.034,
+  uranus:  0.012,
+  neptune: 0.006,
+  pluto:   0.004,
+};
+
+// stationFactor — 3 paliers (consensus Ronde 11 · Gemini architecture + Grok Vakra védique)
+// Sources : Ptolémée "intensification aux stations" · Robert Hand Planets in Transit
+// Paliers : station totale (Vakra) ratio<0.10 → ×2.0 | quasi-station ratio<0.30 → ×1.3 | normal ×1.0
+function stationFactor(planet: string, speed: number): number {
+  const vRef = PLANET_VREF[planet];
+  if (!vRef) return 1.0; // Soleil/Lune/internes → pas de station significative
+  const ratio = Math.abs(speed) / vRef;
+  if (ratio < 0.10) return 2.0;  // station totale (Vakra)
+  if (ratio < 0.30) return 1.3;  // quasi-station
+  return 1.0;                    // vitesse normale
+}
+
 // ── Stelliums V8.4 : synergie multi-planètes ──
 // Bonus conditionnel quand un transit lent touche directement une planète d'un stellium natal.
 // Anti-double-comptage V8.2 : si le point natal a déjà un aspect tendu natal (structuralMod ×0.70),
@@ -809,7 +831,8 @@ export function calcPersonalTransits(
   sigma = 1.2,
   natalAspects?: Aspect[],
   natalPlanets?: PlanetPos[],
-  stelliums?: Stellium[]
+  stelliums?: Stellium[],
+  planetSpeeds?: Record<string, number>  // Sprint F — vitesse °/j par planète (stationFactor)
 ): PersonalTransitResult {
   const sigmaSq2 = 2 * sigma * sigma;
   const gaussian = (orb: number) => Math.exp(-(orb * orb) / sigmaSq2);
@@ -885,7 +908,11 @@ export function calcPersonalTransits(
     const dignityMod = dignityModifier.get(tr.np) ?? 1.0;
 
     const intensity = gaussian(tr.o);
-    const score = amplitude * natalMult * structuralMod * dignityMod * intensity;
+    // Sprint F — stationFactor : amplification si planète stationnaire (Vakra)
+    const sf    = (planetSpeeds && planetSpeeds[tr.tp] !== undefined)
+                  ? stationFactor(tr.tp, planetSpeeds[tr.tp])
+                  : 1.0;
+    const score = amplitude * natalMult * structuralMod * dignityMod * intensity * sf;
 
     total += score;
 
@@ -895,7 +922,7 @@ export function calcPersonalTransits(
       aspectType,
       orb: tr.o,
       intensity: +intensity.toFixed(3),
-      amplitude: +(amplitude * natalMult * structuralMod * dignityMod).toFixed(2),
+      amplitude: +(amplitude * natalMult * structuralMod * dignityMod * sf).toFixed(2),
       score: +score.toFixed(2),
     });
   }
