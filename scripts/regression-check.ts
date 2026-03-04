@@ -74,8 +74,8 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
     },
     {
       name: 'Tarabala: wrap-around 360° correct',
-      // nakTransit=0 (lon=359.9), nakNatal=0 (lon=0) → même nak → Janma
-      actual: calcTarabala(359.9, 0).delta,
+      // 360.1 wraps → 0.1° = Nak 0, natal 0° = Nak 0 → même nak → Janma (−1)
+      actual: calcTarabala(360.1, 0).delta,
       expected: -1,
     },
 
@@ -145,7 +145,7 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       name: 'Panchanga: Tithi dans 1..30',
       actual: (() => {
         const r = calcPanchanga(180, 0, 24.1, new Date('2026-03-04T12:00:00Z'));
-        return r.tithi.index >= 1 && r.tithi.index <= 30;
+        return r.tithi.tithi >= 1 && r.tithi.tithi <= 30;
       })(),
       expected: true,
     },
@@ -206,7 +206,7 @@ function buildSnapshot(versionTag: string): ModuleSnapshot {
     chandra_pos8:      { delta: calcChandrabala(0, 150).delta,   position: calcChandrabala(0, 150).position },
     chandra_pos4:      { delta: calcChandrabala(90, 0).delta,    position: calcChandrabala(90, 0).position },
     chandra_pos12:     { delta: calcChandrabala(330, 0).delta,   position: calcChandrabala(330, 0).position },
-    panchanga_20260304: { total: pan.total, tithi: pan.tithi.index, yoga: pan.yoga.index },
+    panchanga_20260304: { total: pan.total, tithi: pan.tithi.tithi, yoga: pan.yoga.yoga },
     version: versionTag,
     timestamp: new Date().toISOString(),
   };

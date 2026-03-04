@@ -1,0 +1,41 @@
+{
+  "tarabala_janma": {
+    "delta": -1,
+    "name": "Janma"
+  },
+  "tarabala_vadha": {
+    "delta": -3,
+    "name": "Vadha"
+  },
+  "tarabala_atiMitra": {
+    "delta": 2,
+    "name": "Ati-Mitra"
+  },
+  "tarabala_sampat": {
+    "delta": 2,
+    "name": "Sampat"
+  },
+  "chandra_pos1": {
+    "delta": 2,
+    "position": 1
+  },
+  "chandra_pos8": {
+    "delta": -3,
+    "position": 8
+  },
+  "chandra_pos4": {
+    "delta": -1,
+    "position": 4
+  },
+  "chandra_pos12": {
+    "delta": -1,
+    "position": 12
+  },
+  "panchanga_20260304": {
+    "total": 0,
+    "tithi": 16,
+    "yoga": 10
+  },
+  "version": "v10.4",
+  "timestamp": "2026-03-04T21:58:24.179Z"
+}
