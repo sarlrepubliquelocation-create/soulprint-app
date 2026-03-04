@@ -554,7 +554,7 @@ export function calcDailyModules(
   // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4
   // ═══════════════════════════════════
 
-  const baziFamilyTotal = Math.max(-22, Math.min(22, baziCorePts + changshengPts + jianchuPts)); // V8.9: +jianchuPts T1
+  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + changshengPts + jianchuPts)); // V9.6 Sprint A2: C_BAZI ±15 (était ±22)
   delta += baziFamilyTotal;
 
   // Direct domain bonuses (Changsheng + Shen Sha per-domain)
@@ -666,6 +666,9 @@ export function calcDailyModules(
   // 4b+4c. NAKSHATRA COMPOSITE V5.5
   // ═══════════════════════════════════
 
+  // V9.6 Sprint A2 — Groupe LUNE (Nakshatra + R31 + VoC) → cap ±11
+  let luneGroupPts = 0;
+
   let nakshatraData: NakshatraData | undefined;
   try {
     const todayD = new Date(todayStr + 'T12:00:00Z');
@@ -686,7 +689,7 @@ export function calcDailyModules(
     nakshatraData = nakCompositeResult.transitNak;
 
     if (nakCompositeResult.total !== 0) {
-      delta += nakCompositeResult.total;
+      luneGroupPts += nakCompositeResult.total; // Sprint A2: groupe LUNE
       signals.push(...nakCompositeResult.signals);
       alerts.push(...nakCompositeResult.alerts);
     }
@@ -726,7 +729,7 @@ export function calcDailyModules(
         r31Pts = 1;
         signals.push(`🌒 R31 Cohérence lunaire — Lune croissante contrebalance Nakshatra maléfique (+1)`);
       }
-      if (r31Pts !== 0) delta += r31Pts;
+      if (r31Pts !== 0) luneGroupPts += r31Pts; // Sprint A2: groupe LUNE
     } catch { /* R31 fail silently */ }
 
   } catch { /* nakshatras fail silently */ }
@@ -791,7 +794,7 @@ export function calcDailyModules(
     vocResult = getVoidOfCourseMoon(todayStr);
     if (vocResult.isVoC) {
       const vocPts = vocResult.intensity === 'forte' ? -2 : -1;
-      delta += vocPts;
+      luneGroupPts += vocPts; // Sprint A2: groupe LUNE
       alerts.push(`🌙 ${vocResult.advice.split('.')[0]}`);
       breakdown.push({
         system: 'Lune Hors Cours', icon: '🌙',
@@ -802,6 +805,9 @@ export function calcDailyModules(
       });
     }
   } catch { /* VoC fail silently */ }
+
+  // V9.6 Sprint A2 — Application cap groupe LUNE ±11
+  delta += Math.max(-11, Math.min(11, luneGroupPts));
 
   // ═══════════════════════════════════
   // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)
@@ -828,6 +834,9 @@ export function calcDailyModules(
   // 8. TRANSITS PERSONNELS GAUSSIENS (±15) V4.8
   // ═══════════════════════════════════
 
+  // V9.6 Sprint A2 — Groupe EPHEM (Transits + Interactions + Heure planétaire) → cap ±12
+  let ephemGroupPts = 0;
+
   let astroPts = 0;
   const astroSignals: string[] = [];
   const astroAlerts: string[] = [];
@@ -845,7 +854,7 @@ export function calcDailyModules(
       astroAlerts.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'tense' ? 'carré/opposition' : 'conjonction'} en tension (${astroPts})`);
     }
   }
-  delta += astroPts;
+  ephemGroupPts += astroPts; // Sprint A2: groupe EPHEM
   signals.push(...astroSignals);
   alerts.push(...astroAlerts);
 
@@ -938,7 +947,7 @@ export function calcDailyModules(
   const interactionResult = calcInteractions(interactionCtx);
   if (interactionResult.totalBonus !== 0) {
     const clampedBonus = Math.max(-6, Math.min(6, interactionResult.totalBonus)); // V7→V8: cap ±6
-    delta += clampedBonus;
+    ephemGroupPts += clampedBonus; // Sprint A2: groupe EPHEM
     console.assert(Math.abs(clampedBonus) <= 6.1, '[Interactions] Cap ±6 percé:', clampedBonus);
     for (const ia of interactionResult.active) {
       const sign = ia.bonus > 0 ? '+' : '';
@@ -968,7 +977,7 @@ export function calcDailyModules(
   if (planetaryHourNow) {
     const phPts = planetaryHourNow.pts;
     if (phPts !== 0) {
-      delta += phPts;
+      ephemGroupPts += phPts; // Sprint A2: groupe EPHEM
       const sign = phPts > 0 ? '+' : '';
       if (phPts > 0) signals.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
       else           alerts.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
@@ -983,6 +992,9 @@ export function calcDailyModules(
     });
   }
 
+  // V9.6 Sprint A2 — Application cap groupe EPHEM ±12
+  delta += Math.max(-12, Math.min(12, ephemGroupPts));
+
   // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4
   // ═══════════════════════════════════
@@ -993,8 +1005,8 @@ export function calcDailyModules(
   const biasCorrection = negAsymmetric < 0 ? Math.min(4, Math.abs(negAsymmetric) * 0.5) : 0;
   delta += biasCorrection;
 
-  // V6.0 — Snapshot L1 : valeur avant application des cycles lents (L2)
-  const dailyDeltaSnapshot = delta;
+  // V9.6 Sprint A2 — Cap global L1 ±30 (C_L1 anti double-comptage)
+  const dailyDeltaSnapshot = Math.max(-30, Math.min(30, delta));
 
   // ══════════════════════════════════════════════
   // RETOUR — toutes les valeurs nécessaires à L2 + L3
