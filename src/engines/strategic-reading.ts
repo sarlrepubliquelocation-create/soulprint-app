@@ -24,7 +24,7 @@ import { type NumerologyProfile, getNumberInfo, getActivePinnacleIdx, calcPerson
 import { type AstroChart, SIGN_FR, PLANET_FR, SIGN_ELEM, ASPECT_SYM } from './astrology';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { type IChingReading, calcNatalIChing, getHexProfile, getHexTier, calcNuclearHex } from './iching';
-import { type ConvergenceResult, type RarityResult, type ConfidenceResult, type MetaScore, type TemporalConfidence, type MonthForecast, type VoidOfCourseMoon, generateForecast36Months } from './convergence';
+import { type ConvergenceResult, type RarityResult, type TemporalConfidence, type MonthForecast, type VoidOfCourseMoon, generateForecast36Months } from './convergence';
 import { getMoonPhase, getMercuryStatus, calcLunarNodes, getLunarNodeTransit, type LunarNodeTransit, getEclipseList, getVoidOfCourseMoon } from './moon';
 import { generateLifeTimeline, type LifeTimeline } from './life-timeline';
 import { getSouthNode, generateKarmicMission, detectKarmicTension, getKarmicLessons } from './karmic-mission';
@@ -346,14 +346,14 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
 
   // 8. Mission Karmique Enrichie V2.9.2 (Nœud Sud + tension)
   try {
-    const southNode = getSouthNode(natalNodes.northNode.sign);
+    const southNode = getSouthNode(natalNodes.northNode.sign as import('./karmic-mission').ZodiacSign);
     if (southNode) {
       let karmicText = `Nœud Sud (${southNode.sign}) — ce que tu maîtrises déjà : ${southNode.maitrise} `;
       karmicText += `Ce que tu dois lâcher : ${southNode.lacher} `;
       karmicText += `Piège à éviter : ${southNode.piege}`;
 
       // Tension karmique si détectée
-      const tension = detectKarmicTension(natalNodes.northNode.sign, num.lp.v, num.soul.v);
+      const tension = detectKarmicTension(natalNodes.northNode.sign as import('./karmic-mission').ZodiacSign, num.lp.v, num.soul.v);
       if (tension) {
         karmicText += ` ⚡ ${tension}`;
       }
@@ -381,7 +381,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   const pyInfo = getNumberInfo(num.py.v);
   const pmInfo = getNumberInfo(num.pm.v);
   const moon = getMoonPhase();
-  const bio = conv.biorhythm;
+  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
 
   // 1. Énergie du jour croisée (Numérologie + Day Type + Yi King + Lune)
   const hexProfile = getHexProfile(iching.hexNum);
@@ -471,12 +471,12 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
 
   // 5. Climat multi-échelle
   const cl = conv.climate;
-  let climateText = `Climat stratégique : Semaine en ${cl.week.label} (P${cl.week.value}), Mois en ${cl.month.label} (P${cl.month.value}), Année en ${cl.year.label} (P${cl.year.value}). `;
+  let climateText = `Climat stratégique : Semaine en ${cl.week.label}, Mois en ${cl.month.label}, Année en ${cl.year.label}. `;
   const allGrowth = cl.week.label === 'Croissance' && cl.month.label === 'Croissance';
   const allConsolidation = cl.week.label === 'Consolidation' && cl.month.label === 'Consolidation';
   if (allGrowth) climateText += `Triple alignement de croissance — fenêtre d'opportunité exceptionnelle.`;
   else if (allConsolidation) climateText += `Phase de consolidation multi-échelle — patience stratégique requise.`;
-  else climateText += `${cl.month.action}.`;
+  else climateText += `${cl.month.desc}.`;
   insights.push({
     text: climateText,
     sources: ['Année personnelle', 'Mois personnel', 'Semaine'],
@@ -608,7 +608,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     insights.push({
       text: voc.advice,
       sources: ['Lune Hors Cours', 'Aspects lunaires'],
-      intensity: voc.intensity,
+      intensity: (voc.intensity === 'faible' ? 'subtile' : voc.intensity) as 'forte' | 'subtile' | 'moyenne',
       icon: '🌙',
     });
   }
@@ -708,12 +708,12 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
     // Windows d'action du meilleur mois
     if (best.windows.length > 0) {
       const w = best.windows[0];
-      fcText += `Fenêtre d'action : ${w.label} du ${w.startDay} au ${w.endDay} ${MOIS_FR[best.month - 1]}. `;
+      fcText += `Fenêtre d'action : ${w.label} du ${w.startDate} au ${w.endDate} ${MOIS_FR[best.month - 1]}. `;
     }
 
     // Alertes du pire mois
     if (worst.alerts.length > 0) {
-      fcText += `⚠️ ${worst.alerts[0].label}. `;
+      fcText += `⚠️ ${worst.alerts[0].message}. `;
     }
 
     // Tendance générale
@@ -811,7 +811,7 @@ function buildCorrelativeDescription(
 ): string {
   const pdv = num.ppd.v;
   const pyv = num.py.v;
-  const bio = conv.biorhythm;
+  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const hasBio = systems.some(s => s.includes('Bio'));
   const hasLune = systems.some(s => s.includes('Lune'));
   const hasYiKing = systems.some(s => s.includes('Yi King'));
@@ -966,7 +966,7 @@ function detectContradictions(
   const c: Contradiction[] = [];
   const pdv = num.ppd.v;
   const pyv = num.py.v;
-  const bio = conv.biorhythm;
+  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const hexTier = getHexTier(iching.hexNum);
   const mercStatus = getMercuryStatus(new Date());
   const moon = getMoonPhase();
@@ -1261,7 +1261,7 @@ function detectCrossings(num: NumerologyProfile, astro: AstroChart | null, cz: C
   else { themeVotes['prudence'].push('Lune décroissante'); }
 
   // Biorhythmes
-  const bio = conv.biorhythm;
+  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   if (bio) {
     if (bio.average > 40) { themeVotes['action'].push('Biorhythmes'); themeVotes['expansion'].push('Biorhythmes'); }
     else if (bio.average < -40) { themeVotes['prudence'].push('Biorhythmes'); themeVotes['patience'].push('Biorhythmes'); }
@@ -1494,7 +1494,7 @@ function buildMicroDetails(
   const pdv = num.ppd.v;
   const pyv = num.py.v;
   const lpv = num.lp.v;
-  const bio = conv.biorhythm;
+  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const age = parseInt(new Date().getFullYear().toString()) - parseInt(bd.split('-')[0]);
 
   // ── 1. Triple maître + PD action → "Journée de fondateur"
@@ -1985,8 +1985,8 @@ function buildMicroDetails(
   // Récupérer les 10 Gods et Essence depuis conv (si disponibles)
   const tenGods = conv.tenGods as TenGodsResult | null | undefined;
   const essAlign = (conv as any).essenceAlignment as string | undefined;
-  const confidence = (conv as any).confidence as ConfidenceResult | undefined;
-  const metaScore = (conv as any).metaScore as MetaScore | undefined;
+  const confidence = (conv as any).confidence as any | undefined; // ConfidenceResult — type Firebase, non exporté
+  const metaScore = (conv as any).metaScore as any | undefined;   // MetaScore — type Firebase, non exporté
 
   // ── 42. Wealth God + PY 8 + Essence alignée CdV → "Attraction financière" (RESONANCE)
   if (tenGods?.dominant?.god === 'zheng_cai' && pyv === 8 && essAlign === 'cdv') {

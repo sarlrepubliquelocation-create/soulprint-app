@@ -1493,15 +1493,25 @@ export function getMoonTransit(targetDate: string): MoonTransit {
 // La Lune est "void of course" quand elle ne forme plus d'aspect majeur
 // (conjonction, sextile, carré, trigone, opposition) avant de quitter son signe.
 // Traditionnellement : ne rien lancer d'important pendant cette période.
+// DÉFINITION : seuil VOC_THRESHOLD_DEG degrés restants + aucun aspect Soleil
+// NOTE : seul le Soleil est vérifié (astre le plus influent, positions approx.)
+// V9 Sprint 7b : constantes nommées + vocStartHoursAgo + classe faible déclarée
 // ═══════════════════════════════════════════════════════════════════════
 
+// Constantes nommées pour transparence algorithmique
+export const VOC_THRESHOLD_DEG    = 8;    // degrés restants déclenchant la VoC
+export const VOC_SPEED_DEG_PER_H  = 0.55; // vitesse moyenne Lune (~13.2°/jour)
+export const VOC_FORTE_DEG        = 3;    // ≤ 3° → intensité forte
+export const VOC_ASPECT_ORB       = 8;    // orbe aspects majeurs (Soleil)
+
 export interface VoidOfCourseMoon {
-  isVoC: boolean;             // true si la Lune est hors cours maintenant
-  degreesLeft: number;        // degrés restants dans le signe actuel
+  isVoC: boolean;              // true si la Lune est hors cours maintenant
+  degreesLeft: number;         // degrés restants dans le signe actuel
   hoursUntilSignChange: number; // heures estimées avant changement de signe
-  nextSign: string;           // prochain signe lunaire
-  advice: string;             // conseil stratégique
-  intensity: 'forte' | 'moyenne' | 'faible'; // impact
+  vocStartHoursAgo: number;    // heures écoulées depuis début VoC estimé (0 si non-VoC)
+  nextSign: string;            // prochain signe lunaire
+  advice: string;              // conseil stratégique
+  intensity: 'forte' | 'moyenne' | 'faible'; // forte ≤3° / moyenne 3-8° / faible=non-VoC
 }
 
 /**
@@ -1522,27 +1532,25 @@ export function getVoidOfCourseMoon(targetDate: string): VoidOfCourseMoon {
   const positionInSign = moonLong % 30;
   const degreesLeft = 30 - positionInSign;
 
-  // Heures estimées avant changement de signe (~13.2° / jour = 0.55° / heure)
-  const hoursUntilSignChange = Math.round(degreesLeft / 0.55 * 10) / 10;
+  // Heures estimées avant changement de signe (vitesse constante VOC_SPEED_DEG_PER_H)
+  const hoursUntilSignChange = Math.round(degreesLeft / VOC_SPEED_DEG_PER_H * 10) / 10;
 
   // Longitude solaire approximative (~1°/jour)
   let sunLong = (0.9856474 * daysSinceRef + 280.46646) % 360;
   if (sunLong < 0) sunLong += 360;
 
   // Aspects majeurs : 0° (conj), 60° (sext), 90° (carré), 120° (trig), 180° (opp)
-  // Orbe : ±8° pour le Soleil (l'astre le plus influent)
+  // Orbe : VOC_ASPECT_ORB° — seul le Soleil est vérifié (astre le plus influent)
   const ASPECTS = [0, 60, 90, 120, 180];
-  const ORB = 8;
 
   // Vérifier si la Lune formera un aspect au Soleil dans les degrés restants
   let hasAspectAhead = false;
-  // Simuler la Lune avançant jusqu'à la fin du signe
   for (let dAhead = 0; dAhead < degreesLeft; dAhead += 0.5) {
     const futureMoonLong = (moonLong + dAhead) % 360;
     const diff = Math.abs(futureMoonLong - sunLong);
     const angle = diff > 180 ? 360 - diff : diff;
     for (const aspect of ASPECTS) {
-      if (Math.abs(angle - aspect) <= ORB) {
+      if (Math.abs(angle - aspect) <= VOC_ASPECT_ORB) {
         hasAspectAhead = true;
         break;
       }
@@ -1550,29 +1558,37 @@ export function getVoidOfCourseMoon(targetDate: string): VoidOfCourseMoon {
     if (hasAspectAhead) break;
   }
 
-  // VoC = dans les derniers degrés du signe ET pas d'aspect majeur devant
-  const isVoC = degreesLeft <= 8 && !hasAspectAhead;
+  // VoC = dans les derniers VOC_THRESHOLD_DEG degrés du signe ET pas d'aspect devant
+  const isVoC = degreesLeft <= VOC_THRESHOLD_DEG && !hasAspectAhead;
+
+  // Estimation du temps écoulé depuis début VoC : (VOC_THRESHOLD_DEG - degreesLeft) / speed
+  const vocStartHoursAgo = isVoC
+    ? Math.round((VOC_THRESHOLD_DEG - degreesLeft) / VOC_SPEED_DEG_PER_H * 10) / 10
+    : 0;
 
   // Prochain signe
   const nextSignIdx = (Math.floor(moonLong / 30) + 1) % 12;
   const nextSign = MOON_SIGN_NAMES[nextSignIdx];
 
   // Intensité et conseil
+  // forte  : ≤ VOC_FORTE_DEG° restants → VoC profonde, impact maximal
+  // moyenne : VOC_FORTE_DEG < degrés ≤ VOC_THRESHOLD_DEG → VoC établie
+  // faible  : non-VoC → Lune active, actions normales
   let advice: string;
   let intensity: 'forte' | 'moyenne' | 'faible';
 
-  if (isVoC && degreesLeft <= 3) {
+  if (isVoC && degreesLeft <= VOC_FORTE_DEG) {
     intensity = 'forte';
     advice = `Lune Hors Cours — ne lance rien d'important. Les actions initiées maintenant n'aboutissent pas. Attends le passage en ${nextSign} (~${hoursUntilSignChange}h).`;
   } else if (isVoC) {
     intensity = 'moyenne';
-    advice = `Lune en fin de signe (~${degreesLeft.toFixed(0)}° restants). Période de flottement — termine ce qui est en cours, mais ne lance pas de nouveau projet.`;
+    advice = `Lune en fin de signe (~${degreesLeft.toFixed(0)}° restants, VoC depuis ~${vocStartHoursAgo}h). Période de flottement — termine ce qui est en cours, mais ne lance pas de nouveau projet.`;
   } else {
     intensity = 'faible';
     advice = `Lune active en ${MOON_SIGN_NAMES[Math.floor(moonLong / 30) % 12]} — les actions portent leurs fruits normalement.`;
   }
 
-  return { isVoC, degreesLeft: Math.round(degreesLeft * 10) / 10, hoursUntilSignChange, nextSign, advice, intensity };
+  return { isVoC, degreesLeft: Math.round(degreesLeft * 10) / 10, hoursUntilSignChange, vocStartHoursAgo, nextSign, advice, intensity };
 }
 
 // ═══════════════════════════════════════════════════════════════════════

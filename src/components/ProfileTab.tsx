@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { type SoulData } from '../App';
-import { getNumberInfo, calcLifePathHorizontal, calcPersonalYear, calcInclusionDisplay, INCLUSION_DOMAIN_MAP, type InclusionDisplay } from '../engines/numerology';
+import { getNumberInfo, calcLifePathHorizontal, calcPersonalYear, calcInclusionDisplay, INCLUSION_DOMAIN_MAP, type InclusionDisplay, calcPinnacles, calcChallenges, getActivePinnacleIdx, formatReductionPath, NUMBER_INFO } from '../engines/numerology'; // V9 Sprint 7a +Pinnacles
 import { calcBirthCard, getArcana } from '../engines/tarot'; // V9 Sprint 6 — Carte Natale
 import { SIGN_FR, SIGN_SYM } from '../engines/astrology';
 import { getNatalMoon } from '../engines/moon';
@@ -216,6 +216,20 @@ export default function ProfileTab({ data, bd, bt, gender = 'M', fn = '' }: { da
   // ── Carte Natale Tarot — V9 Sprint 6 ──
   const birthCardNum = calcBirthCard(bd);
   const birthCard = getArcana(birthCardNum);
+
+  // ── Pinnacles & Challenges — V9 Sprint 7a ──
+  const pinnacles = calcPinnacles(bd);
+  const challenges = calcChallenges(bd);
+  const _pinnToday = new Date().toISOString().split('T')[0];
+  const activePinnIdx = getActivePinnacleIdx(bd, _pinnToday, num.lp);
+  const _lpS = num.lp.v > 9 ? (() => { let v = num.lp.v; while (v > 9) v = [...String(v)].map(Number).reduce((s, d) => s + d, 0); return v; })() : num.lp.v;
+  const _p1End = 36 - _lpS;
+  const pinnacleAges = [
+    { start: 0,          end: _p1End },
+    { start: _p1End + 1, end: _p1End + 9 },
+    { start: _p1End + 10, end: _p1End + 18 },
+    { start: _p1End + 19, end: 99 },
+  ];
 
   // ── Yi King natal ──
   const natal = calcNatalIChing(bd);
@@ -1662,6 +1676,88 @@ export default function ProfileTab({ data, bd, bt, gender = 'M', fn = '' }: { da
               )}
             </>
           )}
+        </Cd>
+      </Sec>
+
+      {/* ═══ SOMMETS & DÉFIS — PINNACLES & CHALLENGES — V9 Sprint 7a ═══ */}
+      <Sec icon="🏔️" title="Sommets & Défis">
+        <Cd>
+          <div style={intro}>
+            Quatre grandes périodes de vie issues de votre date de naissance. Chaque Sommet révèle l'énergie à déployer ; chaque Défi, la leçon à intégrer.
+          </div>
+
+          {/* ── Pinnacles ── */}
+          <div style={{ fontSize: 11, color: P.textMid, fontWeight: 700, letterSpacing: 1.2, marginBottom: 10, textTransform: 'uppercase' }}>Sommets de vie</div>
+          {pinnacles.map((p, i) => {
+            const isActive = i === activePinnIdx;
+            const info = NUMBER_INFO[p.v] || { k: '—', s: '?', c: '#888' };
+            const per = pinnacleAges[i];
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 12px', borderRadius: 10, marginBottom: 6,
+                background: isActive ? `${P.gold}12` : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isActive ? P.gold + '44' : 'rgba(255,255,255,0.07)'}`,
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                  background: isActive ? P.gold : 'rgba(255,255,255,0.07)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16, fontWeight: 900,
+                  color: isActive ? '#0d0d1a' : P.textMid,
+                }}>
+                  {p.v}{p.m ? '✦' : ''}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? P.gold : P.text }}>
+                      {info.k}
+                    </span>
+                    {isActive && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: P.gold, background: `${P.gold}20`, borderRadius: 4, padding: '1px 5px' }}>ACTIF</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
+                    P{i + 1} · {per.start}–{per.end === 99 ? '∞' : per.end + ' ans'} · {formatReductionPath(p)} · {info.s}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* ── Challenges ── */}
+          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, letterSpacing: 1.2, marginTop: 14, marginBottom: 10, textTransform: 'uppercase' }}>Défis à transcender</div>
+          {challenges.map((c, i) => {
+            const isMain = i === 2;
+            const label = ['Défi 1', 'Défi 2', 'Défi Principal ★', 'Défi 4'][i];
+            const isActive = i === activePinnIdx;
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '7px 10px', borderRadius: 8, marginBottom: 5,
+                background: isMain ? 'rgba(148,163,184,0.07)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${isMain ? 'rgba(148,163,184,0.25)' : 'rgba(255,255,255,0.05)'}`,
+              }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                  background: isMain ? 'rgba(148,163,184,0.18)' : 'rgba(255,255,255,0.04)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, color: isMain ? '#cbd5e1' : '#94a3b8',
+                }}>
+                  {c.v}
+                </div>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: isMain ? '#cbd5e1' : '#94a3b8' }}>
+                    {label}
+                  </span>
+                  {isActive && i !== 2 && (
+                    <span style={{ fontSize: 9, marginLeft: 6, color: '#94a3b8', background: 'rgba(148,163,184,0.12)', borderRadius: 4, padding: '1px 4px' }}>ACTIF</span>
+                  )}
+                  <span style={{ fontSize: 10, color: P.textDim, marginLeft: 8 }}>{formatReductionPath(c)}</span>
+                </div>
+              </div>
+            );
+          })}
         </Cd>
       </Sec>
 

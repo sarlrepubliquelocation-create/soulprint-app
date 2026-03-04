@@ -12,7 +12,7 @@ import { getDayFeedback, saveDayFeedback } from '../engines/validation-tracker';
 import { calcMomentum } from '../engines/vectorEngine'; // V8 momentum EMA
 import { getCurrentPlanetaryHour, getBestHoursToday, planetFr } from '../engines/planetary-hours'; // V9 Sprint 4
 import { INCLUSION_DOMAIN_MAP } from '../engines/numerology'; // V9 Sprint 5 — badge inclusion
-import { getArcana, calcTarotDayNumber } from '../engines/tarot'; // V9 Sprint 6 — Arcane du jour
+import { getArcana, calcTarotDayNumber, DASHA_ARCANA_MAP } from '../engines/tarot'; // V9 Sprint 6 + 8a
 
 // V4.0: Couleurs des 6 domaines contextuels
 const DOMAIN_COLORS: Record<string, string> = {
@@ -77,6 +77,14 @@ const DASHA_COLOR: Record<string, string> = {
   Ketu:    '#a78bfa', Vénus:   '#f472b6', Soleil:  '#fbbf24',
   Lune:    '#60a5fa', Mars:    '#f87171', Rahu:    '#c084fc',
   Jupiter: '#4ade80', Saturne: '#94a3b8', Mercure: '#38bdf8',
+};
+
+// V9 Sprint 8a — Chiffres romains pour les 22 Arcanes Majeurs
+const ROMAN_ARCANA: Record<number, string> = {
+  0: '0',   1: 'I',    2: 'II',   3: 'III',  4: 'IV',    5: 'V',
+  6: 'VI',  7: 'VII',  8: 'VIII', 9: 'IX',  10: 'X',    11: 'XI',
+  12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV', 16: 'XVI', 17: 'XVII',
+  18: 'XVIII', 19: 'XIX', 20: 'XX', 21: 'XXI',
 };
 
 // V5.2 — Durée restante lisible
@@ -151,6 +159,79 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
     setBlindMode('result');
     setTimeout(() => setBlindMode(null), 4500);
   }, [blindYesterday, blindRating, blindPredicted, blindLabel]);
+
+  const [isSharingDay, setIsSharingDay] = useState(false); // V9 Sprint 7d — déclaré AVANT generateDayCard
+
+  // ── V9 Sprint 7d — Carte du Jour partageable ──
+  const generateDayCard = useCallback(async () => {
+    setIsSharingDay(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 540; canvas.height = 960;
+      const ctx = canvas.getContext('2d')!;
+      // Background
+      const bg = ctx.createLinearGradient(0, 0, 540, 960);
+      bg.addColorStop(0, '#0d0d1a'); bg.addColorStop(0.5, '#1a1040'); bg.addColorStop(1, '#0d0d1a');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, 540, 960);
+      // Étoiles déterministes (seed = date)
+      let seed = parseInt(todayStr.replace(/-/g, '')) & 0xffffffff;
+      const rng = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
+      for (let i = 0; i < 45; i++) {
+        ctx.beginPath(); ctx.arc(rng() * 540, rng() * 960, rng() * 1.5 + 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,215,0,${0.15 + rng() * 0.55})`; ctx.fill();
+      }
+      // Bordure
+      ctx.strokeStyle = 'rgba(255,215,0,0.32)'; ctx.lineWidth = 2;
+      ctx.strokeRect(14, 14, 512, 932);
+      ctx.textAlign = 'center';
+      // Header
+      ctx.font = '600 17px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,215,0,0.82)';
+      ctx.fillText('✦  KAIRONAUTE  ✦', 270, 72);
+      // Date
+      const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      ctx.font = '400 17px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(dateLabel, 270, 110);
+      // Nom
+      if (num.full) {
+        ctx.font = '500 21px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.72)';
+        ctx.fillText(num.full, 270, 152);
+      }
+      // Score géant
+      const sg = ctx.createLinearGradient(170, 320, 370, 510);
+      sg.addColorStop(0, '#FFD700'); sg.addColorStop(0.5, '#FFA500'); sg.addColorStop(1, '#FFD700');
+      ctx.fillStyle = sg;
+      ctx.font = '900 190px system-ui,sans-serif';
+      ctx.fillText(String(cv.score), 270, 500);
+      // Level
+      ctx.font = '700 24px system-ui,sans-serif';
+      ctx.fillStyle = cv.lCol || '#FFD700';
+      ctx.fillText(cv.level.replace(/^[^\s]+ /, '').toUpperCase(), 270, 555);
+      // Arcane
+      const arcDay = getArcana(calcTarotDayNumber(todayStr));
+      ctx.font = '500 18px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,215,0,0.65)';
+      ctx.fillText(`🃏  ${arcDay.name_fr}  ·  ${arcDay.theme}`, 270, 618);
+      // Narratif (72 chars)
+      const snip = arcDay.narrative.length > 72 ? arcDay.narrative.slice(0, 72) + '…' : arcDay.narrative;
+      ctx.font = 'italic 14px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.38)';
+      ctx.fillText(snip, 270, 658);
+      // Footer
+      ctx.font = '400 13px system-ui,sans-serif'; ctx.fillStyle = 'rgba(255,215,0,0.38)';
+      ctx.fillText('kaironaute.app', 270, 924);
+      // Partage
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `kaironaute-${todayStr}.png`, { type: 'image/png' });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: `Mon Score du Jour — ${cv.score}%` });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png');
+    } catch (e) { console.error('dayCard error', e); }
+    finally { setIsSharingDay(false); }
+  }, [cv, num, todayStr]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showMercuryInfo, setShowMercuryInfo] = useState(false);
   const [showEclipseInfo, setShowEclipseInfo] = useState(false);
   const hexProfile = getHexProfile(iching.hexNum);
@@ -565,6 +646,27 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 </div>
               </div>
             )}
+
+            {/* ── V9 Sprint 7d — Bouton Carte du Jour ── */}
+            <div style={{ marginTop: 18 }}>
+              <button
+                onClick={generateDayCard}
+                disabled={isSharingDay}
+                style={{
+                  width: '100%', padding: '13px 0', borderRadius: 12,
+                  background: isSharingDay
+                    ? 'rgba(255,215,0,0.15)'
+                    : 'linear-gradient(135deg, #B8860B, #FFD700, #B8860B)',
+                  border: 'none', cursor: isSharingDay ? 'not-allowed' : 'pointer',
+                  fontSize: 14, fontWeight: 700,
+                  color: isSharingDay ? 'rgba(255,215,0,0.5)' : '#0d0d1a',
+                  letterSpacing: 0.3,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {isSharingDay ? '⏳ Génération…' : '📲 Partager le Score du Jour'}
+              </button>
+            </div>
           </div>
 
           {/* ═══ V8 — Décomposition Signal · Terrain · Élan ═══ */}
@@ -1366,6 +1468,44 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     {pratNarr}
                   </div>
                 )}
+
+                {/* ── Sprint 8a — Arcane de Saison : résonance Dasha↔Tarot ── */}
+                {(() => {
+                  const arcanaNum = DASHA_ARCANA_MAP[mahaLord];
+                  if (arcanaNum === undefined) return null;
+                  const arcana = getArcana(arcanaNum);
+                  return (
+                    <div style={{
+                      marginTop: 10, padding: '8px 12px',
+                      background: `${color}08`, borderRadius: 8,
+                      border: `1px solid ${color}20`,
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}>
+                      {/* Badge chiffre romain */}
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 6, flexShrink: 0,
+                        background: `${color}15`, border: `1px solid ${color}35`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 800, color, fontFamily: 'serif',
+                        letterSpacing: -0.5,
+                      }}>
+                        {ROMAN_ARCANA[arcana.num] ?? arcana.num}
+                      </div>
+                      {/* Texte */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
+                          🎴 Arcane de Saison
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color, marginTop: 1 }}>
+                          {arcana.name_fr}
+                        </div>
+                        <div style={{ fontSize: 10, color: P.textMid, marginTop: 1, fontStyle: 'italic' }}>
+                          {arcana.theme}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -1580,31 +1720,32 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
           </div>
 
           <div style={{ marginTop: 20 }}>
-            {cv.calibration && cv.calibration.recentVotes >= 3 && (
+            {/* ── Calibration Firebase — T6 (déverrouillé quand Firestore actif) ── */}
+            {(cv as any).calibration && (cv as any).calibration.recentVotes >= 3 && (
               <div style={{
                 marginBottom: 12, padding: '10px 14px',
-                background: cv.calibration.accuracy >= 70 ? '#4ade800a' : '#D4AF370a',
+                background: (cv as any).calibration.accuracy >= 70 ? '#4ade800a' : '#D4AF370a',
                 borderRadius: 8,
-                border: `1px solid ${cv.calibration.accuracy >= 70 ? '#4ade8025' : '#D4AF3725'}`,
+                border: `1px solid ${(cv as any).calibration.accuracy >= 70 ? '#4ade8025' : '#D4AF3725'}`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 14 }}>{cv.calibration.accuracy >= 80 ? '🎯' : cv.calibration.accuracy >= 60 ? '📊' : '🔄'}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: cv.calibration.accuracy >= 70 ? '#4ade80' : '#D4AF37' }}>
-                    Précision perçue : {cv.calibration.accuracy}%
+                  <span style={{ fontSize: 14 }}>{(cv as any).calibration.accuracy >= 80 ? '🎯' : (cv as any).calibration.accuracy >= 60 ? '📊' : '🔄'}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: (cv as any).calibration.accuracy >= 70 ? '#4ade80' : '#D4AF37' }}>
+                    Précision perçue : {(cv as any).calibration.accuracy}%
                   </span>
                   <span style={{ fontSize: 10, color: P.textDim, marginLeft: 'auto' }}>
-                    {cv.calibration.recentVotes} votes / 30j
+                    {(cv as any).calibration.recentVotes} votes / 30j
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.4 }}>
-                  {cv.calibration.accuracy >= 80
+                  {(cv as any).calibration.accuracy >= 80
                     ? 'L\'Oracle est bien calibré à votre profil — continuez à voter !'
-                    : cv.calibration.accuracy >= 60
+                    : (cv as any).calibration.accuracy >= 60
                     ? 'Calibration en cours — chaque vote améliore la précision.'
                     : 'Vos retours ajustent le scoring — le système apprend de vous.'
                   }
-                  {cv.calibration.globalOffset !== 0 && (
-                    <span style={{ color: P.textDim }}> (calibration : {cv.calibration.globalOffset > 0 ? '+' : ''}{cv.calibration.globalOffset})</span>
+                  {(cv as any).calibration.globalOffset !== 0 && (
+                    <span style={{ color: P.textDim }}> (calibration : {(cv as any).calibration.globalOffset > 0 ? '+' : ''}{(cv as any).calibration.globalOffset})</span>
                   )}
                 </div>
               </div>

@@ -30,6 +30,7 @@ import TemporalTab, { type TemporalData } from './components/TemporalTab';
 import BondTab from './components/BondTab';
 import OracleTab from './components/OracleTab';
 import { Cd, P } from './components/ui';
+import OnboardingModal, { isOnboardingDone } from './components/OnboardingModal'; // V9 Sprint 7c
 
 // Inject custom scrollbar for tabs (once)
 if (typeof document !== 'undefined' && !document.getElementById('sp-tabs-scroll')) {
@@ -75,6 +76,9 @@ const tabs = [
 ];
 
 export default function App() {
+  // ── Onboarding — V9 Sprint 7c ──
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboardingDone());
+
   const [fn, setFn] = useState('');
   const [mn, setMn] = useState('');
   const [ln, setLn] = useState('');
@@ -480,6 +484,8 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.text, position: 'relative' }}>
+      {/* ── Onboarding modal — V9 Sprint 7c ── */}
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} />}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 15% 10%,#1a170a,transparent 55%),radial-gradient(ellipse at 85% 90%,#0a0f1a,transparent 50%)' }} />
       <div style={{ position: 'relative', maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
         {/* Header */}
@@ -555,6 +561,15 @@ export default function App() {
             <div />
           </div>
           {bp && <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: findCity(bp) ? P.green : P.red }}>{findCity(bp) ? '✔ ' + bp + ' trouvé' : '✗ Ville non trouvée'}</div>}
+          {/* ── Sprint 8d — Badge DST auto-correction ── */}
+          {data?.astro?.tzSuggested != null && data.astro.tzSuggested !== lock.tz && (
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+              <span style={{ background: `${P.gold}20`, border: `1px solid ${P.gold}44`, borderRadius: 10, padding: '2px 8px', color: P.gold, fontWeight: 700 }}>
+                ⚡ UTC+{data.astro.tzSuggested} à la naissance ({data.astro.tzSuggested >= 2 ? 'CEST été' : 'CET hiver'})
+              </span>
+              <span style={{ color: P.textDim, fontSize: 10 }}>sélecteur : UTC+{lock.tz}</span>
+            </div>
+          )}
         </Cd>
 
         {/* Tabs */}
