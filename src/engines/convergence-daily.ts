@@ -866,8 +866,8 @@ export function calcDailyModules(
     });
   } catch { /* panchanga fail silently */ }
 
-  // Sprint D3 — Application cap groupe LUNE ±13 (Nakshatra + R31 + VoC + Ash☽ + Panchanga)
-  delta += Math.max(-13, Math.min(13, luneGroupPts));
+  // Sprint E4 — Application cap groupe LUNE ±14 (Nakshatra + R31 + VoC + Ash☽ + Panchanga + Karana)
+  delta += Math.max(-14, Math.min(14, luneGroupPts));
 
   // ═══════════════════════════════════
   // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)
