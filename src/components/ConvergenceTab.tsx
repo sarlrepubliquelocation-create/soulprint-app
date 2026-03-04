@@ -915,9 +915,14 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
           })()}
 
           {cv.contextualScores && (() => {
-            // Option A : Terrain multiplier appliqué aux domain scores — Sprint O — V10.8
+            // Option A : Terrain multiplier + ré-ancrage au score global — Sprint O — V10.8
             const terrain = (cv.ctxMult ?? 1.0) * (cv.dashaMult ?? 1.0);
-            const adjustDomain = (s: number) => Math.round(50 + (s - 50) * terrain);
+            const globalScore = cv.score ?? 50;
+            // Étape 1 : terrain compresse l'écart à 50 | Étape 2 : ancrage 40% au score global
+            const adjustDomain = (s: number) => {
+              const t1 = 50 + (s - 50) * terrain;
+              return Math.round(t1 * 0.60 + globalScore * 0.40);
+            };
             const domScore = (name: string) => adjustDomain(cv.contextualScores!.domains.find(d => d.domain === name)?.score ?? 50);
             const calcMeta = (a: number, b: number) => Math.min(100, Math.round(Math.max(a, b) + Math.min(a, b) * 0.15));
             const meta = [
