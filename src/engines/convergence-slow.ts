@@ -160,7 +160,7 @@ export function calcSlowModules(
     const natalLongs = extractNatalReturnLongs(astro);
     if (natalLongs) {
       const nakQuality = nakshatraData?.globalBaseScore ?? 0;
-      const returnsResult = calcPlanetaryReturns(new Date(), natalLongs, nakQuality);
+      const returnsResult = calcPlanetaryReturns(params.evalDate ?? new Date(), natalLongs, nakQuality);
       returnsScore = returnsResult.totalScore;
       hasJupiterReturn = returnsResult.breakdown.some(b => /jupiter/i.test(b)); // V6.0 S4
       if (returnsResult.hasActiveReturn) {
@@ -208,7 +208,7 @@ export function calcSlowModules(
 
   let progressionsScore = 0;
   if (astro) {
-    const progResult = calcProgressions(bd, new Date(), astro);
+    const progResult = calcProgressions(bd, params.evalDate ?? new Date(), astro);
     progressionsScore = Math.max(-3, Math.min(3, progResult.totalScore)); // V6.2: cap ±3 (signal mensuel, pas quotidien — R17)
     if (progResult.breakdown.length > 0) {
       breakdown.push({
@@ -248,7 +248,7 @@ export function calcSlowModules(
       // V9 Sprint 1 — certitude Dasha (Gemini 3.1 Pro)
       dashaCertainityResult = calculateDashaCertainty(natalMoonSid, bt || null);
 
-      const dasha       = calcCurrentDasha(natalMoonSid, birthD, new Date());
+      const dasha       = calcCurrentDasha(natalMoonSid, birthD, params.evalDate ?? new Date());
       const dashaResult = calcDashaScore(dasha, { transitLord, natalMoonIsWaxing });
       dashaTotal        = dashaResult.total;
       dashaMahaScore    = dashaResult.mahaScore;   // V9.0 P4
@@ -331,7 +331,7 @@ export function calcSlowModules(
   let solarReturnScore = 0;
   if (astro) {
     try {
-      const srResult = calcSolarReturn(astro, bd, new Date());
+      const srResult = calcSolarReturn(astro, bd, params.evalDate ?? new Date());
       solarReturnScore = srResult.totalScore;
       if (srResult.hasActiveSR && solarReturnScore !== 0) {
         const sign = solarReturnScore > 0 ? '+' : '';
@@ -372,7 +372,7 @@ export function calcSlowModules(
       if (astro.mcSign)  natalLongs.mc  = planetPosToLong(astro.mcSign, astro.mcDeg ?? 0);
 
       if (Object.keys(natalLongs).length > 0) {
-        const eclResult = getEclipseNatalImpacts(natalLongs, new Date());
+        const eclResult = getEclipseNatalImpacts(natalLongs, params.evalDate ?? new Date());
         eclipseNatalPts = eclResult.total;
         hasSolarEclipseNatal = eclResult.hits.some(
           h => /solaire|solar/i.test(h.eclipseName ?? '')
@@ -489,7 +489,7 @@ export function calcSlowModules(
   // Range : pire (−4,−2) → 0.80 clamped | meilleur (+4,+2) → 1.25 clamped
   const dashaMultiplierRaw = composeDashaMultipliers(dashaMahaScore, dashaAntarScore);
   const dashaMultSmoothed  = currentDasha
-    ? calcSandhiSmoothing(currentDasha, dashaMultiplierRaw, new Date())
+    ? calcSandhiSmoothing(currentDasha, dashaMultiplierRaw, params.evalDate ?? new Date())
     : dashaMultiplierRaw;
   const dashaMultiplier = dashaMultSmoothed * dashaCertainityResult.score;
   console.assert(
@@ -527,7 +527,7 @@ export function calcSlowModules(
 
   if (astro) {
     try {
-      const todayD2  = new Date();
+      const todayD2  = params.evalDate ?? new Date();
       const ay2      = getAyanamsa(todayD2.getFullYear());
 
       // Soleil sidéral
