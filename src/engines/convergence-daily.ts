@@ -17,6 +17,7 @@ import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './naksh
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
+import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -991,6 +992,31 @@ export function calcDailyModules(
       alerts:  phPts < 0 ? [`${planetaryHourNow.icon} ${planetaryHourNow.label} — ${planetaryHourNow.keywords.join(', ')}`] : [],
     });
   }
+
+  // ═══════════════════════════════════
+  // 12c. ÉTOILES FIXES — V9.6 Sprint A3
+  // 10 étoiles majeures, orbes ±0.5° (exacte) / ±1.5° (large), cap ±8
+  // ═══════════════════════════════════
+
+  let fixedStarResult: FixedStarResult | null = null;
+  try {
+    fixedStarResult = calcFixedStarScore(new Date(todayStr + 'T12:00:00'));
+    if (fixedStarResult.total !== 0) {
+      ephemGroupPts += fixedStarResult.total; // intégré dans groupe EPHEM
+      signals.push(...fixedStarResult.signals);
+      alerts.push(...fixedStarResult.alerts);
+      if (fixedStarResult.hits.length > 0) {
+        breakdown.push({
+          system: 'Étoiles Fixes', icon: '⭐',
+          value: fixedStarResult.hits.map(h => h.star).join(' · '),
+          points: fixedStarResult.total,
+          detail: fixedStarResult.hits.map(h => `${h.planet} ↔ ${h.star} (${h.orb.toFixed(1)}°)`).join(' · '),
+          signals: fixedStarResult.signals,
+          alerts:  fixedStarResult.alerts,
+        });
+      }
+    }
+  } catch { /* fixed stars fail silently */ }
 
   // V9.6 Sprint A2 — Application cap groupe EPHEM ±12
   delta += Math.max(-12, Math.min(12, ephemGroupPts));
