@@ -7,7 +7,7 @@
 // ══════════════════════════════════════
 
 import { type NumerologyProfile } from './numerology';
-import { type AstroChart } from './astrology';
+import { type AstroChart, getPlanetLongitudeForDate } from './astrology';
 import { calcPlanetaryReturns, extractNatalReturnLongs, planetPosToLong } from './returns';
 import { calcProgressions } from './progressions';
 import { calcSolarReturn } from './solar-return';
@@ -19,6 +19,7 @@ import { calcCurrentDasha, calcDashaScore, composeDashaMultipliers, calcSandhiSm
 import { type SystemBreakdown, SLOW_PLANETS, type DashaCertaintyResult, type DashaCertaintyLevel } from './convergence.types';
 import { type DailyModuleResult } from './convergence-daily';
 import { calcTransitStellium } from './transit-stellium'; // V8.5 — P5
+import { calcAshtakavarga } from './ashtakavarga'; // Sprint D4 — ASV ☉♂ migré depuis L1
 
 // ══════════════════════════════════════
 // ═══ V6.0 : CONTEXTE MULTIPLICATEUR ═══
@@ -514,6 +515,55 @@ export function calcSlowModules(
     signals: ctx.multiplier > 1.03 ? [ctx.breakdown[0]] : [],
     alerts:  ctx.multiplier < 0.97 ? [ctx.breakdown[0]] : [],
   });
+
+  // ═══════════════════════════════════
+  // ASHTAKAVARGA ☉♂ — Sprint D4 (migré depuis L1)
+  // Rythme Soleil ~30j/signe, Mars ~45j/signe → signal lent → appartient à L2
+  // Cap individuel ±3 chacun (signal moins fort que la Lune en L1)
+  // ═══════════════════════════════════
+
+  if (astro) {
+    try {
+      const todayD2  = new Date();
+      const ay2      = getAyanamsa(todayD2.getFullYear());
+
+      // Soleil sidéral
+      const sunTropL  = getPlanetLongitudeForDate('sun', todayD2);
+      const sunSidL   = ((sunTropL - ay2) + 360) % 360;
+      const ashSun2   = calcAshtakavarga('sun', sunSidL, astro, bd);
+      const sunDelta  = Math.max(-3, Math.min(3, ashSun2.delta));
+      if (sunDelta !== 0) {
+        delta += sunDelta;
+        signals.push(...ashSun2.signals);
+        alerts.push(...ashSun2.alerts);
+        breakdown.push({
+          system: 'Ashtakavarga ☉', icon: '⭕',
+          value:  `${ashSun2.signName} — ${ashSun2.bindus} Bindus`,
+          points: sunDelta,
+          detail: `Soleil sidéral en ${ashSun2.signName} | BAV Soleil natale`,
+          signals: ashSun2.signals, alerts: ashSun2.alerts,
+        });
+      }
+
+      // Mars sidéral
+      const marsTropL = getPlanetLongitudeForDate('mars', todayD2);
+      const marsSidL  = ((marsTropL - ay2) + 360) % 360;
+      const ashMars2  = calcAshtakavarga('mars', marsSidL, astro, bd);
+      const marsDelta = Math.max(-3, Math.min(3, ashMars2.delta));
+      if (marsDelta !== 0) {
+        delta += marsDelta;
+        signals.push(...ashMars2.signals);
+        alerts.push(...ashMars2.alerts);
+        breakdown.push({
+          system: 'Ashtakavarga ♂', icon: '⭕',
+          value:  `${ashMars2.signName} — ${ashMars2.bindus} Bindus`,
+          points: marsDelta,
+          detail: `Mars sidéral en ${ashMars2.signName} | BAV Mars natale`,
+          signals: ashMars2.signals, alerts: ashMars2.alerts,
+        });
+      }
+    } catch { /* ASV Sun/Mars fail silently */ }
+  }
 
   // ═══════════════════════════════════
   // TRANSIT STELLIUM V8.5 — P5
