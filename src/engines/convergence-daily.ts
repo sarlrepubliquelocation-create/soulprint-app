@@ -19,7 +19,7 @@ import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, 
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
-import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult } from './panchanga'; // Sprint D3 + Sprint G
+import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult } from './panchanga'; // Sprint D3 + Sprint G + Sprint J
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -673,14 +673,13 @@ export function calcDailyModules(
   let luneGroupPts = 0;
 
   let nakshatraData: NakshatraData | undefined;
+  let natalMoonSidForNak: number | null = null; // Sprint J — hissé au scope fonction (utilisé aussi par Tithi Lord Gochara post-section)
   try {
     const todayD = new Date(todayStr + 'T12:00:00Z');
     const moonPhaseForNak = getMoonPhase(todayD);
     const currentYear = todayD.getFullYear();
     const ayanamsa = getAyanamsa(currentYear);
     const moonLongSidereal = ((moonPhaseForNak.longitudeTropical - ayanamsa) % 360 + 360) % 360;
-
-    let natalMoonSidForNak: number | null = null;
     try {
       const birthDforNak = new Date(bd + 'T12:00:00');
       const natalMoon = getMoonPhase(birthDforNak);
@@ -975,6 +974,44 @@ export function calcDailyModules(
     detail: astro ? `${astro.tr.filter(t => SLOW_PLANETS.has(t.tp)).length} planètes lentes` : 'N/A',
     signals: astroSignals, alerts: astroAlerts,
   });
+
+  // ═══════════════════════════════════
+  // 8b. TITHI LORD GOCHARA — Sprint J (±2)
+  // Seigneur du Tithi en transit / Lune natale (Gochara védique)
+  // Post-section autonome : panchangaResult déjà calculé + getPlanetLongitudeForDate
+  // Coverage : 7 planètes (Rahu → neutre, delta = 0)
+  // ═══════════════════════════════════
+
+  if (panchangaResult !== null && natalMoonSidForNak !== null) {
+    try {
+      const tlgLord = getTithiLord(panchangaResult.tithi.tithi);
+      if (tlgLord !== 'rahu') {
+        const evalD_tlg = new Date(todayStr + 'T12:00:00');
+        const ay_tlg    = getAyanamsa(evalD_tlg.getFullYear());
+        // Safe cast : TITHI_LORDS_30 \ {'rahu'} ⊂ getPlanetLongitudeForDate param type
+        const tropLon   = getPlanetLongitudeForDate(
+          tlgLord as 'sun' | 'moon' | 'mars' | 'mercury' | 'jupiter' | 'venus' | 'saturn',
+          evalD_tlg,
+        );
+        const sidLon    = ((tropLon - ay_tlg) % 360 + 360) % 360;
+        const tlgRes    = calcTithiLordGochara(tlgLord, sidLon, natalMoonSidForNak);
+        const tlgDelta  = Math.max(-2, Math.min(2, tlgRes.delta));
+        if (tlgDelta !== 0) {
+          delta += tlgDelta;
+          if (tlgDelta > 0) signals.push(tlgRes.label);
+          else              alerts.push(tlgRes.label);
+          breakdown.push({
+            system: 'Tithi Lord', icon: '🪐',
+            value:  `${tlgLord} M${tlgRes.houseFromMoon}`,
+            points: tlgDelta,
+            detail: `Gochara Tithi ${panchangaResult.tithi.tithi} — ${tlgLord} en maison ${tlgRes.houseFromMoon} Lune natale`,
+            signals: tlgDelta > 0 ? [tlgRes.label] : [],
+            alerts:  tlgDelta < 0 ? [tlgRes.label] : [],
+          });
+        }
+      }
+    } catch { /* Tithi Lord Gochara fail silently */ }
+  }
 
   // ═══════════════════════════════════
   // 9. NŒUDS LUNAIRES (annotation, pas de points)

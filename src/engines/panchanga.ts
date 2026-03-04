@@ -470,3 +470,96 @@ export function calcChandraYoga(
     detail: 'Planètes maléfiques en 2/12 — neutre (pas de yoga bénéfique)',
   };
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ═══ TITHI LORD GOCHARA — Sprint J — V10.4 ═══
+// Source : Gochara védique (Phaladeepika Ch.26) + cycle Tithi Lords (Muhurta Chintamani)
+// Placement : L1 post-section autonome (après Transits dans convergence-daily.ts)
+// Coverage : 7 planètes (Sun/Moon/Mars/Mercury/Jupiter/Venus/Saturn) + Rahu→neutre
+// ══════════════════════════════════════════════════════════════════
+//
+// FORMULE :
+//   tithiLord    = TITHI_LORDS_30[tithiNum - 1]
+//   transitSign  = floor(lordSidLon / 30)                          [0..11]
+//   natalSign    = floor(natalMoonSidLon / 30)                     [0..11]
+//   houseFromMoon = ((transitSign - natalSign + 12) % 12) + 1      [1..12]
+//   favorable    = GOCHARA_FAVORABLE[lord].includes(houseFromMoon)
+//   delta = favorable ? +2 : -1   (capé ±2 côté appelant)
+//
+// Rahu (Tithis 8,23,30) : longitude non calculable → delta = 0 (neutre)
+//
+// ── Cycle des Tithi Lords (30 Tithis) ─────────────────────────────
+// Shukla (1-15)  : Sun→Moon→Mars→Mercury→Jupiter→Venus→Saturn→Rahu + Sun..Saturn
+// Krishna (16-30) : même cycle, Amavasya (30) = Rahu
+
+const TITHI_LORDS_30 = [
+  // Shukla Paksha (Tithis 1-15)
+  'sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu',
+  'sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn',
+  // Krishna Paksha (Tithis 16-30)
+  'sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn', 'rahu',
+  'sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'rahu',
+] as const;
+
+// ── Maisons favorables en Gochara (depuis la Lune natale) ─────────
+// Source : Phaladeepika Ch.26 / Jataka Parijata — consensus classique
+
+const GOCHARA_FAVORABLE: Readonly<Record<string, readonly number[]>> = {
+  sun:     [1, 3, 6, 10, 11],
+  moon:    [1, 3, 6, 7, 10, 11],
+  mars:    [3, 6, 10, 11],
+  mercury: [2, 4, 6, 8, 10, 11],
+  jupiter: [2, 5, 7, 9, 11],
+  venus:   [1, 2, 3, 4, 5, 8, 9, 11, 12],
+  saturn:  [3, 6, 11],
+};
+
+// ── Interface résultat ────────────────────────────────────────────
+
+export interface TithiLordGocharaResult {
+  lord:          string;   // planet name lowercase
+  houseFromMoon: number;   // 1..12
+  favorable:     boolean;
+  delta:         number;   // +2 | -1 | 0 (Rahu)
+  label:         string;
+}
+
+// ── getTithiLord ──────────────────────────────────────────────────
+
+/**
+ * Retourne le Seigneur du Tithi (planète en minuscules).
+ * Rahu pour les Tithis 8, 23, 30.
+ */
+export function getTithiLord(tithiNum: number): string {
+  const idx = Math.max(0, Math.min(29, tithiNum - 1));
+  return TITHI_LORDS_30[idx];
+}
+
+// ── calcTithiLordGochara ─────────────────────────────────────────
+
+/**
+ * Sprint J — Tithi Lord Gochara
+ * Calcule si le Seigneur du Tithi est en position favorable (Gochara védique).
+ *
+ * @param lord            Planète (depuis getTithiLord), doit être ≠ 'rahu'
+ * @param lordSidLon      Longitude sidérale du lord (degrés 0-360), calculée côté appelant
+ * @param natalMoonSidLon Longitude sidérale de la Lune natale (degrés 0-360)
+ */
+export function calcTithiLordGochara(
+  lord: string,
+  lordSidLon: number,
+  natalMoonSidLon: number,
+): TithiLordGocharaResult {
+  const transitSign   = Math.floor(((lordSidLon     % 360) + 360) % 360 / 30) % 12;
+  const natalMoonSign = Math.floor(((natalMoonSidLon % 360) + 360) % 360 / 30) % 12;
+  const houseFromMoon = ((transitSign - natalMoonSign + 12) % 12) + 1; // 1..12
+
+  const favorable = (GOCHARA_FAVORABLE[lord] ?? []).includes(houseFromMoon);
+  const delta     = favorable ? 2 : -1;
+
+  const label = favorable
+    ? `⭐ Tithi Lord ${lord} M${houseFromMoon} — Gochara favorable (+${delta})`
+    : `🔸 Tithi Lord ${lord} M${houseFromMoon} — Gochara défavorable (${delta})`;
+
+  return { lord, houseFromMoon, favorable, delta, label };
+}
