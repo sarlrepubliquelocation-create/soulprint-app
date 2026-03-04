@@ -723,6 +723,30 @@ function secureCoin(): 2 | 3 {
   return Math.random() < 0.5 ? 2 : 3; // fallback SSR
 }
 
+/**
+ * Génère une valeur de ligne selon la méthode des tiges d'achillée (50 tiges).
+ * Probabilités : 6=1/16 (6.25%), 7=5/16 (31.25%), 8=7/16 (43.75%), 9=3/16 (18.75%)
+ * Source : Wilhelm/Blofeld, confirmé par Grok (Ronde IA 2 — 2026-03-04).
+ * Thresholds Uint8 (0–255) : 16=1/16, 96=6/16, 208=13/16.
+ */
+function secureYarrowLine(): 6 | 7 | 8 | 9 {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(1);
+    crypto.getRandomValues(buf);
+    const v = buf[0]; // 0–255
+    if (v < 16)  return 6;  // 1/16  = 16/256
+    if (v < 96)  return 7;  // 5/16  → cumul 6/16  = 96/256
+    if (v < 208) return 8;  // 7/16  → cumul 13/16 = 208/256
+    return 9;               // 3/16  = 48/256
+  }
+  // Fallback SSR
+  const p = Math.random();
+  if (p < 0.0625)  return 6;
+  if (p < 0.375)   return 7;
+  if (p < 0.8125)  return 8;
+  return 9;
+}
+
 function linesToTrigramIdx(l0: number, l1: number, l2: number): number {
   const idx = TRIGRAMS.findIndex(t => t[0] === l0 && t[1] === l1 && t[2] === l2);
   return idx < 0 ? 0 : idx; // fallback Ciel si inconnu
@@ -751,10 +775,10 @@ function makeReading(lines: number[], movingLine: number): IChingReading {
 export function calcConsciousIChing(question: string): ConsciousIChing {
   const timestamp = Date.now();
 
-  // 6 lancers de 3 pièces chacun
+  // 6 lancers — méthode tiges d'achillée (Ronde IA 2 — 2026-03-04)
   const throws: Array<6 | 7 | 8 | 9> = [];
   for (let i = 0; i < 6; i++) {
-    throws.push((secureCoin() + secureCoin() + secureCoin()) as 6 | 7 | 8 | 9);
+    throws.push(secureYarrowLine());
   }
 
   // Ligne courante : 6,8 → yin(0)  |  7,9 → yang(1)
