@@ -20,6 +20,7 @@ import { type SystemBreakdown, SLOW_PLANETS, type DashaCertaintyResult, type Das
 import { type DailyModuleResult } from './convergence-daily';
 import { calcTransitStellium } from './transit-stellium'; // V8.5 — P5
 import { calcAshtakavarga } from './ashtakavarga'; // Sprint D4 — ASV ☉♂ migré depuis L1
+import { calcJieqi }        from './jieqi';        // Sprint E3 — Jieqi 节气 L2 semi-mensuel
 
 // ══════════════════════════════════════
 // ═══ V6.0 : CONTEXTE MULTIPLICATEUR ═══
@@ -580,6 +581,30 @@ export function calcSlowModules(
       '[TransitStellium] Cap ±4 percé:', transitStelliumResult.totalBonus
     );
   }
+
+  // ═══════════════════════════════════
+  // JIEQI 节气 — Sprint E3 (L2 semi-mensuel)
+  // 24 termes solaires chinois — rythme ~15j → L2 (consensus 3/3 Ronde 9)
+  // Cap ±2 — anti-double-comptage avec pilier mensuel BaZi (L1)
+  // ═══════════════════════════════════
+  try {
+    const sunTropJ    = getPlanetLongitudeForDate('sun', new Date());
+    const jieqiResult = calcJieqi(sunTropJ);
+    if (jieqiResult.total !== 0) {
+      delta += jieqiResult.total;
+      signals.push(...jieqiResult.signals);
+      alerts.push(...jieqiResult.alerts);
+      breakdown.push({
+        system: 'Jieqi 节气', icon: '☯️',
+        value:  `${jieqiResult.term.hanzi} ${jieqiResult.term.name}${jieqiResult.isTransitionDay ? ' ✦' : ''}`,
+        points: jieqiResult.total,
+        detail: `${jieqiResult.term.trad} — Terme solaire chinois (L2 ±2)`,
+        signals: jieqiResult.signals,
+        alerts:  jieqiResult.alerts,
+      });
+    }
+    console.assert(Math.abs(jieqiResult.total) <= 2.1, '[Jieqi] Cap ±2 percé:', jieqiResult.total);
+  } catch { /* Jieqi fail silently */ }
 
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));
