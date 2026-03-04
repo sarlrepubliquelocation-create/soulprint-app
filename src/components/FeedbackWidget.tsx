@@ -1,4 +1,6 @@
-// ═══ FEEDBACK WIDGET V5.0 ═══
+// ═══ FEEDBACK WIDGET V5.1 ═══
+// V5.1 : UI 5 étoiles (UX universelle) · storage -1/0/+1 inchangé
+//        1-2★ → -1 (difficile) · 3★ → 0 (neutre) · 4-5★ → +1 (positif)
 // V5.0 : Migration 3 boutons (-1/0/+1) Firestore via submitFeedback() (useSyncDailyVector)
 //        Dépréciation étoiles 1-5 localStorage (validation-tracker.ts)
 //        Rétrocompat : stats localStorage affichées si disponibles pendant la migration
@@ -20,14 +22,22 @@ interface FeedbackWidgetProps {
 
 type Note = -1 | 0 | 1;
 
-const NOTE_CONFIG: { note: Note; icon: string; label: string; color: string }[] = [
-  { note: -1, icon: '✕', label: 'Difficile', color: '#ef4444' },
-  { note:  0, icon: '~', label: 'Neutre',    color: '#a1a1aa' },
-  { note:  1, icon: '✦', label: 'Ressenti',  color: '#4ade80' },
-];
+// Conversion étoiles (UI) ↔ note interne (storage)
+function starToNote(s: number): Note {
+  if (s <= 2) return -1;
+  if (s === 3) return 0;
+  return 1;
+}
+function noteToStar(n: Note): number {
+  if (n === -1) return 1;
+  if (n === 0)  return 3;
+  return 5;
+}
 
 export default function FeedbackWidget({ date, score, dayType, breakdown }: FeedbackWidgetProps) {
   const [note, setNote]             = useState<Note | null>(null);
+  const [stars, setStars]           = useState<number | null>(null);
+  const [hoverStar, setHoverStar]   = useState<number>(0);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [stats, setStats]           = useState<ValidationStats | null>(null);
@@ -38,8 +48,10 @@ export default function FeedbackWidget({ date, score, dayType, breakdown }: Feed
     // Rétrocompat : lire le feedback localStorage si existant, convertir étoiles → note
     const existing = getDayFeedback(date);
     if (existing) {
-      const stars = existing.userScore ?? (existing.userRating === 'good' ? 4 : existing.userRating === 'bad' ? 2 : 3);
-      setNote(stars >= 4 ? 1 : stars <= 2 ? -1 : 0);
+      const s = existing.userScore ?? (existing.userRating === 'good' ? 4 : existing.userRating === 'bad' ? 2 : 3);
+      const n: Note = s >= 4 ? 1 : s <= 2 ? -1 : 0;
+      setNote(n);
+      setStars(noteToStar(n));
       setSaved(true);
     } else {
       setNote(null);
@@ -56,17 +68,19 @@ export default function FeedbackWidget({ date, score, dayType, breakdown }: Feed
     setFlatlineMsg(getFlatlineAlert(feedbacks));
   }, [date]);
 
-  const handleNote = useCallback(async (n: Note) => {
+  const handleStar = useCallback(async (s: number) => {
     if (saving) return;
+    const n = starToNote(s);
+    setStars(s);
     setNote(n);
     setSaving(true);
     try {
       await submitFeedback(date, n);
       setSaved(true);
-      const s = getValidationStats();
-      setStats(s);
+      const st = getValidationStats();
+      setStats(st);
       const weights = loadPersonalWeights();
-      setOnboardMsg(getOnboardingMessage(s.totalFeedbacks, weights));
+      setOnboardMsg(getOnboardingMessage(st.totalFeedbacks, weights));
     } catch {
       setSaved(true); // optimiste — submitFeedback fail silently
     } finally {
@@ -81,36 +95,35 @@ export default function FeedbackWidget({ date, score, dayType, breakdown }: Feed
         COMMENT S'EST PASSÉE TA JOURNÉE ?
       </div>
 
-      {/* 3 boutons -1 / 0 / +1 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        {NOTE_CONFIG.map(({ note: n, icon, label, color }) => {
-          const active = note === n;
+      {/* 5 étoiles */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 6 }}>
+        {[1, 2, 3, 4, 5].map(s => {
+          const filled = hoverStar > 0 ? s <= hoverStar : (stars !== null && s <= stars);
+          const starColor = filled ? '#facc15' : P.textDim;
           return (
             <button
-              key={n}
-              onClick={() => handleNote(n)}
+              key={s}
+              onClick={() => handleStar(s)}
+              onMouseEnter={() => !saving && setHoverStar(s)}
+              onMouseLeave={() => setHoverStar(0)}
               disabled={saving}
               style={{
-                flex: 1, padding: '9px 0', borderRadius: 8,
-                border: `1.5px solid ${active ? color + 'cc' : P.cardBdr}`,
-                background: active ? color + '18' : P.surface,
+                background: 'none', border: 'none',
                 cursor: saving ? 'wait' : 'pointer',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                transition: 'all 0.15s ease',
-                opacity: saving ? 0.6 : 1,
-                fontFamily: 'inherit',
+                padding: '2px 4px', fontSize: 30,
+                color: starColor,
+                transition: 'color 0.1s ease',
+                opacity: saving ? 0.5 : 1,
+                fontFamily: 'inherit', lineHeight: 1,
               }}
             >
-              <span style={{ fontSize: 20, color: active ? color : P.textDim }}>{icon}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', color: active ? color : P.textDim }}>
-                {label}
-              </span>
+              {filled ? '★' : '☆'}
             </button>
           );
         })}
 
         {saved && (
-          <span style={{ fontSize: 11, color: '#4ade80', marginLeft: 4, fontWeight: 600, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: '#4ade80', marginLeft: 6, fontWeight: 600, whiteSpace: 'nowrap' }}>
             ✔ Noté
           </span>
         )}
