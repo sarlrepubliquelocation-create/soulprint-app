@@ -13,13 +13,13 @@ import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLuna
 import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
 import { calcInteractions, buildInteractionContext, type InteractionResult } from './interactions';
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
-import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './nakshatras';
+import { getAyanamsa, calcNakshatraComposite, type NakshatraData, getPada, PADA_MULTIPLIERS, PADA_NAMES } from './nakshatras';
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
-import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult } from './panchanga'; // Sprint D3 + Sprint G + Sprint J
+import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult, calcGrahaDrishti, type GrahaDrishtiResult, calcYogaKartari, type KartariResult } from './panchanga'; // Sprint D3 + Sprint G + Sprint J + Sprint L + Sprint M
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -767,6 +767,35 @@ export function calcDailyModules(
       if (r31Pts !== 0) luneGroupPts += r31Pts; // Sprint A2: groupe LUNE
     } catch { /* R31 fail silently */ }
 
+    // ── Sprint K : Nakshatra Pada (groupe LUNE) ──
+    // Pada = quart de Nakshatra (3.333°) · Purusharthas (Dharma/Artha/Kama/Moksha)
+    // Delta = globalBaseScore × (padaMult − 1.0) : affine le score nakshatra sans surpondérer
+    // Si globalBaseScore = 0 (nakshatra neutre) → padaDelta = 0 (aucun effet)
+    if (nakshatraData) {
+      try {
+        const padaIdx   = getPada(moonLongSidereal);
+        const padaMult  = PADA_MULTIPLIERS[padaIdx];
+        const padaName  = PADA_NAMES[padaIdx];
+        const rawDelta  = nakshatraData.globalBaseScore * (padaMult - 1.0);
+        const padaDelta = Math.max(-1, Math.min(1, rawDelta));
+        if (padaDelta !== 0) {
+          luneGroupPts += padaDelta;
+          const sign  = padaDelta > 0 ? '+' : '';
+          const label = `🌟 Pada ${padaIdx + 1} ${padaName} — ${nakshatraData.name} (${sign}${padaDelta.toFixed(2)})`;
+          if (padaDelta > 0) signals.push(label);
+          else               alerts.push(label);
+          breakdown.push({
+            system: 'Nakshatra Pada', icon: '🪐',
+            value:  `Pada ${padaIdx + 1} — ${padaName}`,
+            points: padaDelta,
+            detail: `${nakshatraData.name} Pada ${padaIdx + 1} (×${padaMult}) — Purushartha`,
+            signals: padaDelta > 0 ? [label] : [],
+            alerts:  padaDelta < 0 ? [label] : [],
+          });
+        }
+      } catch { /* Pada fail silently */ }
+    }
+
   } catch { /* nakshatras fail silently */ }
 
   // ═══════════════════════════════════
@@ -1011,6 +1040,97 @@ export function calcDailyModules(
         }
       }
     } catch { /* Tithi Lord Gochara fail silently */ }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 8c. GRAHA DRISHTI — Sprint L — V10.6 (post-section autonome)
+  // Aspects Parāśari : Mars/Jupiter/Saturn → Lune natale
+  // Formule : maison de la Lune natale DEPUIS la planète (Gemini)
+  // Direct delta (hors groupe LUNE) · Cap ±3 global · fail silently
+  // ═══════════════════════════════════════════════════════════
+  if (natalMoonSidForNak !== null) {
+    try {
+      const DRISHTI_PLANETS = ['mars', 'jupiter', 'saturn'] as const;
+      const evalD_dr = new Date(todayStr + 'T12:00:00');
+      const ay_dr    = getAyanamsa(evalD_dr.getFullYear());
+
+      const drResults: GrahaDrishtiResult[] = [];
+
+      for (const planet of DRISHTI_PLANETS) {
+        const tropLon = getPlanetLongitudeForDate(
+          planet as 'mars' | 'jupiter' | 'saturn',
+          evalD_dr,
+        );
+        const sidLon = ((tropLon - ay_dr) % 360 + 360) % 360;
+        const drRes  = calcGrahaDrishti(planet, sidLon, natalMoonSidForNak);
+        if (drRes.delta !== 0) drResults.push(drRes);
+      }
+
+      if (drResults.length > 0) {
+        const rawTotal  = drResults.reduce((s, r) => s + r.delta, 0);
+        const drCapped  = Math.max(-3, Math.min(3, rawTotal));
+        delta += drCapped;
+
+        drResults.forEach(r => {
+          if (r.delta > 0) signals.push(r.label);
+          else             alerts.push(r.label);
+        });
+
+        const activeDesc = drResults.map(r => `${r.planet} M${r.houseFromPlanet}`).join(' · ');
+        const capNote    = rawTotal !== drCapped ? ` → capé ${drCapped > 0 ? '+' : ''}${drCapped}` : '';
+        breakdown.push({
+          system: 'Graha Drishti', icon: '🔭',
+          value:  activeDesc,
+          points: drCapped,
+          detail: `Aspects Parāśari BPHS Ch.26 — raw ${rawTotal > 0 ? '+' : ''}${rawTotal}${capNote}`,
+          signals: drResults.filter(r => r.delta > 0).map(r => r.label),
+          alerts:  drResults.filter(r => r.delta < 0).map(r => r.label),
+        });
+      }
+    } catch { /* Graha Drishti fail silently */ }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 8d. YOGA KARTARI — Sprint M — V10.7 (post-section autonome)
+  // "Yoga des ciseaux" : Lune natale encadrée par planètes transitantes
+  // Bénéfiques : Jupiter, Vénus, Mercure · Maléfiques : Saturne, Mars, Soleil
+  // Scoring : ±2 complet · ±1 partiel · 0 mixed/vide · Cap ±2 · fail silently
+  // ═══════════════════════════════════════════════════════════
+  if (natalMoonSidForNak !== null) {
+    try {
+      const evalD_kt = new Date(todayStr + 'T12:00:00');
+      const ay_kt    = getAyanamsa(evalD_kt.getFullYear());
+
+      const KARTARI_PLANETS = ['sun', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'] as const;
+      const transitMap: Record<string, number> = {};
+      for (const planet of KARTARI_PLANETS) {
+        const tropLon = getPlanetLongitudeForDate(planet, evalD_kt);
+        transitMap[planet] = ((tropLon - ay_kt) % 360 + 360) % 360;
+      }
+
+      const ktRes    = calcYogaKartari(natalMoonSidForNak, transitMap);
+      if (ktRes.delta !== 0) {
+        const ktCapped = Math.max(-2, Math.min(2, ktRes.delta));
+        delta += ktCapped;
+
+        if (ktRes.delta > 0) signals.push(ktRes.label);
+        else                 alerts.push(ktRes.label);
+
+        const sidesDesc = [
+          ktRes.sign12Planets.length ? `12e: ${ktRes.sign12Planets.join(',')}` : '',
+          ktRes.sign2Planets.length  ? `2e: ${ktRes.sign2Planets.join(',')}`   : '',
+        ].filter(Boolean).join(' · ');
+
+        breakdown.push({
+          system: 'Yoga Kartari', icon: '✂️',
+          value:  ktRes.shubha ? 'Shubha Kartari' : ktRes.papa ? 'Papa Kartari' : 'Kartari partiel',
+          points: ktCapped,
+          detail: `Lune encadrée — ${sidesDesc}`,
+          signals: ktRes.delta > 0 ? [ktRes.label] : [],
+          alerts:  ktRes.delta < 0 ? [ktRes.label] : [],
+        });
+      }
+    } catch { /* Yoga Kartari fail silently */ }
   }
 
   // ═══════════════════════════════════

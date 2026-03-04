@@ -563,3 +563,150 @@ export function calcTithiLordGochara(
 
   return { lord, houseFromMoon, favorable, delta, label };
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ═══ GRAHA DRISHTI — Sprint L — V10.6 ═══
+// Aspects planétaires védiques (Parāśari) — Mars/Jupiter/Saturn → Lune natale
+// Formule Gemini : maison de la Lune natale DEPUIS la planète (drishti correct)
+// Source : BPHS Ch.26 (Parashara) · Jyotish classique
+// Scoring GPT : 7e=±1 (universel) · aspects spéciaux=±2
+// ══════════════════════════════════════════════════════════════════
+
+/** Maisons aspectées par chaque planète (Drishti Parāśari) */
+export const GRAHA_DRISHTI_ASPECTS: Record<string, readonly number[]> = {
+  mars:    [4, 7, 8],   // aspect coupant / séparateur
+  jupiter: [5, 7, 9],   // aspect amplificateur / protecteur
+  saturn:  [3, 7, 10],  // aspect restrictif / disciplinaire
+};
+
+/**
+ * Score par planète et maison aspectée (GPT Ronde L)
+ * 7e = aspect universel ±1 · aspects spéciaux = ±2
+ */
+export const GRAHA_DRISHTI_SCORE: Record<string, Record<number, number>> = {
+  jupiter: { 5: +2, 7: +1, 9: +2 },
+  saturn:  { 3: -2, 7: -1, 10: -2 },
+  mars:    { 4: -2, 7: -1, 8: -2 },
+};
+
+export interface GrahaDrishtiResult {
+  planet:          string;
+  houseFromPlanet: number;  // maison de la Lune natale depuis la planète (1..12)
+  delta:           number;
+  label:           string;
+}
+
+/**
+ * Calcule l'aspect Graha Drishti d'une planète sur la Lune natale.
+ * Formule Gemini : houseFromPlanet = maison de la Lune natale DEPUIS la planète.
+ * Si la planète est en X et la Lune en Y → houseFromPlanet = ((Y − X + 12) % 12) + 1
+ */
+export function calcGrahaDrishti(
+  planet:          string,
+  transitSidLon:   number,
+  natalMoonSidLon: number,
+): GrahaDrishtiResult {
+  const transitSign   = Math.floor(((transitSidLon   % 360) + 360) % 360 / 30) % 12;
+  const natalMoonSign = Math.floor(((natalMoonSidLon % 360) + 360) % 360 / 30) % 12;
+
+  // Maison de la Lune natale DEPUIS la planète (Drishti = aspect projeté depuis la planète)
+  const houseFromPlanet = ((natalMoonSign - transitSign + 12) % 12) + 1; // 1..12
+
+  const aspects = GRAHA_DRISHTI_ASPECTS[planet] ?? [];
+  const delta   = aspects.includes(houseFromPlanet)
+    ? (GRAHA_DRISHTI_SCORE[planet]?.[houseFromPlanet] ?? 0)
+    : 0;
+
+  const sign  = delta > 0 ? '+' : '';
+  const label = delta > 0
+    ? `🔭 Drishti ${planet} M${houseFromPlanet} — favorable (${sign}${delta})`
+    : `⚠️ Drishti ${planet} M${houseFromPlanet} — tension (${delta})`;
+
+  return { planet, houseFromPlanet, delta, label };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ═══ YOGA KARTARI — Sprint M — V10.7 ═══
+// "Yoga des ciseaux" védique : Lune natale encadrée par planètes transitantes
+// sign12 = signe juste avant la Lune (12e) · sign2 = signe juste après (2e)
+// Bénéfiques : Jupiter, Vénus, Mercure · Maléfiques : Saturne, Mars, Soleil
+// Scoring GPT+Gemini : ±2 complet · ±1 partiel · 0 mixed/vide · Cap ±2
+// Lune exclue (référence natale) · Rahu/Ketu exclus (nœuds fictifs)
+// ══════════════════════════════════════════════════════════════════
+
+export const KARTARI_BENEFICS = new Set(['jupiter', 'venus', 'mercury']);
+export const KARTARI_MALEFICS = new Set(['saturn', 'mars', 'sun']);
+
+export interface KartariResult {
+  delta:         number;
+  shubha:        boolean;    // deux côtés bénéfiques nets → Shubha Kartari
+  papa:          boolean;    // deux côtés maléfiques nets → Papa Kartari
+  sign12Planets: string[];   // planètes dans signe 12e (juste avant Lune natale)
+  sign2Planets:  string[];   // planètes dans signe 2e (juste après Lune natale)
+  label:         string;
+}
+
+/**
+ * Calcule le Yoga Kartari pour la Lune natale.
+ * @param natalMoonSidLon   longitude sidérale de la Lune natale (°)
+ * @param transitPlanets    map planet → longitude sidérale de transit (°)
+ * @returns KartariResult   { delta ∈ {−2,−1,0,+1,+2}, shubha, papa, … }
+ */
+export function calcYogaKartari(
+  natalMoonSidLon: number,
+  transitPlanets:  Record<string, number>,
+): KartariResult {
+  const natalMoonSign = Math.floor(((natalMoonSidLon % 360) + 360) % 360 / 30) % 12;
+  const sign12 = (natalMoonSign + 11) % 12;  // 12e depuis la Lune = signe juste avant
+  const sign2  = (natalMoonSign +  1) % 12;  // 2e depuis la Lune  = signe juste après
+
+  const sign12Planets: string[] = [];
+  const sign2Planets:  string[] = [];
+
+  for (const [planet, sidLon] of Object.entries(transitPlanets)) {
+    const pSign = Math.floor(((sidLon % 360) + 360) % 360 / 30) % 12;
+    if (pSign === sign12) sign12Planets.push(planet);
+    if (pSign === sign2)  sign2Planets.push(planet);
+  }
+
+  // Évaluation qualitative d'un côté
+  const evalSide = (planets: string[]): 'benefic' | 'malefic' | 'mixed' | 'empty' => {
+    const hasBenefic = planets.some(p => KARTARI_BENEFICS.has(p));
+    const hasMalefic = planets.some(p => KARTARI_MALEFICS.has(p));
+    if (hasBenefic && hasMalefic) return 'mixed';
+    if (hasBenefic) return 'benefic';
+    if (hasMalefic) return 'malefic';
+    return 'empty';
+  };
+
+  const side12 = evalSide(sign12Planets);
+  const side2  = evalSide(sign2Planets);
+
+  const shubha = side12 === 'benefic' && side2 === 'benefic';
+  const papa   = side12 === 'malefic' && side2 === 'malefic';
+
+  let delta = 0;
+  if (shubha) {
+    delta = +2;
+  } else if (papa) {
+    delta = -2;
+  } else if ((side12 === 'benefic' && side2 === 'malefic') ||
+             (side12 === 'malefic' && side2 === 'benefic')) {
+    delta = 0;   // mixed : forces opposées s'annulent
+  } else if (side12 === 'benefic' || side2 === 'benefic') {
+    delta = +1;  // partiel bénéfique (un côté bénéfique net, l'autre vide/mixed)
+  } else if (side12 === 'malefic' || side2 === 'malefic') {
+    delta = -1;  // partiel maléfique (un côté maléfique net, l'autre vide/mixed)
+  }
+
+  const sign  = delta > 0 ? '+' : '';
+  const label = shubha
+    ? `🌙✨ Shubha Kartari — Lune encadrée de bénéfiques (${sign}${delta})`
+    : papa
+    ? `🌙⚠️ Papa Kartari — Lune encadrée de maléfiques (${delta})`
+    : delta !== 0
+    ? `🌙 Kartari partiel (${sign}${delta})`
+    : '';
+
+  return { delta, shubha, papa, sign12Planets, sign2Planets, label };
+}

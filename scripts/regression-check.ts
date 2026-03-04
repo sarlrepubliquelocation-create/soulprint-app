@@ -10,8 +10,8 @@
 // RUNNER : npx tsx scripts/regression-check.ts [--save <tag>] [--compare <tag>]
 // ══════════════════════════════════════════════════════════════════
 
-import { calcTarabala, calcChandrabala, calcPanchanga } from '../src/engines/panchanga.js';
-import { calcNakshatraComposite } from '../src/engines/nakshatras.js';
+import { calcTarabala, calcChandrabala, calcPanchanga, calcGrahaDrishti, calcYogaKartari } from '../src/engines/panchanga.js';
+import { calcNakshatraComposite, getPada, calcPadaMultiplier } from '../src/engines/nakshatras.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -132,6 +132,95 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       name: 'NakshatraComposite: transit 0° → transitNak défini',
       actual: calcNakshatraComposite(0, null).transitNak !== undefined,
       expected: true,
+    },
+
+    // ── getPada / calcPadaMultiplier ── (Sprint K — régression guard)
+    {
+      name: 'Pada: milieu Ashwini Pada 2 (Artha) → index 1',
+      // 5.0° = Nak 0 (Ashwini), lonInNak = 5.0°, raw = 1.5 → floor = 1
+      actual: getPada(5.0),
+      expected: 1,
+    },
+    {
+      name: 'Pada: frontière exacte Bharani début → index 0 (float-safe)',
+      // 13.333...° = exactement début Nak 1 (Bharani) → Pada 0
+      actual: getPada(360 / 27),
+      expected: 0,
+    },
+    {
+      name: 'Pada: wrap-around négatif −2° → index 3 (Moksha)',
+      // -2° → 358° → Nak 26 (Revati), lonInNak = 11.333°, raw = 3.4 → floor = 3
+      actual: getPada(-2.0),
+      expected: 3,
+    },
+    {
+      name: 'Pada: multiplicateur Pada 1 Dharma = 1.15',
+      // 1.0° → lonInNak=1.0°, raw=0.3 → index 0 (Pada 1 Dharma)
+      actual: calcPadaMultiplier(1.0),
+      expected: 1.15,
+    },
+
+    // ── calcGrahaDrishti ── (Sprint L — régression guard)
+    {
+      name: 'Drishti: Saturn M3 → Lune natale (−2)',
+      // Saturn en Verseau (signe 10, lon=315°), Lune natale Bélier (signe 0, lon=15°)
+      // houseFromPlanet = ((0 - 10 + 12) % 12) + 1 = 3 → Saturn aspect 3e = −2
+      actual: calcGrahaDrishti('saturn', 315, 15).delta,
+      expected: -2,
+    },
+    {
+      name: 'Drishti: Jupiter M5 → Lune natale (+2)',
+      // Jupiter en Scorpion (signe 7, lon=225°), Lune natale Poissons (signe 11, lon=345°)
+      // houseFromPlanet = ((11 - 7 + 12) % 12) + 1 = 5 → Jupiter aspect 5e = +2
+      actual: calcGrahaDrishti('jupiter', 225, 345).delta,
+      expected: 2,
+    },
+    {
+      name: 'Drishti: Mars M4 → Lune natale (−2)',
+      // Mars en Bélier (signe 0, lon=15°), Lune natale Cancer (signe 3, lon=105°)
+      // houseFromPlanet = ((3 - 0 + 12) % 12) + 1 = 4 → Mars aspect 4e = −2
+      actual: calcGrahaDrishti('mars', 15, 105).delta,
+      expected: -2,
+    },
+    {
+      name: 'Drishti: Saturn M2 → pas d\'aspect (0)',
+      // Saturn en Bélier (signe 0, lon=15°), Lune natale Taureau (signe 1, lon=45°)
+      // houseFromPlanet = ((1 - 0 + 12) % 12) + 1 = 2 → pas dans [3,7,10] → 0
+      actual: calcGrahaDrishti('saturn', 15, 45).delta,
+      expected: 0,
+    },
+
+    // ── calcYogaKartari ── (Sprint M — régression guard)
+    {
+      name: 'Kartari: Shubha — Jupiter sign12 + Venus sign2 → +2',
+      // Lune natale Bélier (signe 0, lon=15°) → sign12=Poissons(11), sign2=Taureau(1)
+      // Jupiter à 330° (signe 11=Poissons) · Venus à 45° (signe 1=Taureau)
+      // side12=benefic · side2=benefic → shubha → +2
+      actual: calcYogaKartari(15, { jupiter: 330, venus: 45 }).delta,
+      expected: 2,
+    },
+    {
+      name: 'Kartari: Papa — Saturn sign12 + Mars sign2 → −2',
+      // Lune natale Cancer (signe 3, lon=105°) → sign12=Gémeaux(2), sign2=Lion(4)
+      // Saturn à 75° (signe 2=Gémeaux) · Mars à 135° (signe 4=Lion)
+      // side12=malefic · side2=malefic → papa → −2
+      actual: calcYogaKartari(105, { saturn: 75, mars: 135 }).delta,
+      expected: -2,
+    },
+    {
+      name: 'Kartari: partiel bénéfique — Jupiter sign12 seul → +1',
+      // Lune natale Vierge (signe 5, lon=165°) → sign12=Lion(4), sign2=Balance(6)
+      // Jupiter à 135° (signe 4=Lion) · rien dans signe 6
+      // side12=benefic · side2=empty → +1
+      actual: calcYogaKartari(165, { jupiter: 135 }).delta,
+      expected: 1,
+    },
+    {
+      name: 'Kartari: vide — aucune planète encadrante → 0',
+      // Lune natale Capricorne (signe 9, lon=285°) → sign12=Scorpion(8), sign2=Verseau(10)
+      // Aucune planète passée → delta = 0
+      actual: calcYogaKartari(285, {}).delta,
+      expected: 0,
     },
 
     // ── calcPanchanga ── (Sprint E — régression guard)
