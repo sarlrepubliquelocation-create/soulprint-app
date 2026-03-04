@@ -19,6 +19,7 @@ import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, 
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
+import { calcPanchanga, type PanchangaResult } from './panchanga'; // Sprint D3
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -835,7 +836,37 @@ export function calcDailyModules(
     } catch { /* Ashtak Moon fail silently */ }
   }
 
-  // V9.6 Sprint A2/C — Application cap groupe LUNE ±13 (élargi pour Ashtakavarga)
+  // ═══════════════════════════════════
+  // 4e. PANCHANGA VÉDIQUE — Sprint D3
+  // Tithi (phase lunaire védique) + Yoga (Lune+Soleil siddéral) → ±5 capé
+  // Vara : narratif uniquement (delta=0, Ronde 7 consensus)
+  // ═══════════════════════════════════
+
+  let panchangaResult: PanchangaResult | null = null;
+  try {
+    const todayDateP   = new Date(todayStr + 'T12:00:00Z');
+    const moonTropP    = getMoonPhase(todayDateP).longitudeTropical;
+    const sunTropP     = getPlanetLongitudeForDate('sun', todayDateP);
+    const ayanamsaP    = getAyanamsa(todayDateP.getFullYear());
+    panchangaResult    = calcPanchanga(moonTropP, sunTropP, ayanamsaP, todayDateP);
+    if (panchangaResult.total !== 0) {
+      luneGroupPts += panchangaResult.total; // groupe LUNE (cap ±13 appliqué après)
+      signals.push(...panchangaResult.signals);
+      alerts.push(...panchangaResult.alerts);
+    }
+    // Tithi breakdown
+    breakdown.push({
+      system: 'Panchanga',
+      icon:   '🪷',
+      value:  `${panchangaResult.tithi.name} · ${panchangaResult.yoga.name} · ${panchangaResult.vara.name}`,
+      points: panchangaResult.total,
+      detail: `Tithi ${panchangaResult.tithi.tithi} (${panchangaResult.tithi.quality}) | Yoga ${panchangaResult.yoga.yoga} | ${panchangaResult.vara.icon} ${panchangaResult.vara.planet}`,
+      signals: panchangaResult.signals,
+      alerts:  panchangaResult.alerts,
+    });
+  } catch { /* panchanga fail silently */ }
+
+  // Sprint D3 — Application cap groupe LUNE ±13 (Nakshatra + R31 + VoC + Ash☽ + Panchanga)
   delta += Math.max(-13, Math.min(13, luneGroupPts));
 
   // ═══════════════════════════════════
@@ -995,29 +1026,22 @@ export function calcDailyModules(
 
   // ═══════════════════════════════════
   // 12b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4
-  // Heure courante → planète gouvernante → ±pts injectés en L1.
-  // Heures inégales (Spencer sunrise), latitude estimée depuis tz navigateur.
+  // Sprint D2 : retrait du scoring L1 (non-déterministe : varie chaque heure).
+  // L'heure planétaire reste affichée dans le widget UI (planetaryHour → retour).
+  // Aucun point injecté dans ephemGroupPts.
   // ═══════════════════════════════════
 
   const planetaryHour = getCurrentPlanetaryHour(new Date(todayStr + 'T12:00:00'));
-  // Note : on utilise midi local comme proxy pour "le jour" (l'UI affiche l'heure réelle).
-  // Pour le scoring on prend l'heure planétaire au moment réel du calcul :
+  // Breakdowninformatif uniquement (pts=0) — widget UI utilise la valeur courante
   const planetaryHourNow = getCurrentPlanetaryHour();
   if (planetaryHourNow) {
-    const phPts = planetaryHourNow.pts;
-    if (phPts !== 0) {
-      ephemGroupPts += phPts; // Sprint A2: groupe EPHEM
-      const sign = phPts > 0 ? '+' : '';
-      if (phPts > 0) signals.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
-      else           alerts.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
-    }
     breakdown.push({
       system: 'Heure Planétaire', icon: planetaryHourNow.icon,
       value:  `${planetaryHourNow.label} ${planetaryHourNow.isDayHour ? '☀️' : '🌙'} H${planetaryHourNow.hourIndex}`,
-      points: planetaryHourNow.pts,
+      points: 0, // Sprint D2 : retiré du score (non-déterministe)
       detail: planetaryHourNow.keywords.join(' · '),
-      signals: phPts > 0 ? [`${planetaryHourNow.icon} ${planetaryHourNow.label} — ${planetaryHourNow.keywords.join(', ')}`] : [],
-      alerts:  phPts < 0 ? [`${planetaryHourNow.icon} ${planetaryHourNow.label} — ${planetaryHourNow.keywords.join(', ')}`] : [],
+      signals: [],
+      alerts:  [],
     });
   }
 
@@ -1046,53 +1070,11 @@ export function calcDailyModules(
     }
   } catch { /* fixed stars fail silently */ }
 
-  // ═══════════════════════════════════
-  // 12d. ASHTAKAVARGA SOLAIRE + MARS — V9.6 Sprint C
-  // BAV natale → Bindus du signe sidéral transitant → delta ±2 par planète
-  // ═══════════════════════════════════
+  // Sprint D4 : ASV ☉♂ retirés de L1 → migrés vers L2 (convergence-slow.ts)
+  // Rythme Soleil ~30j/signe, Mars ~45j/signe → signal lent ≠ signal quotidien
+  // Le cap ephemGroupPts ±14 reste inchangé (étoiles fixes + heure planétaire UI)
 
-  if (astro) {
-    try {
-      const todayD   = new Date(todayStr + 'T12:00:00Z');
-      const ayToday  = getAyanamsa(todayD.getFullYear());
-
-      // Soleil (rythme mensuel — tendance du mois)
-      const sunTropLon = getPlanetLongitudeForDate('sun', todayD);
-      const sunSidLon  = ((sunTropLon - ayToday) + 360) % 360;
-      const ashSun     = calcAshtakavarga('sun', sunSidLon, astro, bd);
-      if (ashSun.delta !== 0) {
-        ephemGroupPts += ashSun.delta; // Sprint C: groupe EPHEM
-        signals.push(...ashSun.signals);
-        alerts.push(...ashSun.alerts);
-        breakdown.push({
-          system: 'Ashtakavarga ☉', icon: '⭕',
-          value:  `${ashSun.signName} — ${ashSun.bindus} Bindus`,
-          points: ashSun.delta,
-          detail: `Soleil sidéral en ${ashSun.signName} | BAV Soleil natale`,
-          signals: ashSun.signals, alerts: ashSun.alerts,
-        });
-      }
-
-      // Mars (rythme ~2 mois/signe — dynamisme/action)
-      const marsTropLon = getPlanetLongitudeForDate('mars', todayD);
-      const marsSidLon  = ((marsTropLon - ayToday) + 360) % 360;
-      const ashMars     = calcAshtakavarga('mars', marsSidLon, astro, bd);
-      if (ashMars.delta !== 0) {
-        ephemGroupPts += ashMars.delta; // Sprint C: groupe EPHEM
-        signals.push(...ashMars.signals);
-        alerts.push(...ashMars.alerts);
-        breakdown.push({
-          system: 'Ashtakavarga ♂', icon: '⭕',
-          value:  `${ashMars.signName} — ${ashMars.bindus} Bindus`,
-          points: ashMars.delta,
-          detail: `Mars sidéral en ${ashMars.signName} | BAV Mars natale`,
-          signals: ashMars.signals, alerts: ashMars.alerts,
-        });
-      }
-    } catch { /* Ashtak Sun/Mars fail silently */ }
-  }
-
-  // V9.6 Sprint A2/C — Application cap groupe EPHEM ±14 (élargi pour Ashtakavarga)
+  // Sprint D4 : Application cap groupe EPHEM ±14 (sans ASV ☉♂)
   delta += Math.max(-14, Math.min(14, ephemGroupPts));
 
   // ═══════════════════════════════════
