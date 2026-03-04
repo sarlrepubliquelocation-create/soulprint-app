@@ -596,6 +596,17 @@ const CORRELATION_GROUPS: Record<string, string> = {
   'Numérologie': 'num',
 };
 
+// Sprint D1 : table t(0.975, df) pour CI correct (remplace 1.96×1.10 bootstrap)
+const T_975_LOOKUP: Record<number, number> = {
+  1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+  6: 2.447,  7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+};
+function tCritical975(df: number): number {
+  if (df <= 0) return 0;
+  if (df <= 10) return T_975_LOOKUP[df];
+  return 1.96;
+}
+
 function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): ConfidenceInterval {
   if (breakdown.length < 3) return { lower: score, upper: score, margin: 0, label: 'Serré' };
 
@@ -619,15 +630,16 @@ function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): Confi
 
   // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compress()
   // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
-  // V9.6 Sprint B2 : facteur correctif bootstrap CI — n=4 groupes ESS, distribution t (df=3)
-  // sous-estime la couverture réelle → correction 1.10 (coverage_hat ≈ 0.86 → c = 0.95/0.86)
-  // Source : GPT Ronde IA 2 (2026-03-04).
-  const CI_BOOTSTRAP_CORRECTION = 1.10;
+  // Sprint D1 : remplacement 1.96×1.10 → t(0.975, df=n-1) table Student exacte
+  // n=4 groupes ESS → df=3 → t=3.182 (correction bootstrap 1.10 obsolète)
+  // Source : Ronde 4+5 audit IA (GPT/Grok/Gemini, 2026-03-04).
   const floorScore = 5;
   const delta0 = decompressApprox(score);
   const deltaAtPlus = decompressApprox(Math.min(score + floorScore, 97));
   const floorDelta = Math.abs(deltaAtPlus - delta0);
-  const ciMarginDelta = Math.max(1.96 * CI_BOOTSTRAP_CORRECTION * se, floorDelta);
+  const df = n - 1;
+  const t975 = tCritical975(df);
+  const ciMarginDelta = Math.max(t975 * se, floorDelta);
 
   const lower = Math.max(5, compress(delta0 - ciMarginDelta));
   const upper = Math.min(97, compress(delta0 + ciMarginDelta));
