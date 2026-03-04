@@ -902,8 +902,24 @@ export function calcDailyModules(
   const astroAlerts: string[] = [];
   // V6.0 : hoisted pour dashaLordTransitScore + profectionSignifiantScore (R21, R27)
   let _transitBreakdown: Array<{ transitPlanet: string; score: number; aspectType?: string }> = [];
+  // Sprint F — vitesses planétaires pour stationFactor (°/j, outer planets)
+  // Calcul J vs J-1 (midi UTC) pour détecter stations (Vakra védique / Ptolémée)
+  const planetSpeeds_F: Record<string, number> = {};
+  try {
+    const todayD_spd     = new Date(todayStr + 'T12:00:00');
+    const yesterdayD_spd = new Date(todayD_spd.getTime() - 86400000);
+    for (const pl of ['jupiter', 'saturn', 'uranus', 'neptune', 'pluto'] as const) {
+      const lonT = getPlanetLongitudeForDate(pl, todayD_spd);
+      const lonY = getPlanetLongitudeForDate(pl, yesterdayD_spd);
+      let spd = lonT - lonY;
+      if (spd >  180) spd -= 360; // gestion passage 360°→0°
+      if (spd < -180) spd += 360;
+      planetSpeeds_F[pl] = spd;
+    }
+  } catch { /* vitesses fail silently — stationFactor retourne 1.0 si absent */ }
+
   if (astro && astro.tr.length) {
-    const personalTransits = calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl, astro.stelliums); // V8.4 : stelliums
+    const personalTransits = calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl, astro.stelliums, planetSpeeds_F); // V8.4 stelliums · Sprint F stationFactor
     _transitBreakdown = personalTransits.breakdown as typeof _transitBreakdown;
     astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total))); // V6.2: cap ±6 (était sans cap — source du -12)
     if (astroPts > 0) {
