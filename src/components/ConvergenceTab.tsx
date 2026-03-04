@@ -10,6 +10,9 @@ import { DASHA_NARRATIVES, PRATYANTAR_NARRATIVES } from '../engines/vimshottari'
 import { calcDayPreview, estimateSlowTransitBonus } from '../engines/convergence'; // V8 J+1 + momentum
 import { getDayFeedback, saveDayFeedback } from '../engines/validation-tracker'; // V9.0 P5
 import { calcMomentum } from '../engines/vectorEngine'; // V8 momentum EMA
+import { getCurrentPlanetaryHour, getBestHoursToday, planetFr } from '../engines/planetary-hours'; // V9 Sprint 4
+import { INCLUSION_DOMAIN_MAP } from '../engines/numerology'; // V9 Sprint 5 — badge inclusion
+import { getArcana, calcTarotDayNumber } from '../engines/tarot'; // V9 Sprint 6 — Arcane du jour
 
 // V4.0: Couleurs des 6 domaines contextuels
 const DOMAIN_COLORS: Record<string, string> = {
@@ -107,6 +110,19 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
   const [blindPredicted, setBlindPredicted] = useState<number>(0);
   const [blindLabel, setBlindLabel] = useState<string>('');
   const STAR_LABELS = ['', 'Difficile', 'Mitigé', 'Correct', 'Bon', 'Excellent'];
+
+  // V9 Sprint 5 — Badge inclusion : Jour Personnel = leçon karmique
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [inclBadgeDismissed, setInclBadgeDismissed] = useState<boolean>(
+    () => localStorage.getItem(`inclusionBadgeDismissed_${todayStr}`) === 'true'
+  );
+  // Trouve le manque karmique actif aujourd'hui (Jour Personnel ∈ kl[])
+  const activeLack: number | null = (() => {
+    const pdv = num.ppd?.v ?? 0;
+    if (!num.kl || num.kl.length === 0) return null;
+    if (num.kl.includes(pdv)) return pdv;
+    return null;
+  })();
 
   useEffect(() => {
     const yesterday = new Date();
@@ -297,6 +313,42 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
           </button>
         </div>
       )}
+
+      {/* ═══ V9 Sprint 5 — Badge Inclusion : Jour Personnel = leçon karmique ═══ */}
+      {!inclBadgeDismissed && activeLack !== null && (() => {
+        const info = INCLUSION_DOMAIN_MAP[activeLack];
+        return (
+          <div style={{
+            margin: '0 0 12px 0', padding: '12px 14px',
+            background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 16 }}>🧬</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>
+                  Jour Personnel {activeLack} · Leçon karmique en lumière
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: P.textMid, lineHeight: 1.5 }}>{info.activationText}</div>
+              <div style={{ fontSize: 10, color: P.textDim, marginTop: 4 }}>
+                Axe {info.icon} {info.domain} · {info.lesson}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem(`inclusionBadgeDismissed_${todayStr}`, 'true');
+                setInclBadgeDismissed(true);
+              }}
+              style={{
+                background: 'none', border: 'none', color: P.textDim,
+                cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 4px', flexShrink: 0,
+              }}
+              aria-label="Fermer"
+            >✕</button>
+          </div>
+        );
+      })()}
 
       <Sec icon="⭐" title="Pilotage Stratégique">
         <Cd>
@@ -870,7 +922,97 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             </div>
           )}
 
-          {/* ═══ 4b. SYNERGIES ACTIVES (V4.4 — Niveau 2) ═══ */}
+          {/* ═══ 4b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4 ═══ */}
+          {(() => {
+            const ph   = getCurrentPlanetaryHour();
+            const best = getBestHoursToday(new Date(), 3);
+            if (!ph) return null;
+            const qualColor = ph.quality === 'favorable' ? '#4ade80' : ph.quality === 'challenging' ? '#ef4444' : P.textMid;
+            const qualLabel = ph.quality === 'favorable' ? 'Favorable' : ph.quality === 'challenging' ? 'Tendu' : 'Neutre';
+            return (
+              <div style={{ marginBottom: 20, padding: 14, background: P.bg, borderRadius: 10, border: `1px solid ${P.cardBdr}` }}>
+                <div style={{ fontSize: 11, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>
+                  ⏱ Heure Planétaire
+                </div>
+
+                {/* Heure courante */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: best.length > 0 ? 12 : 0, padding: '10px 12px',
+                  background: `${qualColor}08`, borderRadius: 8, border: `1px solid ${qualColor}20` }}>
+                  <div style={{ fontSize: 28 }}>{ph.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{ph.label}</div>
+                    <div style={{ fontSize: 11, color: P.textDim, marginTop: 2 }}>{ph.keywords.join(' · ')}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <div style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                      color: qualColor, background: `${qualColor}15`, border: `1px solid ${qualColor}30` }}>
+                      {qualLabel}
+                    </div>
+                    <div style={{ fontSize: 10, color: P.textDim }}>
+                      {ph.isDayHour ? '☀️' : '🌙'} H{ph.hourIndex}/12
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prochaines heures favorables */}
+                {best.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                      Prochaines heures favorables
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {best.map((h, i) => {
+                        const start = new Date(h.startMs);
+                        const hh = start.getHours().toString().padStart(2, '0');
+                        const mm = start.getMinutes().toString().padStart(2, '0');
+                        return (
+                          <div key={i} style={{ flex: 1, padding: '6px 8px', borderRadius: 8,
+                            background: '#4ade8008', border: '1px solid #4ade8020', textAlign: 'center' }}>
+                            <div style={{ fontSize: 18 }}>{h.icon}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#4ade80', marginTop: 2 }}>
+                              {planetFr(h.planet)}
+                            </div>
+                            <div style={{ fontSize: 9, color: P.textDim }}>{hh}:{mm}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ═══ 4c. ARCANE DU JOUR — V9 Sprint 6 ═══ */}
+          {(() => {
+            const todayStr2 = new Date().toISOString().slice(0, 10);
+            const arcane = getArcana(calcTarotDayNumber(todayStr2));
+            return (
+              <div style={{ marginBottom: 20, padding: 14, background: P.bg, borderRadius: 10, border: `1px solid ${P.cardBdr}` }}>
+                <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>
+                  🃏 Arcane du Jour
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 40, height: 64, background: `${P.gold}12`, borderRadius: 6, border: `1px solid ${P.gold}33`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 20 }}>🃏</span>
+                    <span style={{ fontSize: 8, color: P.gold, fontWeight: 700, marginTop: 2 }}>{arcane.num}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{arcane.name_fr}</div>
+                    <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginTop: 2 }}>{arcane.theme}</div>
+                    <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, lineHeight: 1.5 }}>✦ {arcane.light}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10, padding: '8px 10px', background: `${P.gold}06`, borderRadius: 8, borderLeft: `2px solid ${P.gold}44` }}>
+                  <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, fontStyle: 'italic' }}>
+                    {arcane.narrative}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ═══ 4d. SYNERGIES ACTIVES (V4.4 — Niveau 2) ═══ */}
           {cv.interactions && cv.interactions.active?.length > 0 && (() => {
             const inter = cv.interactions;
             const lines = getInteractionsSummary(inter);

@@ -692,3 +692,88 @@ export function getMutantLineV2(hexNum: number, changing: number): MutantLineRea
   // Fallback : utilise getMutantLine existant (dynamique)
   return getMutantLine(hexNum, changing);
 }
+
+// ══════════════════════════════════════
+// ═══ TIRAGE CONSCIENT — V9 Sprint 4 ═══
+// Méthode des 3 pièces (Bi Qian) :
+//   pile = 2 (yin)  |  face = 3 (yang)
+//   somme de 3 pièces par ligne :
+//   6 = yin mobile (yin → yang dans l'hexagramme transformé)
+//   7 = yang stable
+//   8 = yin stable
+//   9 = yang mobile (yang → yin dans l'hexagramme transformé)
+// Entropie : crypto.getRandomValues() — qualité cryptographique.
+// ══════════════════════════════════════
+
+export interface ConsciousIChing {
+  question:    string;
+  timestamp:   number;
+  throws:      Array<6 | 7 | 8 | 9>; // 6 lancers (index 0 = ligne du bas)
+  reading:     IChingReading;         // hexagramme principal
+  movingLines: number[];              // indices des lignes mobiles (0–5)
+  transformed?: IChingReading;        // hexagramme résultant si ≥1 ligne mobile
+}
+
+function secureCoin(): 2 | 3 {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(1);
+    crypto.getRandomValues(buf);
+    return (buf[0] & 1) === 0 ? 2 : 3;
+  }
+  return Math.random() < 0.5 ? 2 : 3; // fallback SSR
+}
+
+function linesToTrigramIdx(l0: number, l1: number, l2: number): number {
+  const idx = TRIGRAMS.findIndex(t => t[0] === l0 && t[1] === l1 && t[2] === l2);
+  return idx < 0 ? 0 : idx; // fallback Ciel si inconnu
+}
+
+function makeReading(lines: number[], movingLine: number): IChingReading {
+  const lowerIdx = linesToTrigramIdx(lines[0], lines[1], lines[2]);
+  const upperIdx = linesToTrigramIdx(lines[3], lines[4], lines[5]);
+  const hexNum   = KW[lowerIdx][upperIdx];
+  return {
+    hexNum,
+    lower:   lowerIdx,
+    upper:   upperIdx,
+    lines,
+    changing: movingLine,
+    name:    HEX_NAMES[hexNum]    || `Hexagramme ${hexNum}`,
+    keyword: HEX_KEYWORDS[hexNum] || 'Observez',
+    desc:    HEX_DESC[hexNum]     || `L'hexagramme ${hexNum} invite à l'observation.`,
+  };
+}
+
+/**
+ * Tirage conscient par méthode des 3 pièces (crypto.getRandomValues).
+ * @param question  Intention ou question formulée par l'utilisateur.
+ */
+export function calcConsciousIChing(question: string): ConsciousIChing {
+  const timestamp = Date.now();
+
+  // 6 lancers de 3 pièces chacun
+  const throws: Array<6 | 7 | 8 | 9> = [];
+  for (let i = 0; i < 6; i++) {
+    throws.push((secureCoin() + secureCoin() + secureCoin()) as 6 | 7 | 8 | 9);
+  }
+
+  // Ligne courante : 6,8 → yin(0)  |  7,9 → yang(1)
+  const lines = throws.map(t => (t === 7 || t === 9) ? 1 : 0);
+
+  // Lignes mobiles : 6 (yin mobile) ou 9 (yang mobile)
+  const movingLines = throws.reduce<number[]>((acc, t, i) => {
+    if (t === 6 || t === 9) acc.push(i);
+    return acc;
+  }, []);
+
+  const reading = makeReading(lines, movingLines[0] ?? 0);
+
+  // Hexagramme résultant : lignes mobiles inversées
+  let transformed: IChingReading | undefined;
+  if (movingLines.length > 0) {
+    const tLines = lines.map((l, i) => movingLines.includes(i) ? 1 - l : l);
+    transformed = makeReading(tLines, movingLines[0]);
+  }
+
+  return { question, timestamp, throws, reading, movingLines, transformed };
+}

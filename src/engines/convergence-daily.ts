@@ -16,6 +16,7 @@ import { calcProfection, getDomainScore, type ProfectionResult } from './profect
 import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './nakshatras';
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
+import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -102,6 +103,7 @@ export interface DailyModuleResult {
   moonPhaseRawPhase: number;  // moonPhaseRaw.phase
   // Needed for R21/R27 scoring in L2
   _transitBreakdown: Array<{ transitPlanet: string; score: number; aspectType?: string }>;
+  planetaryHour: PlanetaryHour | null; // V9 Sprint 4 — heure planétaire chaldéenne courante
 }
 
 // ══════════════════════════════════════
@@ -954,6 +956,34 @@ export function calcDailyModules(
   }
 
   // ═══════════════════════════════════
+  // 12b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4
+  // Heure courante → planète gouvernante → ±pts injectés en L1.
+  // Heures inégales (Spencer sunrise), latitude estimée depuis tz navigateur.
+  // ═══════════════════════════════════
+
+  const planetaryHour = getCurrentPlanetaryHour(new Date(todayStr + 'T12:00:00'));
+  // Note : on utilise midi local comme proxy pour "le jour" (l'UI affiche l'heure réelle).
+  // Pour le scoring on prend l'heure planétaire au moment réel du calcul :
+  const planetaryHourNow = getCurrentPlanetaryHour();
+  if (planetaryHourNow) {
+    const phPts = planetaryHourNow.pts;
+    if (phPts !== 0) {
+      delta += phPts;
+      const sign = phPts > 0 ? '+' : '';
+      if (phPts > 0) signals.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
+      else           alerts.push(`${planetaryHourNow.icon} Heure ${planetaryHourNow.label} — ${planetaryHourNow.keywords[0]} (${sign}${phPts})`);
+    }
+    breakdown.push({
+      system: 'Heure Planétaire', icon: planetaryHourNow.icon,
+      value:  `${planetaryHourNow.label} ${planetaryHourNow.isDayHour ? '☀️' : '🌙'} H${planetaryHourNow.hourIndex}`,
+      points: planetaryHourNow.pts,
+      detail: planetaryHourNow.keywords.join(' · '),
+      signals: phPts > 0 ? [`${planetaryHourNow.icon} ${planetaryHourNow.label} — ${planetaryHourNow.keywords.join(', ')}`] : [],
+      alerts:  phPts < 0 ? [`${planetaryHourNow.icon} ${planetaryHourNow.label} — ${planetaryHourNow.keywords.join(', ')}`] : [],
+    });
+  }
+
+  // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4
   // ═══════════════════════════════════
 
@@ -993,5 +1023,6 @@ export function calcDailyModules(
     pyv,
     moonPhaseRawPhase: moonPhaseRaw.phase,
     _transitBreakdown,
+    planetaryHour: planetaryHourNow ?? null,  // V9 Sprint 4
   };
 }

@@ -467,14 +467,22 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
 /** V8.9 GPT Q3 : correction statique du Rarity Index par Monte Carlo.
  *  Construit une baseline L1+L2 simulée pour comparer le score full (L1+L2+L3)
  *  à une distribution équitable — évite l'asymétrie L1-only vs full score. */
-function buildCorrectedBaseline(yearScoresL1: number[], samplesPerDay = 8): number[] {
+function buildCorrectedBaseline(
+  yearScoresL1: number[],
+  ctxMultCenter  = 1.0,  // V9.0 S4 — centré sur le vrai ctxMult du jour
+  dashaMultCenter = 1.0, // V9.0 S4 — centré sur le vrai dashaMult du jour
+  samplesPerDay  = 8
+): number[] {
   const corrected: number[] = [];
   for (const sL1 of yearScoresL1) {
     const d1 = decompressApprox(sL1);
     for (let k = 0; k < samplesPerDay; k++) {
-      const offsetPts = (Math.random() - 0.5) * 8;   // Uniform[-4, +4]
-      const ctxMult   = 0.95 + Math.random() * 0.10; // Uniform[0.95, 1.05]
-      corrected.push(compress((d1 + offsetPts) * ctxMult));
+      const offsetPts = (Math.random() - 0.5) * 12;   // Uniform[-6, +6] — inclut L3 interactions ±6
+      const ctxVar    = (Math.random() - 0.5) * 0.12; // ±6% variation ctx [0.88–1.12]
+      const dashaVar  = (Math.random() - 0.5) * 0.20; // ±10% variation dasha [0.80–1.25]
+      const ctxSim    = Math.max(0.85, Math.min(1.15, ctxMultCenter  * (1 + ctxVar)));
+      const dashaSim  = Math.max(0.60, Math.min(1.30, dashaMultCenter * (1 + dashaVar)));
+      corrected.push(compress((d1 + offsetPts) * ctxSim * dashaSim));
     }
   }
   return corrected;
@@ -482,11 +490,13 @@ function buildCorrectedBaseline(yearScoresL1: number[], samplesPerDay = 8): numb
 
 function computeRarityIndex(
   currentScore: number, positiveSystemCount: number, totalSystemCount: number,
-  bd: string, num: NumerologyProfile, cz: ChineseZodiac, transitBonus: number
+  bd: string, num: NumerologyProfile, cz: ChineseZodiac, transitBonus: number,
+  ctxMult = 1.0, dashaMult = 1.0                                  // S4 — terrain karmique réel du jour
 ): RarityResult {
   const yearScoresL1  = getYearScores(bd, num, cz, transitBonus);
   // V8.9 GPT Q3 : baseline corrigée (L1 + simulation L2) pour éviter biais asymétrique
-  const baseline      = buildCorrectedBaseline(yearScoresL1);
+  // S4 : centrée sur ctxMult + dashaMult réels du jour
+  const baseline      = buildCorrectedBaseline(yearScoresL1, ctxMult, dashaMult);
   const higherOrEqual = baseline.filter(s => s >= currentScore).length;
   const percentage    = Math.max(0.1, (higherOrEqual / baseline.length) * 100);
   const rank          = baseline.filter(s => s > currentScore).length + 1;
@@ -985,7 +995,7 @@ export function calcConvergence(
 
   const transitBonusForRarity = astro?.tr.length ? Math.round(calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl).total) : 0;
   const positiveSystemCount = breakdown.filter(b => b.points > 0).length;
-  const rarityIndex = computeRarityIndex(score, positiveSystemCount, breakdown.length, bd, num, cz, 0); // V6.3: 0 au lieu de transitBonusForRarity (Gemini R21)
+  const rarityIndex = computeRarityIndex(score, positiveSystemCount, breakdown.length, bd, num, cz, 0, ctxMult, dashaMult); // V6.3: 0 au lieu de transitBonusForRarity (Gemini R21) | S4: terrain réel
 
   const nakshatraMods = daily.nakshatraData?.domainModifiers as Record<string, number> | undefined;
   // V9.0 P3 — Nakshatra affinités dynamiques : traduit domainModifiers (0.5-1.5) → [0,1] pour DOMAIN_AFFINITY

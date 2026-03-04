@@ -576,7 +576,7 @@ export default function App() {
         {data && <>
           {tab === 'convergence' && <ConvergenceTab data={data} psi={psiData} bd={lock.bd} />}
           {tab === 'calendar' && <CalendarTab data={data} bd={lock.bd} />}
-          {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} />}
+          {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} fn={lock.fn} />}
           {tab === 'bond' && <BondTab bd={lock.bd} />}
           {tab === 'oracle' && <OracleTab data={data} bd={lock.bd} />}
           {tab === 'astro' && <AstroTab data={data} />}

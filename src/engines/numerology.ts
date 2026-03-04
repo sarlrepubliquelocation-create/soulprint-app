@@ -591,3 +591,65 @@ export function calcNumerology(fn: string, mn: string, ln: string, bd: string, t
     lifeCycle,                          // A1.2: Cycle de vie 3×27 ans
   };
 }
+
+// ═══════════════════════════════════════════════════════════
+// INCLUSION DISPLAY — V9 Sprint 5
+// ═══════════════════════════════════════════════════════════
+
+export const INCLUSION_DOMAIN_MAP: Record<number, {
+  domain: string; secondary: string; lesson: string; activationText: string; icon: string;
+}> = {
+  1: { domain: 'DÉCISION',   secondary: 'BUSINESS',  lesson: 'Affirmation',     icon: '🔥', activationText: "Affirme tes choix aujourd'hui — ton manque de 1 devient ta force !" },
+  2: { domain: 'AMOUR',      secondary: 'SOCIAL',    lesson: 'Coopération',     icon: '🤝', activationText: "Ouvre ton cœur — ton karma du 2 s'éclaire pour t'unir aux autres." },
+  3: { domain: 'CRÉATIVITÉ', secondary: 'SOCIAL',    lesson: 'Expression',      icon: '🎨', activationText: "Libère ta voix créative — ton manque de 3 est ton atout aujourd'hui." },
+  4: { domain: 'BUSINESS',   secondary: 'SANTÉ',     lesson: 'Discipline',      icon: '🏗️', activationText: "Bâtis avec confiance — ton karma du 4 te donne une base solide." },
+  5: { domain: 'SOCIAL',     secondary: 'DÉCISION',  lesson: 'Liberté',         icon: '🌊', activationText: "Accueille l'imprévu avec joie — ton manque de 5 devient une aventure." },
+  6: { domain: 'AMOUR',      secondary: 'SANTÉ',     lesson: 'Responsabilité',  icon: '💚', activationText: "Cultive l'harmonie — ton karma du 6 trouve son point d'équilibre." },
+  7: { domain: 'SPIRITUEL',  secondary: 'DÉCISION',  lesson: 'Foi',             icon: '🔮', activationText: "Écoute ton intuition — ton karma du 7 illumine ta pleine conscience." },
+  8: { domain: 'BUSINESS',   secondary: 'DÉCISION',  lesson: 'Abondance',       icon: '⚡', activationText: "Saisis les opportunités — ton manque de 8 t'invite à la réussite." },
+  9: { domain: 'SPIRITUEL',  secondary: 'SOCIAL',    lesson: 'Sagesse',         icon: '🌍', activationText: "Fais preuve de compassion — ton karma du 9 t'ouvre grand au monde." },
+};
+
+export interface InclusionDisplay {
+  grid:     Record<number, number>;
+  N:        number;
+  zScores:  Record<number, number>;
+  absents:  number[];   // count === 0 → leçon karmique
+  passions: number[];   // z ≥ 1.0   → passion cachée
+  planes: {
+    physical:  number;  // (4+5+6) / N × 100
+    mental:    number;  // (1+8) / N × 100
+    emotional: number;  // (2+3) / N × 100
+    intuitive: number;  // (7+9) / N × 100
+  };
+}
+
+export function calcInclusionDisplay(fullName: string): InclusionDisplay {
+  const grid   = calcInclusionGrid(fullName);
+  const raw    = nameToNumbers(fullName).filter(n => n >= 1 && n <= 9);
+  const N      = raw.length;
+  const exp    = N / 9;
+  const sigma  = Math.sqrt(N * (1 / 9) * (8 / 9));
+
+  const zScores:  Record<number, number> = {};
+  const absents:  number[] = [];
+  const passions: number[] = [];
+
+  for (let d = 1; d <= 9; d++) {
+    const c = grid[d] ?? 0;
+    const z = sigma > 0 ? (c - exp) / sigma : 0;
+    zScores[d] = Math.round(z * 10) / 10;
+    if (c === 0)   absents.push(d);
+    if (z >= 1.0)  passions.push(d);
+  }
+
+  const g = (d: number) => grid[d] ?? 0;
+  const planes = {
+    physical:  N > 0 ? (g(4) + g(5) + g(6)) / N * 100 : 0,
+    mental:    N > 0 ? (g(1) + g(8))         / N * 100 : 0,
+    emotional: N > 0 ? (g(2) + g(3))         / N * 100 : 0,
+    intuitive: N > 0 ? (g(7) + g(9))         / N * 100 : 0,
+  };
+
+  return { grid, N, zScores, absents, passions, planes };
+}
