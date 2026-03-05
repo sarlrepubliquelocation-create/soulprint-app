@@ -1618,7 +1618,9 @@ export function getNaYin(date: Date): NaYinResult {
 // Plage totale : +0 à +6 (additif uniquement, négatifs = Clashes/Harms existants)
 // ═══════════════════════════════════════════════════════════════════
 
-export type ShenShaName = 'TianYi' | 'YiMa' | 'HuaGai' | 'HongLuan' | 'TaiSui' | 'SuiPo' | 'WenChang' | 'LuShen';
+export type ShenShaName = 'TianYi' | 'YiMa' | 'HuaGai' | 'HongLuan' | 'TaiSui' | 'SuiPo' | 'WenChang' | 'LuShen'
+  // Sprint AJ — 10 nouveaux (Ronde 2, GPT tables complètes)
+  | 'YangRen' | 'KongWang' | 'TaoHua' | 'TianXi' | 'JieSha' | 'ZaiSha' | 'GuChen' | 'GuaSu' | 'XueRen' | 'FuXing';
 
 export interface ShenShaInfo {
   name: ShenShaName;
@@ -1642,6 +1644,18 @@ export const SHEN_SHA_INFO: Record<ShenShaName, ShenShaInfo> = {
   SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Sui Po — Clash briseur d\'année',        global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
   WenChang: { name: 'WenChang', chinese: '文昌',     label_fr: 'Wen Chang — Étoile académique',          global: +2, business:  0, amour:  0, creativite: +4, vitalite:  0, introspection: +2 },
   LuShen:   { name: 'LuShen',   chinese: '祿神',     label_fr: 'Lu Shen — Étoile de prospérité',         global: +3, business: +5, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  // Sprint AJ — 10 nouveaux Shen Sha (Chantier 5, consensus 3/3 IAs)
+  // Sources : San Ming Tong Hui, Di Tian Sui, tradition Zi Ping standard
+  YangRen:  { name: 'YangRen',  chinese: '羊刃',     label_fr: 'Yang Ren — Lame du bélier',              global: -2, business: +1, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
+  KongWang: { name: 'KongWang', chinese: '空亡',     label_fr: 'Kong Wang — Vide & Néant',               global: -2, business: -2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  TaoHua:   { name: 'TaoHua',   chinese: '桃花',     label_fr: 'Tao Hua — Fleur de pêcher',              global:  0, business:  0, amour: +1, creativite:  0, vitalite:  0, introspection:  0 },
+  TianXi:   { name: 'TianXi',   chinese: '天喜',     label_fr: 'Tian Xi — Joie céleste',                 global:  0, business:  0, amour: +2, creativite:  0, vitalite:  0, introspection:  0 },
+  JieSha:   { name: 'JieSha',   chinese: '劫煞',     label_fr: 'Jie Sha — Étoile de vol',                global: -1, business:  0, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
+  ZaiSha:   { name: 'ZaiSha',   chinese: '災煞',     label_fr: 'Zai Sha — Étoile de calamité',           global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
+  GuChen:   { name: 'GuChen',   chinese: '孤辰',     label_fr: 'Gu Chen — Solitude masculine',            global:  0, business:  0, amour:  0, creativite:  0, vitalite:  0, introspection: +1 },
+  GuaSu:    { name: 'GuaSu',    chinese: '寡宿',     label_fr: 'Gua Su — Solitude féminine',              global:  0, business:  0, amour: -2, creativite:  0, vitalite:  0, introspection: +1 },
+  XueRen:   { name: 'XueRen',   chinese: '血刃',     label_fr: 'Xue Ren — Lame de sang',                 global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
+  FuXing:   { name: 'FuXing',   chinese: '福星貴人', label_fr: 'Fu Xing — Étoile du bonheur',             global: +2, business:  0, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
 };
 
 // ── Tian Yi 天乙貴人 ── basé sur Day Stem natal → branches cibles
@@ -1741,6 +1755,132 @@ const HONG_LUAN_MAP: Record<number, number> = {
   11: 4,  // Hai   → Chen
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// Sprint AJ — Tables des 10 nouveaux Shen Sha
+// Sources : GPT R2 C6 (tables complètes) + San Ming Tong Hui + tradition standard
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Yang Ren 羊刃 — Day Stem → target branch
+const YANG_REN_MAP: Record<number, number> = {
+  0: 3,  // Jia  → Mao
+  1: 2,  // Yi   → Yin
+  2: 6,  // Bing → Wu
+  3: 5,  // Ding → Si
+  4: 6,  // Wu   → Wu
+  5: 5,  // Ji   → Si
+  6: 9,  // Geng → You
+  7: 8,  // Xin  → Shen
+  8: 0,  // Ren  → Zi
+  9: 11, // Gui  → Hai
+};
+
+// 2. Kong Wang 空亡 — Day Pillar JiaZi Xun → 2 void branches
+// La Xun (旬) est déterminée par le Jia Zi pair du cycle de 60
+// Pour chaque Xun, les deux dernières branches sont "vides"
+const KONG_WANG_BY_XUN: Record<number, [number, number]> = {
+  0:  [10, 11], // 甲子旬 (0-9) → Xu, Hai
+  10: [8, 9],   // 甲戌旬 (10-19) → Shen, You
+  20: [6, 7],   // 甲申旬 (20-29) → Wu, Wei
+  30: [4, 5],   // 甲午旬 (30-39) → Chen, Si
+  40: [2, 3],   // 甲辰旬 (40-49) → Yin, Mao
+  50: [0, 1],   // 甲寅旬 (50-59) → Zi, Chou
+};
+
+// Helper : SanHe groups (三合)
+const SANHE_TARGET: Record<number, number> = {
+  // Group Shen/Zi/Chen (Eau)
+  8: 0, 0: 0, 4: 0,
+  // Group Yin/Wu/Xu (Feu)
+  2: 1, 6: 1, 10: 1,
+  // Group Si/You/Chou (Métal)
+  5: 2, 9: 2, 1: 2,
+  // Group Hai/Mao/Wei (Bois)
+  11: 3, 3: 3, 7: 3,
+};
+
+// 3. Tao Hua 桃花 — SanHe group → target branch (Year or Day branch source)
+const TAO_HUA_MAP: Record<number, number> = {
+  0: 9,  // Eau (Shen/Zi/Chen) → You
+  1: 3,  // Feu (Yin/Wu/Xu) → Mao
+  2: 6,  // Métal (Si/You/Chou) → Wu
+  3: 0,  // Bois (Hai/Mao/Wei) → Zi
+};
+
+// 4. Tian Xi 天喜 — Year Branch → target branch
+const TIAN_XI_MAP: Record<number, number> = {
+  0: 9,  1: 8,  2: 7,  3: 6,  4: 5,  5: 4,
+  6: 3,  7: 2,  8: 1,  9: 0,  10: 11, 11: 10,
+};
+
+// 5. Jie Sha 劫煞 — SanHe group → target branch
+const JIE_SHA_MAP: Record<number, number> = {
+  0: 5,  // Eau → Si
+  1: 11, // Feu → Hai
+  2: 2,  // Métal → Yin
+  3: 8,  // Bois → Shen
+};
+
+// 6. Zai Sha 災煞 — SanHe group → target branch
+const ZAI_SHA_MAP: Record<number, number> = {
+  0: 6,  // Eau → Wu
+  1: 0,  // Feu → Zi
+  2: 3,  // Métal → Mao
+  3: 9,  // Bois → You
+};
+
+// 7-8. Gu Chen 孤辰 / Gua Su 寡宿 — Year branch seasonal group
+// Spring(Yin/Mao/Chen), Summer(Si/Wu/Wei), Autumn(Shen/You/Xu), Winter(Hai/Zi/Chou)
+type Season = 0 | 1 | 2 | 3; // spring/summer/autumn/winter
+const BRANCH_SEASON: Record<number, Season> = {
+  2: 0, 3: 0, 4: 0,   // Spring
+  5: 1, 6: 1, 7: 1,   // Summer
+  8: 2, 9: 2, 10: 2,  // Autumn
+  11: 3, 0: 3, 1: 3,  // Winter
+};
+const GU_CHEN_MAP: Record<Season, number> = { 0: 5, 1: 8, 2: 11, 3: 2 }; // after trinity
+const GUA_SU_MAP: Record<Season, number> = { 0: 1, 1: 4, 2: 7, 3: 10 };  // before trinity
+
+// 9. Xue Ren 血刃 — Month Branch → target branch (tradition mixte)
+const XUE_REN_MAP: Record<number, number> = {
+  2: 1,  // Yin  → Chou
+  3: 7,  // Mao  → Wei
+  4: 2,  // Chen → Yin
+  5: 8,  // Si   → Shen
+  6: 3,  // Wu   → Mao
+  7: 9,  // Wei  → You
+  8: 4,  // Shen → Chen
+  9: 10, // You  → Xu
+  10: 5, // Xu   → Si
+  11: 11,// Hai  → Hai
+  0: 6,  // Zi   → Wu
+  1: 0,  // Chou → Zi
+};
+
+// 10. Fu Xing 福星貴人 — Day Stem → target branch
+const FU_XING_MAP: Record<number, number> = {
+  0: 2,  // Jia  → Yin
+  1: 1,  // Yi   → Chou
+  2: 0,  // Bing → Zi
+  3: 9,  // Ding → You
+  4: 8,  // Wu   → Shen
+  5: 7,  // Ji   → Wei
+  6: 6,  // Geng → Wu
+  7: 5,  // Xin  → Si
+  8: 4,  // Ren  → Chen
+  9: 3,  // Gui  → Mao
+};
+
+// Helper : calcul JiaZi 60 index pour Kong Wang (空亡)
+// Le cycle sexagésimal (六十甲子) se déduit directement du JDN.
+// JiaZi index 0 = JDN où stem=0 (Jia) et branch=0 (Zi).
+// Formule : jiaZi60 = (stemIdx * 6 - branchIdx * 5 + 60) % 60
+function getJiaZiIndex(date: Date): number {
+  const jdn = getJulianDayNumber(date);
+  const stemIdx = ((jdn + 9) % 10 + 10) % 10;
+  const branchIdx = ((jdn + 1) % 12 + 12) % 12;
+  return (stemIdx * 6 - branchIdx * 5 + 60) % 60;
+}
+
 export interface ShenShaResult {
   active: ShenShaInfo[];
   totalGlobal: number;
@@ -1759,15 +1899,19 @@ export interface ShenShaResult {
 export function checkShenSha(natalBirthDate: Date, targetDate: Date): ShenShaResult {
   const natalDayPillar = calcDayMaster(natalBirthDate);
   const natalYearPillar = getYearPillar(natalBirthDate);
+  const natalMonthPillar = getMonthPillar(natalBirthDate);
   const targetDayPillar = calcDayMaster(targetDate);
   const currentYearPillar = getYearPillar(targetDate); // V8.9 : année courante pour Tai Sui / Sui Po
 
   const natalDayStemIdx    = natalDayPillar.stem.index;
   const natalYearBranchIdx = natalYearPillar.branchIdx;
+  const natalMonthBranchIdx = natalMonthPillar.branchIdx;
   const targetBranchIdx    = targetDayPillar.branch.index;
   const currentYearBranch  = currentYearPillar.branchIdx; // V8.9
 
   const active: ShenShaInfo[] = [];
+
+  // ── 8 Shen Sha existants ──
 
   // Tian Yi : Day Stem natal → branches cibles
   if (TIAN_YI_MAP[natalDayStemIdx]?.includes(targetBranchIdx)) {
@@ -1789,25 +1933,85 @@ export function checkShenSha(natalBirthDate: Date, targetDate: Date): ShenShaRes
     active.push(SHEN_SHA_INFO.HongLuan);
   }
 
-  // V8.9 Gemini Q2 — Tai Sui 太歲 : jour courant = branche de l'année courante
+  // Tai Sui 太歲 : jour courant = branche de l'année courante
   if (targetBranchIdx === currentYearBranch) {
     active.push(SHEN_SHA_INFO.TaiSui);
   }
 
-  // V8.9 Gemini Q2 — Sui Po 歲破 : jour courant = branche opposée à l'année courante (+6 mod 12)
+  // Sui Po 歲破 : branche opposée à l'année courante
   const suiPoBranch = (currentYearBranch + 6) % 12;
   if (targetBranchIdx === suiPoBranch) {
     active.push(SHEN_SHA_INFO.SuiPo);
   }
 
-  // V8.9 Gemini Q2 — Wen Chang 文昌 : Day Master Stem natal → branche cible du jour
+  // Wen Chang 文昌 : Day Master Stem natal → branche cible du jour
   if (WEN_CHANG_TABLE[natalDayStemIdx] === targetBranchIdx) {
     active.push(SHEN_SHA_INFO.WenChang);
   }
 
-  // V8.9 Gemini Q2 — Lu Shen 祿神 : Day Master Stem natal → branche cible du jour
+  // Lu Shen 祿神 : Day Master Stem natal → branche cible du jour
   if (LU_SHEN_TABLE[natalDayStemIdx] === targetBranchIdx) {
     active.push(SHEN_SHA_INFO.LuShen);
+  }
+
+  // ── 10 nouveaux Shen Sha (Sprint AJ — Chantier 5) ──
+
+  // 1. Yang Ren 羊刃 : Day Stem natal → branche cible
+  if (YANG_REN_MAP[natalDayStemIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.YangRen);
+  }
+
+  // 2. Kong Wang 空亡 : JiaZi60 du jour natal → Xun → 2 branches vides
+  const natalJiaZi = getJiaZiIndex(natalBirthDate);
+  const xunStart = Math.floor(natalJiaZi / 10) * 10;
+  const kwPair = KONG_WANG_BY_XUN[xunStart];
+  if (kwPair && (targetBranchIdx === kwPair[0] || targetBranchIdx === kwPair[1])) {
+    active.push(SHEN_SHA_INFO.KongWang);
+  }
+
+  // 3. Tao Hua 桃花 : SanHe group de la branche Year natal → branche cible
+  const taoHuaGroup = SANHE_TARGET[natalYearBranchIdx];
+  if (taoHuaGroup !== undefined && TAO_HUA_MAP[taoHuaGroup] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.TaoHua);
+  }
+
+  // 4. Tian Xi 天喜 : Year Branch natal → branche cible
+  if (TIAN_XI_MAP[natalYearBranchIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.TianXi);
+  }
+
+  // 5. Jie Sha 劫煞 : SanHe group de Year Branch natal → branche cible
+  const jieShaGroup = SANHE_TARGET[natalYearBranchIdx];
+  if (jieShaGroup !== undefined && JIE_SHA_MAP[jieShaGroup] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.JieSha);
+  }
+
+  // 6. Zai Sha 災煞 : SanHe group de Year Branch natal → branche cible
+  const zaiShaGroup = SANHE_TARGET[natalYearBranchIdx];
+  if (zaiShaGroup !== undefined && ZAI_SHA_MAP[zaiShaGroup] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.ZaiSha);
+  }
+
+  // 7. Gu Chen 孤辰 : Saison du Year Branch natal → branche cible
+  const gcSeason = BRANCH_SEASON[natalYearBranchIdx];
+  if (gcSeason !== undefined && GU_CHEN_MAP[gcSeason] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.GuChen);
+  }
+
+  // 8. Gua Su 寡宿 : Saison du Year Branch natal → branche cible
+  const gsSeason = BRANCH_SEASON[natalYearBranchIdx];
+  if (gsSeason !== undefined && GUA_SU_MAP[gsSeason] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.GuaSu);
+  }
+
+  // 9. Xue Ren 血刃 : Month Branch natal → branche cible
+  if (XUE_REN_MAP[natalMonthBranchIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.XueRen);
+  }
+
+  // 10. Fu Xing 福星貴人 : Day Stem natal → branche cible
+  if (FU_XING_MAP[natalDayStemIdx] === targetBranchIdx) {
+    active.push(SHEN_SHA_INFO.FuXing);
   }
 
   return {

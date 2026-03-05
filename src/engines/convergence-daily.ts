@@ -14,12 +14,13 @@ import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMaste
 import { calcInteractions, buildInteractionContext, type InteractionResult } from './interactions';
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
+import { calcDMStrength, getDMMultiplier, type DMStrengthResult } from './dm-strength'; // Sprint AI
 import { getAyanamsa, calcNakshatraComposite, type NakshatraData, getPada, PADA_MULTIPLIERS, PADA_NAMES } from './nakshatras';
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
-import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
+import { calcAshtakavarga, buildSAV, calcMoonBAVSAV, extractNatalSiderealSignIdx } from './ashtakavarga'; // V9.6 Sprint C + Sprint AK SAV
 import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult, calcGrahaDrishti, type GrahaDrishtiResult, calcYogaKartari, type KartariResult, combinedBala } from './panchanga'; // Sprint D3 + Sprint G + Sprint J + Sprint L + Sprint M + Sprint P
 
 // ══════════════════════════════════════
@@ -368,6 +369,7 @@ export function calcDailyModules(
   let tenGodsResult: TenGodsResult | null = null;
   let baziDMPts = 0;
   let tenGodsPts = 0;
+  let dmS = 0; // Sprint AJ — facteur DM Strength s ∈ [-1,+1], utilisé aussi par Shen Sha
   const baziSignals: string[] = [];
   const baziAlerts: string[] = [];
 
@@ -385,7 +387,19 @@ export function calcDailyModules(
     }
 
     tenGodsResult = calc10Gods(birthDate, todayDate);
-    tenGodsPts = Math.max(-6, Math.min(6, tenGodsResult.totalScore));
+    // Sprint AI — Modulation DM Strength sur 10 Gods (±20%)
+    // Le DM Strength est statique (natal), calculé une fois
+    let dmResult: DMStrengthResult | null = null;
+    try {
+      dmResult = calcDMStrength(birthDate, null); // null = pas d'heure pour l'instant
+    } catch { /* DM strength fail silently */ }
+    dmS = dmResult?.s ?? 0;
+    // Appliquer le multiplicateur DM au score total des 10 Gods
+    const rawTenGods = tenGodsResult.totalScore;
+    const dominantGod = tenGodsResult.dominant?.god;
+    const dmMult = dominantGod ? getDMMultiplier(dominantGod, dmS) : 1.0;
+    const modulatedTenGods = Math.round(rawTenGods * dmMult);
+    tenGodsPts = Math.max(-6, Math.min(6, modulatedTenGods));
     if (tenGodsResult.dominant) {
       const d = tenGodsResult.dominant;
       const zhengLabel = d.isZheng ? '正' : '偏';
@@ -469,9 +483,35 @@ export function calcDailyModules(
     const ssBirthDate = new Date(bd + 'T12:00:00');
     const ssTodayDate = new Date(todayStr + 'T12:00:00');
     shenShaResult = checkShenSha(ssBirthDate, ssTodayDate);
-    shenShaPts = 0; // V8 : narratif BaZi enrichi (R25 — redondant, valeur visuelle uniquement)
+
+    // Sprint AJ — Chantier 5 : scoring anti-stack cap ±4
+    // Consensus 3/3 IAs (GPT R2 + Grok R2 + Gemini R2)
+    // 1. Trier par |global| décroissant
+    // 2. Poids dégressifs [1, 0.6, 0.4, 0.3, 0.25, 0.2, 0.2, ...]
+    // 3. Interaction DM : étoiles négatives ×(1+0.25×(-s)), protectrices ×(1+0.20×(-s))
+    // 4. Cap final ±4
+    const ANTI_STACK_WEIGHTS = [1, 0.6, 0.4, 0.3, 0.25, 0.2];
+    const sorted = [...shenShaResult.active].sort((a, b) => Math.abs(b.global) - Math.abs(a.global));
+    let rawShenSha = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      const star = sorted[i];
+      let pts = star.global;
+      // Interaction DM × Shen Sha (dmS provient du calcul DM Strength plus haut)
+      if (pts < 0) {
+        // Étoiles négatives : amplifiées si DM faible (s < 0 → -s > 0)
+        pts = pts * (1 + 0.25 * Math.max(0, -dmS));
+      } else if (pts > 0) {
+        // Étoiles protectrices/positives : amplifiées si DM faible
+        pts = pts * (1 + 0.20 * Math.max(0, -dmS));
+      }
+      const w = ANTI_STACK_WEIGHTS[Math.min(i, ANTI_STACK_WEIGHTS.length - 1)];
+      rawShenSha += pts * w;
+    }
+    shenShaPts = Math.max(-4, Math.min(4, Math.round(rawShenSha * 10) / 10));
+
     for (const star of shenShaResult.active) {
-      signals.push(`${star.chinese} ${star.label_fr}`);
+      if (star.global > 0) signals.push(`${star.chinese} ${star.label_fr}`);
+      else if (star.global < 0) alerts.push(`${star.chinese} ${star.label_fr}`);
     }
     if (shenShaResult.active.length > 0) {
       breakdown.push({
@@ -479,8 +519,8 @@ export function calcDailyModules(
         value: shenShaResult.active.map(s => s.chinese).join(' '),
         points: shenShaPts,
         detail: shenShaResult.active.map(s => s.label_fr).join(' · '),
-        signals: shenShaResult.active.map(s => `${s.chinese} → ${s.label_fr.split('—')[0].trim()}`),
-        alerts: [],
+        signals: shenShaResult.active.filter(s => s.global > 0).map(s => `${s.chinese} → ${s.label_fr.split('—')[0].trim()}`),
+        alerts: shenShaResult.active.filter(s => s.global < 0).map(s => `${s.chinese} → ${s.label_fr.split('—')[0].trim()}`),
       });
     }
   } catch { /* Shen Sha fail silently */ }
@@ -562,7 +602,7 @@ export function calcDailyModules(
   // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4
   // ═══════════════════════════════════
 
-  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + changshengPts + jianchuPts)); // V9.6 Sprint A2: C_BAZI ±15 (était ±22)
+  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + changshengPts + jianchuPts + shenShaPts)); // V9.6 Sprint A2: C_BAZI ±15 + Sprint AJ: Shen Sha ±4
   delta += baziFamilyTotal;
 
   // Direct domain bonuses (Changsheng + Shen Sha per-domain)
@@ -967,8 +1007,10 @@ export function calcDailyModules(
   } catch { /* VoC fail silently */ }
 
   // ═══════════════════════════════════
-  // 4d. ASHTAKAVARGA LUNAIRE — V9.6 Sprint C
-  // BAV Lune natale → Bindus dans le signe sidéral transitant → delta ±2
+  // 4d. ASHTAKAVARGA LUNAIRE + SAV — Sprint AK Chantier 5
+  // Hybride Moon BAV + SAV : clamp(Lune_BAV_Score + SAV_Score, -5, +5)
+  // Consensus 3/3 IAs (GPT R2, Grok R2, Gemini R2)
+  // Remplace l'ancien delta Moon BAV pur (±2)
   // ═══════════════════════════════════
 
   if (astro) {
@@ -977,20 +1019,36 @@ export function calcDailyModules(
       const moonTropLon  = getMoonPhase(todayD).longitudeTropical;
       const ayToday      = getAyanamsa(todayD.getFullYear());
       const moonSidLon   = ((moonTropLon - ayToday) + 360) % 360;
+      const moonSignIdx  = Math.floor(((moonSidLon % 360) + 360) % 360 / 30);
+
+      // Construire BAV Lune natale pour obtenir les bindus
+      const donorIdx     = extractNatalSiderealSignIdx(astro, bd);
       const ashMoon      = calcAshtakavarga('moon', moonSidLon, astro, bd);
-      if (ashMoon.delta !== 0) {
-        luneGroupPts += ashMoon.delta; // Sprint C: groupe LUNE
-        signals.push(...ashMoon.signals);
-        alerts.push(...ashMoon.alerts);
+      const moonBindus   = ashMoon.bindus;
+
+      // Construire SAV et lire la valeur du signe transitant
+      const sav          = buildSAV(donorIdx);
+      const savSign      = sav[moonSignIdx] ?? 28;
+
+      // Calcul hybride
+      const hybrid       = calcMoonBAVSAV(moonBindus, savSign);
+      const hybridDelta  = Math.round(hybrid.hybridDelta); // arrondir pour L1
+
+      if (hybridDelta !== 0) {
+        luneGroupPts += hybridDelta; // Sprint AK: remplace ancien ashMoon.delta
+        const sign = hybridDelta > 0 ? '+' : '';
+        const label = `⭕ Ashtakavarga ☽+SAV — ${ashMoon.signName} (${moonBindus}B, SAV=${savSign}) → ${sign}${hybridDelta}`;
+        if (hybridDelta > 0) signals.push(label);
+        else alerts.push(label);
         breakdown.push({
-          system: 'Ashtakavarga ☽', icon: '⭕',
-          value:  `${ashMoon.signName} — ${ashMoon.bindus} Bindus`,
-          points: ashMoon.delta,
-          detail: `Lune sidérale en ${ashMoon.signName} | BAV Lune natale`,
-          signals: ashMoon.signals, alerts: ashMoon.alerts,
+          system: 'Ashtakavarga ☽+SAV', icon: '⭕',
+          value:  `${ashMoon.signName} — ${moonBindus}B / SAV ${savSign}`,
+          points: hybridDelta,
+          detail: `Lune sidérale en ${ashMoon.signName} | BAV=${moonBindus}, SAV=${savSign} | Hybride ${sign}${hybridDelta}`,
+          signals: hybridDelta > 0 ? [label] : [], alerts: hybridDelta < 0 ? [label] : [],
         });
       }
-    } catch { /* Ashtak Moon fail silently */ }
+    } catch { /* Ashtak Moon+SAV fail silently */ }
   }
 
   // ═══════════════════════════════════

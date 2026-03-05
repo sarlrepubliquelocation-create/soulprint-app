@@ -205,7 +205,7 @@ export function deltaFromBindus(b: number): number {
  * @param astro     Thème natal
  * @param bd        Date de naissance (YYYY-MM-DD)
  */
-function extractNatalSiderealSignIdx(
+export function extractNatalSiderealSignIdx(
   astro: AstroChart,
   bd: string
 ): Partial<Record<AshtakPlanetKey, number>> {
@@ -231,6 +231,58 @@ function extractNatalSiderealSignIdx(
   result.ascendant = Math.floor(ascSidLon / 30);
 
   return result;
+}
+
+// ─── SAV (Sarvashtakavarga) — Sprint AK Chantier 5 ─────────────────────────
+// Consensus 3/3 IAs (GPT R2, Grok R2, Gemini R2)
+// SAV = somme des 7 BAV planétaires par signe (sans Ascendant). Total = 337.
+// delta_SAV = clamp((SAV_sign - 28) × 0.22, -2.8, +2.8)
+// Hybride avec Moon BAV : Transit_Lune_Final = clamp(Lune_BAV_Score + SAV_Score, -5.0, +5.0)
+
+const SAV_PLANET_KEYS: string[] = ['sun', 'moon', 'mars', 'mercury', 'jupiter', 'venus', 'saturn'];
+
+/**
+ * Construit la table SAV (12 signes) à partir des positions natales.
+ * SAV[i] = somme des 7 BAV planétaires au signe i.
+ * Total des 12 signes = 337.
+ */
+export function buildSAV(donorSignIdx: Partial<Record<AshtakPlanetKey, number>>): number[] {
+  const sav = Array<number>(12).fill(0);
+  for (const planet of SAV_PLANET_KEYS) {
+    const bav = buildBhinnashtakavarga(planet, donorSignIdx);
+    for (let i = 0; i < 12; i++) {
+      sav[i] += bav[i];
+    }
+  }
+  return sav;
+}
+
+/**
+ * Calcule le delta SAV pour un signe donné.
+ * Pivot = 28 (337/12 ≈ 28.1), coefficient 0.22, cap ±2.8.
+ */
+export function deltaSAV(savSign: number): number {
+  return Math.max(-2.8, Math.min(2.8, (savSign - 28) * 0.22));
+}
+
+/**
+ * Calcule le score hybride Moon BAV + SAV pour le transit lunaire.
+ * Lune_BAV_Score = (bindus - 4) × 0.75  (centré sur 4, pondéré)
+ * SAV_Score = deltaSAV(sav_sign)
+ * Final = clamp(Lune_BAV_Score + SAV_Score, -5.0, +5.0)
+ */
+export function calcMoonBAVSAV(
+  moonBindus: number,
+  savSign: number,
+): { luneBavScore: number; savScore: number; hybridDelta: number } {
+  const luneBavScore = (moonBindus - 4) * 0.75;
+  const savScore = deltaSAV(savSign);
+  const hybridDelta = Math.max(-5.0, Math.min(5.0, luneBavScore + savScore));
+  return {
+    luneBavScore: Math.round(luneBavScore * 100) / 100,
+    savScore: Math.round(savScore * 100) / 100,
+    hybridDelta: Math.round(hybridDelta * 100) / 100,
+  };
 }
 
 // ─── API Principale ───────────────────────────────────────────────────────────
