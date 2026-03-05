@@ -79,6 +79,31 @@ const DASHA_COLOR: Record<string, string> = {
   Jupiter: '#4ade80', Saturne: '#94a3b8', Mercure: '#38bdf8',
 };
 
+// Y4 — Posture du Jour (5 postures décisionnelles)
+interface PostureResult {
+  label: string;
+  icon: string;
+  color: string;
+  tagline: string;
+}
+function getPosture(score: number, verb: string): PostureResult {
+  if (verb === 'lance' && score >= 75) return { label: 'OFFENSIVE',    icon: '🚀', color: '#4ade80', tagline: 'Foncez — le terrain est ouvert' };
+  if (verb === 'lance')                return { label: 'ACTIVE',        icon: '⚡', color: '#f59e0b', tagline: 'Avancez avec méthode' };
+  if (verb === 'prepare')              return { label: 'TACTIQUE',      icon: '🎯', color: '#60a5fa', tagline: 'Préparez sans lancer' };
+  if (verb === 'observe')              return { label: 'OBSERVATION',   icon: '👁', color: '#94a3b8', tagline: "Lisez l'environnement" };
+  return                                      { label: 'DÉFENSIVE',     icon: '🛡', color: '#ef4444', tagline: 'Protégez vos acquis' };
+}
+
+// Y4 — Lecture védique depuis shadowBaseSignal ∈ [-1, +1]
+function getVedicReadout(sig: number | undefined): { label: string; icon: string; color: string } {
+  if (sig === undefined) return { label: 'Non calculé', icon: '○', color: '#4b5563' };
+  if (sig >=  0.40) return { label: 'Terrain védique favorable',  icon: '🌿', color: '#4ade80' };
+  if (sig >=  0.10) return { label: 'Résonance positive',          icon: '✦',  color: '#a78bfa' };
+  if (sig >= -0.10) return { label: 'Terrain neutre',              icon: '○',  color: '#94a3b8' };
+  if (sig >= -0.40) return { label: 'Résonance négative',          icon: '⚠',  color: '#f59e0b' };
+  return                   { label: 'Terrain védique chargé',      icon: '⚫', color: '#ef4444' };
+}
+
 // V9 Sprint 8a — Chiffres romains pour les 22 Arcanes Majeurs
 const ROMAN_ARCANA: Record<number, string> = {
   0: '0',   1: 'I',    2: 'II',   3: 'III',  4: 'IV',    5: 'V',
@@ -740,11 +765,27 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               borderRadius: 12,
               boxShadow: `0 0 20px ${cv.actionReco.color}10`,
             }}>
+              {/* Y4 — Posture du Jour (badge au-dessus de l'action) */}
+              {(() => {
+                const posture = getPosture(cv.score, cv.actionReco.verb);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ fontSize: 15 }}>{posture.icon}</span>
+                      <span style={{
+                        fontSize: 13, fontWeight: 800, letterSpacing: 2,
+                        color: posture.color, textTransform: 'uppercase',
+                      }}>{posture.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: P.textDim, fontStyle: 'italic' }}>{posture.tagline}</span>
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <span style={{ fontSize: 34, flexShrink: 0 }}>{cv.actionReco.icon}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 11, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
-                    Action du jour · {dt.icon} Journée {dt.label}
+                    {dt.icon} Journée {dt.label}
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: cv.actionReco.color, letterSpacing: 2, marginTop: 2 }}>
                     {cv.actionReco.label}
@@ -756,6 +797,89 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               </div>
             </div>
           )}
+
+          {/* Y4b — Triade IMPACT / RÉSONANCE / ANCRAGE */}
+          {cv.contextualScores && (() => {
+            const best  = cv.contextualScores.domains.find(d => d.domain === cv.contextualScores!.bestDomain);
+            const worst = cv.contextualScores.domains.find(d => d.domain === cv.contextualScores!.worstDomain);
+            const topSignal = cv.signals?.find(s => s.length > 5) ?? null;
+            const topAlert  = cv.alerts?.find(a => a.length > 5)  ?? null;
+            const vedic = getVedicReadout(cv.shadowBaseSignal);
+            return (
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 8, marginBottom: 20,
+              }}>
+                {/* IMPACT */}
+                <div style={{
+                  padding: '12px 10px', borderRadius: 10,
+                  background: '#4ade8010', border: '1px solid #4ade8028',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}>
+                  <div style={{ fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
+                    IMPACT
+                  </div>
+                  {best && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[best.domain] ?? '#4ade80' }}>
+                        {best.icon} {best.score}%
+                      </div>
+                      <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{best.label}</div>
+                    </>
+                  )}
+                  {topSignal && (
+                    <div style={{ fontSize: 9, color: '#4ade80aa', lineHeight: 1.3, marginTop: 2, fontStyle: 'italic' }}>
+                      {topSignal.replace(/^[^\s]+\s/, '').slice(0, 52)}
+                    </div>
+                  )}
+                </div>
+
+                {/* RÉSONANCE */}
+                <div style={{
+                  padding: '12px 10px', borderRadius: 10,
+                  background: '#a78bfa10', border: '1px solid #a78bfa28',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}>
+                  <div style={{ fontSize: 9, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
+                    RÉSONANCE
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: vedic.color }}>
+                    {vedic.icon} {cv.shadowBaseSignal !== undefined ? `${(cv.shadowBaseSignal * 100).toFixed(0)}%` : '—'}
+                  </div>
+                  <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{vedic.label}</div>
+                  {cv.shadowScore !== undefined && (
+                    <div style={{ fontSize: 9, color: '#a78bfaaa', lineHeight: 1.3, marginTop: 2, fontStyle: 'italic' }}>
+                      Moteur Cœur : {cv.shadowScore}%
+                    </div>
+                  )}
+                </div>
+
+                {/* ANCRAGE */}
+                <div style={{
+                  padding: '12px 10px', borderRadius: 10,
+                  background: '#ef444410', border: '1px solid #ef444428',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}>
+                  <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
+                    ANCRAGE
+                  </div>
+                  {worst && (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[worst.domain] ?? '#ef4444' }}>
+                        {worst.icon} {worst.score}%
+                      </div>
+                      <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{worst.label}</div>
+                    </>
+                  )}
+                  {topAlert && (
+                    <div style={{ fontSize: 9, color: '#ef4444aa', lineHeight: 1.3, marginTop: 2, fontStyle: 'italic' }}>
+                      {topAlert.replace(/^[^\s]+\s/, '').slice(0, 52)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ═══ 4. POTENTIEL PAR DOMAINE — où agir ═══ */}
 
@@ -1795,6 +1919,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               score={cv.score}
               dayType={dt.type}
               breakdown={cv.breakdown?.map(b => ({ system: b.system, points: b.points }))}
+              shadowScore={cv.shadowScore}
             />
           </div>
         </Cd>

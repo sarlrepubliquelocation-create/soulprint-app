@@ -14,10 +14,11 @@ import { getOnboardingMessage, getFlatlineAlert, loadPersonalWeights } from '../
 import { P } from './ui';
 
 interface FeedbackWidgetProps {
-  date: string;       // YYYY-MM-DD
-  score: number;      // Score Kaironaute du jour (blendé)
-  dayType: string;    // Type de jour (label)
+  date: string;          // YYYY-MM-DD
+  score: number;         // Score Kaironaute du jour (blendé)
+  dayType: string;       // Type de jour (label)
   breakdown?: Array<{ system: string; points: number }>; // pour personnalisation
+  shadowScore?: number;  // Y2 shadow — score moteur Cœur Unifié candidat [0-100]
 }
 
 type Note = -1 | 0 | 1;
@@ -34,7 +35,7 @@ function noteToStar(n: Note): number {
   return 5;
 }
 
-export default function FeedbackWidget({ date, score, dayType, breakdown }: FeedbackWidgetProps) {
+export default function FeedbackWidget({ date, score, dayType, breakdown, shadowScore }: FeedbackWidgetProps) {
   const [note, setNote]             = useState<Note | null>(null);
   const [stars, setStars]           = useState<number | null>(null);
   const [hoverStar, setHoverStar]   = useState<number>(0);
@@ -202,6 +203,33 @@ export default function FeedbackWidget({ date, score, dayType, breakdown }: Feed
         }}>
           {stats.shadow.personalizationWins ? '🧬' : '📊'} {stats.shadow.label}
           <span style={{ marginLeft: 6, fontSize: 9, opacity: 0.7 }}>({stats.shadow.n} jours comparés)</span>
+        </div>
+      )}
+
+      {/* Y2 shadow — comparaison moteur candidat Cœur Unifié (discret, pour calibration) */}
+      {shadowScore !== undefined && (
+        <div style={{
+          marginTop: 8, padding: '6px 10px', borderRadius: 7,
+          background: '#a78bfa08', border: '1px solid #a78bfa18',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontSize: 10, color: P.textDim,
+        }}>
+          <span>🧪 Moteur Cœur (candidat)</span>
+          <span style={{
+            fontWeight: 700,
+            color: Math.abs(shadowScore - score) <= 5
+              ? '#4ade80aa'
+              : Math.abs(shadowScore - score) <= 12
+              ? '#f59e0baa'
+              : '#ef4444aa',
+          }}>
+            {shadowScore}%
+            {Math.abs(shadowScore - score) > 0 && (
+              <span style={{ fontWeight: 400, marginLeft: 4, opacity: 0.6 }}>
+                ({shadowScore > score ? '+' : ''}{shadowScore - score})
+              </span>
+            )}
+          </span>
         </div>
       )}
 
