@@ -985,7 +985,15 @@ export function calcDailyModules(
   if (astro && astro.tr.length) {
     const personalTransits = calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl, astro.stelliums, planetSpeeds_F); // V8.4 stelliums · Sprint F stationFactor
     _transitBreakdown = personalTransits.breakdown as typeof _transitBreakdown;
-    astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total))); // V6.2: cap ±6 (était sans cap — source du -12)
+    // Sprint R — Anti double-comptage Jupiter/Saturn → Lune natale
+    // Graha Drishti (Parāśari) prend ownership de ces aspects → neutralisation part gaussienne
+    // Jupiter ET Saturn sont les seules planètes présentes dans TRANSIT_AMPLITUDES ET GRAHA_DRISHTI_ASPECTS
+    // On soustrait leur contribution sur le point natal 'moon' avant le cap ±6
+    const DRISHTI_SLOW_R = new Set(['jupiter', 'saturn']);
+    const drOverlapR = personalTransits.breakdown
+      .filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && (b as any).natalPoint === 'moon')
+      .reduce((s, b) => s + b.score, 0);
+    astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total - drOverlapR))); // V6.2+R: cap ±6, overlap Drishti neutralisé
     if (astroPts > 0) {
       const top = personalTransits.breakdown.sort((a, b) => b.score - a.score)[0];
       astroSignals.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'harmonic' ? 'trigone/sextile' : 'conjonction'} favorable (+${astroPts})`);

@@ -240,6 +240,46 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       expected: 2,
     },
 
+    // ── Sprint R — drOverlap filter (anti double-comptage Drishti × gaussien) ──
+    {
+      name: 'Sprint R: drOverlap filtre jupiter+saturn→moon, ignore sun/uranus',
+      actual: (() => {
+        const bd = [
+          { transitPlanet: 'jupiter', natalPoint: 'moon', score:  3.5 },
+          { transitPlanet: 'jupiter', natalPoint: 'sun',  score:  2.0 },
+          { transitPlanet: 'saturn',  natalPoint: 'moon', score: -4.0 },
+          { transitPlanet: 'uranus',  natalPoint: 'moon', score:  1.5 },
+        ];
+        const DRISHTI_SLOW_R = new Set(['jupiter', 'saturn']);
+        return +bd.filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && b.natalPoint === 'moon')
+                  .reduce((s, b) => s + b.score, 0).toFixed(1);
+      })(),
+      expected: -0.5, // jupiter(+3.5) + saturn(-4.0) = -0.5 · sun et uranus exclus
+    },
+    {
+      name: 'Sprint R: drOverlap vide = 0 (aucune planète Drishti sur lune)',
+      actual: (() => {
+        const bd = [
+          { transitPlanet: 'uranus',  natalPoint: 'moon', score:  2.0 },
+          { transitPlanet: 'neptune', natalPoint: 'moon', score: -1.5 },
+        ];
+        const DRISHTI_SLOW_R = new Set(['jupiter', 'saturn']);
+        return bd.filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && b.natalPoint === 'moon')
+                 .reduce((s, b) => s + b.score, 0);
+      })(),
+      expected: 0,
+    },
+    {
+      name: 'Sprint R: drOverlap mars→moon = 0 (mars exclu de DRISHTI_SLOW)',
+      actual: (() => {
+        const bd = [{ transitPlanet: 'mars', natalPoint: 'moon', score: -5.0 }];
+        const DRISHTI_SLOW_R = new Set(['jupiter', 'saturn']);
+        return bd.filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && b.natalPoint === 'moon')
+                 .reduce((s, b) => s + b.score, 0);
+      })(),
+      expected: 0, // Mars gère ses aspects via Drishti uniquement, pas en double dans TRANSIT_AMPLITUDES
+    },
+
     // ── calcPanchanga ── (Sprint E — régression guard)
     {
       name: 'Panchanga: total capé à ±6 max',
