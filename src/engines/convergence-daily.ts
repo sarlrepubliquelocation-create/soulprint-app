@@ -84,7 +84,7 @@ export interface DailyModuleResult {
   dayType: DayTypeInfo;
   moonResult: MoonScore;       // for eclipse exclusion mutuelle in L3
   moonTr: { sign: string; element: string; icon: string };
-  nodeTransit: LunarNodeTransit;
+  nodeTransit: LunarNodeTransit | null;
   baziResult: DayMasterDailyResult | null;
   tenGodsResult: TenGodsResult | null;
   changshengResult: ChangshengResult | null;
@@ -1149,27 +1149,30 @@ export function calcDailyModules(
   // 9. NŒUDS LUNAIRES (annotation, pas de points)
   // ═══════════════════════════════════
 
-  const nodeTransit = getLunarNodeTransit(bd, todayStr);
+  // Guard try-catch : calcNorthNodeLongitude peut retourner NaN si date invalide → crash silencieux
+  let nodeTransit: ReturnType<typeof getLunarNodeTransit> | null = null;
+  try { nodeTransit = getLunarNodeTransit(bd, todayStr); } catch { /* fail silently */ }
   let nodePts = 0; // V5.5 : scoring supprimé
   const nodeSignals: string[] = [];
   const nodeAlerts: string[] = [];
-  switch (nodeTransit.alignment) {
-    case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission karmique'); break;
-    case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux karmique'); break;
-    case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
-    case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
+  if (nodeTransit) {
+    switch (nodeTransit.alignment) {
+      case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission karmique'); break;
+      case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux karmique'); break;
+      case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
+      case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
+    }
+    if (nodeTransit.isNodeReturn) { nodeSignals.push('⚡ Retour des Nœuds actif'); }
+    signals.push(...nodeSignals);
+    alerts.push(...nodeAlerts);
+    breakdown.push({
+      system: 'Nœuds Lunaires', icon: '☊',
+      value: `NN ${nodeTransit.natal.northNode.sign}`,
+      points: nodePts,
+      detail: nodeTransit.alignmentDesc.split('.')[0],
+      signals: nodeSignals, alerts: nodeAlerts,
+    });
   }
-  if (nodeTransit.isNodeReturn) { nodeSignals.push('⚡ Retour des Nœuds actif'); }
-  signals.push(...nodeSignals);
-  alerts.push(...nodeAlerts);
-
-  breakdown.push({
-    system: 'Nœuds Lunaires', icon: '☊',
-    value: `NN ${nodeTransit.natal.northNode.sign}`,
-    points: nodePts,
-    detail: nodeTransit.alignmentDesc.split('.')[0],
-    signals: nodeSignals, alerts: nodeAlerts,
-  });
 
   // ═══════════════════════════════════
   // 10. DAY TYPE MODIFIER

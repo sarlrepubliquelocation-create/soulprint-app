@@ -192,7 +192,7 @@ export interface ConvergenceResult {
   actionReco: ActionReco;
   moonTransit: { sign: string; element: string; icon: string };
   rarityIndex: RarityResult;
-  lunarNodes: LunarNodeTransit;
+  lunarNodes: LunarNodeTransit | null;
   baziDaily: DayMasterDailyResult | null;
   tenGods: TenGodsResult | null;
   changsheng: ChangshengResult | null;
