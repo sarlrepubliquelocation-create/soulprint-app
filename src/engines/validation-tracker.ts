@@ -20,6 +20,11 @@ export interface DayFeedback {
   // V4.4 — Shadow Testing (stocke les deux scores purs pour comparaison ρ)
   scoreUniversal?: number;     // Score avec poids universels (mult=1.0)
   scorePersonalized?: number;  // Score avec poids personnalisés (mult adaptatifs)
+  // AD — Observabilité αG (Sprint AD)
+  luneDelta?: number;   // luneGroupDelta brut [-16, +16]
+  ephemDelta?: number;  // ephemGroupDelta brut [-14, +14]
+  baziDelta?: number;   // baziGroupDelta brut [-15, +15]
+  scoreBrut?: number;   // cv.score post-tanh, pré-calibOffset — anti-leakage
 }
 
 export interface ValidationStats {
@@ -260,9 +265,13 @@ export function saveDayFeedback(
   userRating: 'good' | 'neutral' | 'bad',
   dominantDomain?: string,
   note?: string,
-  userScore?: number, // V4.3 — slider 1-5
+  userScore?: number,          // V4.3 — slider 1-5
   scoreUniversal?: number,     // V4.4 — shadow score universel
-  scorePersonalized?: number   // V4.4 — shadow score personnalisé
+  scorePersonalized?: number,  // V4.4 — shadow score personnalisé
+  luneDelta?: number,          // AD — luneGroupDelta brut
+  ephemDelta?: number,         // AD — ephemGroupDelta brut
+  baziDelta?: number,          // AD — baziGroupDelta brut
+  scoreBrut?: number           // AD — cv.score pré-calibOffset
 ): void {
   const feedbacks = loadFeedbacks();
 
@@ -273,6 +282,7 @@ export function saveDayFeedback(
     userScore: userScore ? Math.round(Math.max(1, Math.min(5, userScore))) : undefined,
     dominantDomain, note, timestamp: Date.now(),
     scoreUniversal, scorePersonalized, // V4.4
+    luneDelta, ephemDelta, baziDelta, scoreBrut, // AD
   };
 
   if (existing >= 0) {
@@ -501,4 +511,183 @@ export function getBreakdownForDate(
     const all = JSON.parse(raw);
     return all[date] ?? null;
   } catch { return null; }
+}
+
+// ── AD — Stockage intermédiaire des deltas quotidiens ──
+// Permet de récupérer les deltas d'hier au moment du blind check-in
+
+const DAILY_DELTAS_KEY = 'kairo_deltas_v1';
+
+interface DailyDeltasEntry {
+  luneDelta: number;
+  ephemDelta: number;
+  baziDelta: number;
+  scoreBrut: number;
+}
+
+export function storeTodayDeltas(
+  date: string,
+  luneDelta: number,
+  ephemDelta: number,
+  baziDelta: number,
+  scoreBrut: number
+): void {
+  try {
+    const raw = localStorage.getItem(DAILY_DELTAS_KEY);
+    const all: Record<string, DailyDeltasEntry> = raw ? JSON.parse(raw) : {};
+    all[date] = { luneDelta, ephemDelta, baziDelta, scoreBrut };
+    // Garder seulement les 90 derniers jours
+    const keys = Object.keys(all).sort().reverse();
+    if (keys.length > 90) keys.slice(90).forEach(k => delete all[k]);
+    localStorage.setItem(DAILY_DELTAS_KEY, JSON.stringify(all));
+  } catch { /* fail silently */ }
+}
+
+export function loadDeltas(date: string): DailyDeltasEntry | null {
+  try {
+    const raw = localStorage.getItem(DAILY_DELTAS_KEY);
+    if (!raw) return null;
+    const all: Record<string, DailyDeltasEntry> = JSON.parse(raw);
+    return all[date] ?? null;
+  } catch { return null; }
+}
+
+// ── AD — Kendall τ-b ──
+// σ = sqrt(2(2N+5) / (9N(N-1)))  — correction Grok Ronde 9
+
+export interface KendallResult {
+  tau: number;      // τ-b [-1, +1]
+  n: number;        // paires utilisées
+  sigma: number;    // écart-type théorique
+  pValue: number;   // p-value approx (z-test)
+  significant: boolean; // p < 0.05
+  nEff: number;     // count(|x| ≥ P60)
+  stdX: number;     // std(x) des deltas
+}
+
+function percentile60(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const idx = Math.floor(0.60 * sorted.length);
+  return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+export function computeKendallTauB(xArr: number[], yArr: number[]): KendallResult {
+  const n = Math.min(xArr.length, yArr.length);
+  const zero: KendallResult = { tau: 0, n, sigma: 0, pValue: 1, significant: false, nEff: 0, stdX: 0 };
+  if (n < 5) return zero;
+
+  let C = 0, D = 0, Tx = 0, Ty = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const dx = xArr[i] - xArr[j];
+      const dy = yArr[i] - yArr[j];
+      const prod = dx * dy;
+      if (prod > 0)       C++;
+      else if (prod < 0)  D++;
+      else if (dx === 0 && dy !== 0) Tx++;
+      else if (dy === 0 && dx !== 0) Ty++;
+      // tied on both → not counted
+    }
+  }
+
+  const denom = Math.sqrt((C + D + Tx) * (C + D + Ty));
+  const tau = denom === 0 ? 0 : (C - D) / denom;
+
+  // σ = sqrt(2(2N+5) / (9N(N-1)))
+  const sigma = Math.sqrt((2 * (2 * n + 5)) / (9 * n * (n - 1)));
+  const z = Math.abs(tau) / sigma;
+  // p-value deux queues via erf : p = 1 - erf(z / √2)
+  const pValue = Math.max(0, Math.min(1, 1 - erf(z / Math.sqrt(2))));
+  const significant = pValue < 0.05;
+
+  // N_eff : count(|x| ≥ P60)
+  const absX = xArr.map(v => Math.abs(v));
+  const p60 = percentile60(absX);
+  const nEff = absX.filter(v => v >= p60).length;
+
+  // std(x)
+  const meanX = xArr.reduce((s, v) => s + v, 0) / n;
+  const stdX = Math.sqrt(xArr.reduce((s, v) => s + (v - meanX) ** 2, 0) / n);
+
+  return {
+    tau: Math.round(tau * 1000) / 1000,
+    n,
+    sigma: Math.round(sigma * 1000) / 1000,
+    pValue: Math.round(pValue * 1000) / 1000,
+    significant,
+    nEff,
+    stdX: Math.round(stdX * 100) / 100,
+  };
+}
+
+// ── AD — Observabilité αG ──
+
+export interface AlphaGGroupObs {
+  tau: number;
+  n: number;
+  nEff: number;
+  stdDelta: number;
+  significant: boolean;
+  pValue: number;
+  label: string;  // interprétation courte
+}
+
+export interface AlphaGObsResult {
+  lune: AlphaGGroupObs;
+  ephem: AlphaGGroupObs;
+  bazi: AlphaGGroupObs;
+  N: number;         // feedbacks avec deltas disponibles
+  palier: 1 | 2 | 3; // palier actuel
+  palierLabel: string;
+}
+
+function alphaGGroupLabel(tau: number, n: number): string {
+  const abs = Math.abs(tau);
+  if (n < 5)   return 'Données insuffisantes';
+  if (abs < 0.10) return 'Signal absent';
+  if (abs < 0.20) return 'Signal faible';
+  if (abs < 0.30) return 'Signal modéré';
+  return tau > 0 ? 'Signal fort ✓' : 'Signal inverse ⚠️';
+}
+
+export function getAlphaGObservability(): AlphaGObsResult {
+  const feedbacks = loadFeedbacks().filter(f =>
+    f.luneDelta !== undefined &&
+    f.ephemDelta !== undefined &&
+    f.baziDelta  !== undefined &&
+    f.scoreBrut  !== undefined &&
+    f.userScore  !== undefined
+  );
+
+  const N = feedbacks.length;
+  const palier: 1 | 2 | 3 = N < 21 ? 1 : N < 60 ? 2 : 3;
+  const palierLabels = {
+    1: `Palier 1 — Collecte (${N}/21)`,
+    2: `Palier 2 — Fast-Track (${N}/60)`,
+    3: `Palier 3 — Application (N=${N})`,
+  };
+
+  const userScores = feedbacks.map(f => f.userScore!);
+  const luneDeltas  = feedbacks.map(f => f.luneDelta!);
+  const ephemDeltas = feedbacks.map(f => f.ephemDelta!);
+  const baziDeltas  = feedbacks.map(f => f.baziDelta!);
+
+  function toObs(deltas: number[], scores: number[]): AlphaGGroupObs {
+    const k = computeKendallTauB(deltas, scores);
+    return {
+      tau: k.tau, n: k.n, nEff: k.nEff, stdDelta: k.stdX,
+      significant: k.significant, pValue: k.pValue,
+      label: alphaGGroupLabel(k.tau, k.n),
+    };
+  }
+
+  return {
+    lune:  toObs(luneDeltas,  userScores),
+    ephem: toObs(ephemDeltas, userScores),
+    bazi:  toObs(baziDeltas,  userScores),
+    N,
+    palier,
+    palierLabel: palierLabels[palier],
+  };
 }

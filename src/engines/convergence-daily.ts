@@ -839,7 +839,9 @@ export function calcDailyModules(
   // R33 : Réconciliation BaZi × Védique (Wu Xing ↔ Tattwa)
   // Grok Ronde 3 : le Day Master BaZi et le lord du Nakshatra transit partagent
   // la même essence élémentaire (Tattwa). Harmonie = +1.5, Friction = -1.0.
-  // Table Wu Xing→Tattwa : Bois=Vayu · Feu=Agni · Terre=Prithvi · Métal=Akasha · Eau=Jala
+  // Table Wu Xing→Tattwa : Bois=Vayu · Feu=Agni · Terre=Prithvi · Métal=Vayu · Eau=Jala
+  // AA-1 — correction doctrinale (Grok R1 Ronde 2 — Tattwa Bodha + Pañcadaśī §1.14-1.18)
+  // Métal=Akasha était incorrect → Métal=Vayu (descendant-contractif, Bois=montant-expansif)
   // Table Lords→Tattwa : Ketu/Soleil/Mars=Agni · Lune/Vénus=Jala
   //                      Rahu/Saturne=Vayu · Jupiter=Akasha · Mercure=Prithvi
   // ═══════════════════════════════════
@@ -852,7 +854,7 @@ export function calcDailyModules(
         'Bois':  'Vayu',
         'Feu':   'Agni',
         'Terre': 'Prithvi',
-        'Métal': 'Akasha',
+        'Métal': 'Vayu',   // AA-1 — corrigé depuis Akasha (Grok R1 Ronde 2)
         'Eau':   'Jala',
       };
       const LORD_TO_TATTWA: Record<string, string> = {
@@ -867,7 +869,13 @@ export function calcDailyModules(
       const nakTattwa = LORD_TO_TATTWA[nakLord]       ?? null;
 
       if (dmTattwa && nakTattwa) {
-        const r33Pts = dmTattwa === nakTattwa ? 1.5 : -1.0;
+        // AC-R2 — nuance qualitative Bois/Métal dans l'harmonie Vayu (Grok R3 Ronde 3)
+        // Bois=Vayu montant/expansif vs Métal=Vayu descendant/contractif (San Ming Tong Hui)
+        // Quand harmonie Vayu×Vayu : nuance selon le Day Master
+        const r33Nuance = (dmTattwa === nakTattwa && dmTattwa === 'Vayu')
+          ? (dmElement === 'Bois' ? -0.5 : dmElement === 'Métal' ? +0.3 : 0)
+          : 0;
+        const r33Pts = dmTattwa === nakTattwa ? (1.5 + r33Nuance) : -1.0;
         delta += r33Pts;
         const label = r33Pts > 0
           ? `⚡ R33 BaZi×Védique — ${dmElement} (${dmTattwa}) s'accorde avec ${nakLord} (${nakTattwa}) (+${r33Pts})`

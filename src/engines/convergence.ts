@@ -40,6 +40,7 @@ import {
   type DailyModuleResult,
 } from './convergence-daily';
 import { calcSlowModules } from './convergence-slow';
+import { getAdaptedAlphaG } from './alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -998,7 +999,7 @@ export function calcConvergence(
   // ── L3 : Assemblage final ──
   // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
   // Fallback silencieux vers compress() si calcShadowScore() échoue (guard zéro-régression)
-  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal);
+  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta); // AB-G1
   const score = _scoreY5 !== undefined
     ? Math.max(5, Math.min(97, _scoreY5))
     : Math.max(5, Math.min(97, compress(finalDelta)));  // fallback Y5
@@ -1102,11 +1103,23 @@ export function calcConvergence(
     nuclearHex: nuclearHexResult,
     dashaCertainty,
     shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
-    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal), // Y5 — score production tanh
+    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta), // Y5 + AB-G1
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,
     ephemGroupDelta: daily.ephemGroupDelta,
+    // AA-5 — Journée Paradoxe : tension inter-groupes (GPT G3 + Gemini M1 — Ronde 2)
+    // Formule : range = max(groupDeltas) - min(groupDeltas)
+    // Déclenchement : range ≥ 20 ET garde signe (max ≥ +8 AND min ≤ -8)
+    // Seuil intermédiaire : 20 pts (consensus GPT ≥22 / Gemini >18 → médiane arrondie)
+    ...(() => {
+      const gDeltas = [daily.baziGroupDelta, daily.luneGroupDelta, daily.ephemGroupDelta];
+      const gMax    = Math.max(...gDeltas);
+      const gMin    = Math.min(...gDeltas);
+      const tension = gMax - gMin;
+      const isPdx   = tension >= 20 && gMax >= 8 && gMin <= -8;
+      return { paradoxTension: tension, isParadox: isPdx };
+    })(),
   };
 }
 
@@ -1124,6 +1137,10 @@ function calcShadowScore(
   ctxMult: number,
   dashaMult: number,
   shadowBaseSignal: number | undefined,
+  // AB-G1 — αG hiérarchisés (GPT G1 Ronde 3) : groupDeltas pour X_hier
+  luneGroupDelta: number,
+  ephemGroupDelta: number,
+  baziGroupDelta: number,
 ): number | undefined {
   try {
     const A    = 36.0;
@@ -1131,15 +1148,37 @@ function calcShadowScore(
     const bias = 5;
     const MAX_DELTA = 22;  // point de saturation de compress() — même référence
 
-    // Normalisation du delta existant → espace [-1, +1] approx
-    const X = Math.max(-2, Math.min(2, finalDelta / MAX_DELTA));
+    // AB-G1 — X_hier avec αG hiérarchisés (GPT G1 Ronde 3 + Ronde 4 T1)
+    // αG : lune=1.20, ephem=1.10, bazi=1.00 (num/iching ajoutés en Sprint AC)
+    // X_core clamped ±1.6 pour préserver headroom base_signal védique (2/3 IAs Ronde 4)
+    // P95 groupes (N=50k) : lune=12, ephem=10, bazi=11
+    const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+    const ALPHA_G = getAdaptedAlphaG().current; // Sprint AE — αG adaptatifs (fallback init si localStorage vide)
+    const P95_G   = { lune: 12,   ephem: 10,   bazi: 11   } as const;
+    const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85 } as const;
+
+    const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
+    const xE = _clampG(ephemGroupDelta / P95_G.ephem, -1, +1);
+    const xB = _clampG(baziGroupDelta  / P95_G.bazi,  -1, +1);
+
+    const XL = _clampG(ALPHA_G.lune  * xL, -G_CAP.lune,  +G_CAP.lune);
+    const XE = _clampG(ALPHA_G.ephem * xE, -G_CAP.ephem, +G_CAP.ephem);
+    const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
+
+    // X_core ±1.6 : réserve headroom pour beta_eff × base_signal (BPHS : noyau védique prioritaire)
+    const X_core = _clampG(XL + XE + XB, -1.6, +1.6);
+    const X      = _clampG(X_core, -2, +2);
 
     // Terrain combiné (ctxMult × dashaMult)
     const terrain_brut = ctxMult * dashaMult;
     const terrain_sq   = 1 + 0.25 * Math.tanh((terrain_brut - 1) / 0.35);
 
     // Ajout du noyau védique
-    const beta    = 0.8;
+    // AA-3 — β_eff adaptatif (GPT G1 Ronde 2) : atténue quand terrain_sq est fort
+    // Évite double-amplification (terrain fort AND base_signal fort)
+    // β_eff = 0.8 × (1 − 0.25 × |terrain_sq − 1| / 0.15) ∈ [0.60, 0.80]
+    // P95 (terrain=1.15, base_signal=0.8) : score 83.02 vs 84.40 — atténuation raisonnable
+    const beta    = 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15);
     const X_total = X + beta * (shadowBaseSignal ?? 0);
 
     // Formule tanh unifiée

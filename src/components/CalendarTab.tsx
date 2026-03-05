@@ -7,7 +7,7 @@ import { getNumberInfo } from '../engines/numerology';
 import { getHexProfile } from '../engines/iching';
 import { Sec, Cd, P } from './ui';
 import FeedbackWidget from './FeedbackWidget';
-import { getDayFeedback, saveDayFeedback } from '../engines/validation-tracker';
+import { getDayFeedback, saveDayFeedback, loadDeltas } from '../engines/validation-tracker'; // AD
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -127,7 +127,14 @@ export default function CalendarTab({ data, bd }: { data: SoulData; bd: string }
     if (!blindYesterday) return;
     // Convertir slider 1-5 en rating legacy pour rétrocompat
     const legacyRating: 'good' | 'neutral' | 'bad' = blindRating >= 4 ? 'good' : blindRating <= 2 ? 'bad' : 'neutral';
-    saveDayFeedback(blindYesterday, blindPredicted, blindLabel, legacyRating, undefined, undefined, blindRating);
+    // AD — récupérer les deltas d'hier stockés au chargement de la veille
+    const yDeltas = loadDeltas(blindYesterday);
+    saveDayFeedback(
+      blindYesterday, blindPredicted, blindLabel, legacyRating,
+      undefined, undefined, blindRating,
+      undefined, undefined,
+      yDeltas?.luneDelta, yDeltas?.ephemDelta, yDeltas?.baziDelta, yDeltas?.scoreBrut
+    );
     setBlindMode('result');
     // Auto-dismiss après 4 secondes
     setTimeout(() => setBlindMode(null), 4000);

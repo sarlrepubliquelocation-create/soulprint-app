@@ -548,3 +548,37 @@ export function calcNakshatraComposite(
     total, breakdown, signals, alerts,
   };
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ═══ NAKSHATRA PADA — Sprint K — V10.5 ═══
+// Chaque Nakshatra divisé en 4 padas (quarts) de 3.333...°
+// Purusharthas : Pada 1 = Dharma/Feu · Pada 2 = Artha/Terre
+//                Pada 3 = Kama/Air   · Pada 4 = Moksha/Eau
+// Source : Jyotish classique — navāṁśa / Purushartha
+// Arbitrage Ronde 13 : formule Grok + table Gemini
+// ══════════════════════════════════════════════════════════════════
+
+export const PADA_SPAN = SPAN / 4; // 3.333...°
+
+/** Multiplicateurs par pada (Purusharthas Dharma→Moksha) — Gemini Ronde 13 */
+export const PADA_MULTIPLIERS: [number, number, number, number] = [1.15, 1.05, 0.95, 0.85];
+
+/** Noms des 4 padas (Purusharthas) */
+export const PADA_NAMES: [string, string, string, string] = ['Dharma', 'Artha', 'Kama', 'Moksha'];
+
+/**
+ * Retourne l'index du Pada (0..3) pour une longitude sidérale.
+ * Formule Grok : (lonInNak × 3) / 10 évite la division flottante par 3.333...
+ * Epsilon 1e-10 sécurise les frontières exactes (testé sur toutes les frontières).
+ */
+export function getPada(sidLon: number): number {
+  const NAK_SPAN  = 360 / 27;
+  const lonInNak  = ((sidLon % NAK_SPAN) + NAK_SPAN) % NAK_SPAN;
+  const raw       = (lonInNak * 3) / 10; // équivalent à lonInNak / PADA_SPAN sans virgule flottante
+  return Math.floor(raw + 1e-10) % 4;
+}
+
+/** Retourne le multiplicateur Pada pour une longitude sidérale. */
+export function calcPadaMultiplier(sidLon: number): number {
+  return PADA_MULTIPLIERS[getPada(sidLon)];
+}

@@ -796,10 +796,27 @@ export function calcSlowModules(
     const evalDay = params.evalDate ?? new Date();
 
     // S_nak : globalBaseScore est déjà ∈ {-1, 0, +1}
-    const S_nak = nakshatraData?.globalBaseScore ?? 0;
+    // AA-2 — garde anti-double-comptage (Grok R2 Ronde 2)
+    // globalBaseScore est déjà dans NakshatraComposite (C_LUNE, L1).
+    // Si C_LUNE est net positif (luneGroupDelta > 0 = proxy tarabala/chandrabala actifs),
+    // réduire S_nak à 65% pour éviter double-amplification du signal Nakshatra.
+    const S_nak_raw = nakshatraData?.globalBaseScore ?? 0;
+
+    // AB-R1 — Règle dashaLord === nakshatraLord (BPHS Chap.70 v.12-15 — Grok R3 Ronde 3)
+    // Même seigneur Antardasha et Nakshatra = renforcement mutuel karmique.
+    // Boost ×1.18 sur S_nak_raw AVANT la garde AA-2 (ordre strict : boost puis garde).
+    // dashaTotal plafonné à 7 si même seigneur (évite double-amplification S_dasha + S_nak).
+    const _antaraLord = currentDasha?.antar.lord ?? null;
+    const _nakLord    = nakshatraData?.lord ?? null;
+    const _sameLord   = !!_antaraLord && !!_nakLord && _antaraLord === _nakLord;
+    const S_nak_boosted = _sameLord ? S_nak_raw * 1.18 : S_nak_raw;
+    // Garde AA-2 appliquée APRÈS le boost (ordre Grok R3)
+    const S_nak = S_nak_boosted * (daily.luneGroupDelta > 0 ? 0.65 : 1.0);
 
     // S_dasha : dashaTotal ∈ [-9, +9] → normalisation → [-1, +1]
-    const S_dasha = Math.max(-1, Math.min(1, dashaTotal / 9));
+    // AB-R1 : si même seigneur → plafonner dashaTotal à 7 avant normalisation
+    const _dashaTotalCapped = _sameLord ? Math.min(dashaTotal, 7) : dashaTotal;
+    const S_dasha = Math.max(-1, Math.min(1, _dashaTotalCapped / 9));
 
     // S_tithi : calculé depuis la longitude tropicale Lune − Soleil
     const moonLonTrop = getMoonPhase(evalDay).longitudeTropical;
@@ -818,7 +835,9 @@ export function calcSlowModules(
     };
     const S_tithi = TITHI_SCORES[tithiIndex] ?? 0;
 
-    const raw = 0.55 * S_dasha + 0.40 * S_nak + 0.05 * S_tithi;
+    // AB-R2 — pondération 0.55/0.30/0.15 (Grok Ronde 3 — Muhurta Chintamani Chap.2)
+    // Réduit poids S_nak (0.40→0.30) + augmente poids S_tithi (0.05→0.15) pour équilibre védique
+    const raw = 0.55 * S_dasha + 0.30 * S_nak + 0.15 * S_tithi;
     shadowBaseSignal = Math.max(-1, Math.min(1, raw));
 
     console.debug('[Y1 shadow] base_signal', {

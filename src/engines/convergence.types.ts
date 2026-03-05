@@ -217,6 +217,9 @@ export interface ConvergenceResult {
   baziGroupDelta?: number;             // Z2-B — delta groupe BaZi capé ±15 (C_BAZI)
   luneGroupDelta?: number;             // Z2-B — delta groupe Lune capé ±16 (C_LUNE)
   ephemGroupDelta?: number;            // Z2-B — delta groupe Éphém capé ±14 (C_EPHEM)
+  // AA-5 — Journée Paradoxe : tension inter-groupes (GPT G3 + Gemini M1 — Ronde 2)
+  paradoxTension?: number;   // range inter-groupes = max(deltas) - min(deltas)
+  isParadox?: boolean;       // true si tension ≥ 20 ET garde signe (max ≥ +8 AND min ≤ -8)
 }
 
 // ══════════════════════════════════════
