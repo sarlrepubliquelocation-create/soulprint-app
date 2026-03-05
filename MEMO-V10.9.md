@@ -1,7 +1,7 @@
-# MEMO Kaironaute V10.9 — Sprints O → U
+# MEMO Kaironaute V10.9 — Sprints O → X + fixes infra
 > Moteur de scoring védique journalier TypeScript
 > Protocole : zéro initiative · diff avant/après · 3 options + choix explicite · oracles obligatoires
-> Dernière mise à jour : Sprint U — 51/51 oracles
+> Dernière mise à jour : Sprints V/W/X + fix crash LunarNode + fix HMR dev — 61/61 oracles
 
 ---
 
@@ -218,6 +218,80 @@ Placement L2 : accès à `eclipseNatalPts` + cohérence avec R27/R29
 
 ---
 
+## Sprint V — Fix calcMeta (vraie moyenne)
+
+**Problème :** `calcMeta = max(a,b) + 15%×min(a,b)` gonflait les scores meta de +8 à +12 pts.
+**Fix (`ConvergenceTab.tsx`) :**
+```typescript
+const calcMeta = (a: number, b: number) => Math.round((a + b) / 2);
+```
+**Oracles :** +3 (51 → 54)
+
+---
+
+## Sprint W — Alignement domaines bas de page sur adjustDomain
+
+**Problème :** 3 systèmes de normalisation incohérents — bas de page utilisait `d.score` engine brut au lieu d'`adjustDomain`.
+**Fix (`ConvergenceTab.tsx`) :** section domaines bas de page recalcule inline avec adjustDomain :
+```typescript
+const _terrain = (cv.ctxMult ?? 1.0) * (cv.dashaMult ?? 1.0);
+const _global  = cv.score ?? 50;
+const _t1      = 50 + (d.score - 50) * _terrain;
+const pct      = Math.max(5, Math.min(97, Math.round(_t1 * 0.60 + _global * 0.40)));
+```
+**Oracles :** +3 (54 → 57)
+
+---
+
+## Sprint X — Clamp routing nW [0.93, 1.07]
+
+**Problème :** FAIRE=57 < global=64 — routing nW trop agressif (amplitude ±13%).
+**Fix (`ConvergenceTab.tsx`) :**
+```typescript
+const nF = Math.max(0.93, Math.min(1.07, (wF / wTotal) * 3));
+```
+Amplitude réduite ±13% → ±7% · FAIRE=57 → FAIRE=61
+**Oracles :** +4 (57 → 61)
+
+---
+
+## Fix crash — getLunarNodeTransit NaN
+
+**Cause :** `getLunarNodeTransit(bd, todayStr)` sans try-catch → `calcNorthNodeLongitude(NaN)` → `SIGNS[NaN]` undefined → crash total de l'app.
+**Fix (`convergence-daily.ts`) :**
+```typescript
+let nodeTransit: ReturnType<typeof getLunarNodeTransit> | null = null;
+try { nodeTransit = getLunarNodeTransit(bd, todayStr); } catch { /* fail silently */ }
+if (nodeTransit) { /* bloc switch/push/breakdown */ }
+```
+Type propagé dans `DailyModuleResult` et `ConvergenceResult` : `lunarNodes: LunarNodeTransit | null`
+
+---
+
+## Fix infra — HMR dev (Shift+R n'est plus nécessaire)
+
+**Causes identifiées (3 couches) :**
+
+| Cause | Fix | Fichier |
+|-------|-----|---------|
+| Service Worker `cache-first` interceptait index.html + assets en dev | SW désactivé en mode dev, désenregistrement auto | `src/main.tsx` |
+| Vite 6 token crypto WebSocket — browser cache l'ancien client JS | `legacy.skipWebSocketTokenCheck: true` | `vite.config.ts` |
+| Events FS Windows non détectés depuis la VM Linux | `watch: { usePolling: true, interval: 800 }` | `vite.config.ts` |
+
+**Workflow validé :**
+- `npm run dev` → modifications visibles en direct (plus de Shift+R)
+- `git push` → sauvegarde GitHub uniquement
+- `netlify deploy` → production seulement (économie crédits)
+
+---
+
+## Fix build Netlify — jieqi.ts non tracké
+
+`src/engines/jieqi.ts` existait localement mais n'était pas dans git → build Netlify échouait.
+Fix : `git add src/engines/jieqi.ts`
+
+---
+
 ## Compteur oracles
 
 | Sprint | Oracles ajoutés | Total cumulé |
@@ -226,4 +300,7 @@ Placement L2 : accès à `eclipseNatalPts` + cohérence avec R27/R29
 | Sprint R | +3 | 36 |
 | Sprint S | +3 | 39 |
 | Sprint T | +3 | 42 |
-| Sprint U | +9 | **51/51** |
+| Sprint U | +9 | 51 |
+| Sprint V | +3 | 54 |
+| Sprint W | +3 | 57 |
+| Sprint X | +4 | **61/61** |
