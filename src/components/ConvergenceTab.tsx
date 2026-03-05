@@ -942,10 +942,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const dr = DASHA_ROUTING[mahaLord];
             if (dr === 'F') wF += 0.25; else if (dr === 'L') wL += 0.25; else if (dr === 'E') wE += 0.25;
             const wTotal = wF + wL + wE;
-            // Normalisation : avg = 1.0, max ≈ 1.20, min ≈ 0.87 — fail safe clamp
-            const nF = Math.max(0.87, Math.min(1.20, (wF / wTotal) * 3));
-            const nL = Math.max(0.87, Math.min(1.20, (wL / wTotal) * 3));
-            const nE = Math.max(0.87, Math.min(1.20, (wE / wTotal) * 3));
+            // Normalisation : avg = 1.0 — Sprint X (Option A) : clamp [0.93, 1.07] (était [0.87, 1.20])
+            // Réduit l'amplitude max de ±13% à ±7% → piliers restent dans ±5 pts des domaines
+            const nF = Math.max(0.93, Math.min(1.07, (wF / wTotal) * 3));
+            const nL = Math.max(0.93, Math.min(1.07, (wL / wTotal) * 3));
+            const nE = Math.max(0.93, Math.min(1.07, (wE / wTotal) * 3));
             const metaScore = (base: number, w: number) => Math.min(100, Math.max(0, Math.round(base * w)));
 
             const meta = [

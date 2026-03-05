@@ -483,6 +483,40 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       })(),
       expected: 79,
     },
+
+    // ── Sprint X — clamp nW [0.93, 1.07] (était [0.87, 1.20]) ──
+    {
+      name: 'Sprint X: nW Saturne+Harmonie (wF=1.0,wL=1.35,wE=1.25) → nF clampé 0.93',
+      actual: (() => {
+        const wF = 1.0, wL = 1.35, wE = 1.25;
+        const wTotal = wF + wL + wE;
+        return Math.max(0.93, Math.min(1.07, (wF / wTotal) * 3));
+      })(),
+      expected: 0.93,
+    },
+    {
+      name: 'Sprint X: nW Saturne+Harmonie → nL=1.07 (clampé depuis 1.125)',
+      actual: (() => {
+        const wF = 1.0, wL = 1.35, wE = 1.25;
+        const wTotal = wF + wL + wE;
+        return Math.max(0.93, Math.min(1.07, (wL / wTotal) * 3));
+      })(),
+      expected: 1.07,
+    },
+    {
+      name: 'Sprint X: FAIRE base=66 × nF=0.93 → 61 (était 57 avec clamp 0.87)',
+      actual: Math.min(100, Math.max(0, Math.round(66 * 0.93))),
+      expected: 61,
+    },
+    {
+      name: 'Sprint X: nW neutre (wF=wL=wE=1.0) → nF=1.0 (pas de clamp)',
+      actual: (() => {
+        const wF = 1.0, wL = 1.0, wE = 1.0;
+        const wTotal = wF + wL + wE;
+        return Math.max(0.93, Math.min(1.07, (wF / wTotal) * 3));
+      })(),
+      expected: 1.0,
+    },
   ];
 
   let passed = 0;
