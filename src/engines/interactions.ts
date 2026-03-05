@@ -398,6 +398,24 @@ const RULES: Rule[] = [
 
   // R28 supprimée V7 — PY constant + Dasha déjà dans terrain multiplicateur → double biais annuel (R23)
 
+  // R29 — Sprint S — Seigneur Maha en transit exact sur point natal
+  // R21 (supprimée) était trop large : "seigneur actif = ±2" quelle que soit la force de l'aspect.
+  // R29 cible uniquement les lords BÉNÉFIQUES (Jupiter/Vénus/Mercure/Lune) en transit FORT (|score|≥2).
+  // dashaLordTransitScore ≠ dashaMultiplier : le premier mesure l'aspect exact du JOUR (±3°),
+  // le second mesure la qualité de la PÉRIODE (mois/années) → zéro double-comptage.
+  // En pratique : Jupiter est le seul lord bénéfique dans TRANSIT_AMPLITUDES → signal très précis.
+  // bonusFn : 60% du score transit, clamp ±3 · seuil ≥ 2 · lords bénéfiques uniquement
+  {
+    id: 29,
+    label: 'Seigneur de la Maha actif — Période et transit en phase',
+    bonus: 0,
+    bonusFn: ctx => Math.max(-3, Math.min(3, Math.round(ctx.dashaLordTransitScore * 0.60))),
+    domains: ['BUSINESS', 'CREATIVITE', 'RELATIONS'],
+    tradition: 'Vimshottari Dasha × Transits personnels gaussiens — Sprint S',
+    test: ctx => Math.abs(ctx.dashaLordTransitScore) >= 2
+               && ['Jupiter', 'Vénus', 'Mercure', 'Lune'].includes(ctx.dashaLord ?? ''),
+  },
+
   // R30 supprimée V7 — PY constant + Dasha déjà dans terrain multiplicateur → double biais annuel (R23)
 ];
 

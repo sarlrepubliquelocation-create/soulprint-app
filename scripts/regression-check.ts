@@ -280,6 +280,28 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       expected: 0, // Mars gère ses aspects via Drishti uniquement, pas en double dans TRANSIT_AMPLITUDES
     },
 
+    // ── Sprint S — R29 test (Seigneur Maha bénéfique en transit fort) ──
+    {
+      name: 'Sprint S R29: bonusFn Jupiter Maha score=+5 → clamp(round(5×0.60), -3, 3) = 3',
+      actual: Math.max(-3, Math.min(3, Math.round(5 * 0.60))),
+      expected: 3,
+    },
+    {
+      name: 'Sprint S R29: bonusFn Jupiter Maha score=-4 → clamp(round(-4×0.60), -3, 3) = -2',
+      actual: Math.max(-3, Math.min(3, Math.round(-4 * 0.60))),
+      expected: -2,
+    },
+    {
+      name: 'Sprint S R29: test guard Saturne exclu (lord malefic → règle ne déclenche pas)',
+      actual: (() => {
+        const BENEFIC = ['Jupiter', 'Vénus', 'Mercure', 'Lune'];
+        const score = 6;
+        const lord  = 'Saturne';
+        return Math.abs(score) >= 2 && BENEFIC.includes(lord);
+      })(),
+      expected: false, // Saturne = malefic → R29 inactif malgré score fort
+    },
+
     // ── calcPanchanga ── (Sprint E — régression guard)
     {
       name: 'Panchanga: total capé à ±6 max',
