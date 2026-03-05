@@ -996,7 +996,12 @@ export function calcConvergence(
   );
 
   // ── L3 : Assemblage final ──
-  const score = Math.max(5, Math.min(97, compress(finalDelta)));
+  // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
+  // Fallback silencieux vers compress() si calcShadowScore() échoue (guard zéro-régression)
+  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal);
+  const score = _scoreY5 !== undefined
+    ? Math.max(5, Math.min(97, _scoreY5))
+    : Math.max(5, Math.min(97, compress(finalDelta)));  // fallback Y5
   const mercPts = daily.mercPts;
 
   const scoreLevel = getScoreLevel(score, mercPts);
