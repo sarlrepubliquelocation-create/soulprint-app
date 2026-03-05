@@ -924,7 +924,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               return Math.round(t1 * 0.60 + globalScore * 0.40);
             };
             const domScore = (name: string) => adjustDomain(cv.contextualScores!.domains.find(d => d.domain === name)?.score ?? 50);
-            const calcMeta = (a: number, b: number) => Math.min(100, Math.round(Math.max(a, b) + Math.min(a, b) * 0.15));
+            const calcMeta = (a: number, b: number) => Math.round((a + b) / 2); // Sprint V — moyenne réelle (était max+15%min → gonflait piliers)
 
             // Sprint Q — DOMAIN_AFFINITY dynamique : routing Dasha lord + Année personnelle (Gemini Ronde 14)
             // Agit uniquement sur l'amplitude des piliers affichés — pas sur le score global
@@ -988,7 +988,14 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
 
               <div style={{ display: 'grid', gap: 10 }}>
                 {cv.contextualScores.domains.map(d => {
-                  const pct = d.score;
+                  // Sprint W — Option B : alignement bas de page sur adjustDomain
+                  // Avant : pct = d.score (score engine, ancré 1× dans convergence.ts)
+                  // Après : pct = adjustDomain(d.score) → même valeur que les piliers FAIRE/LIER/ÊTRE
+                  // Garantit cohérence visuelle : bas de page et piliers lisent la même échelle
+                  const _terrain = (cv.ctxMult ?? 1.0) * (cv.dashaMult ?? 1.0);
+                  const _global  = cv.score ?? 50;
+                  const _t1      = 50 + (d.score - 50) * _terrain;
+                  const pct      = Math.max(5, Math.min(97, Math.round(_t1 * 0.60 + _global * 0.40))); // Sprint W
                   const isBest = d.domain === cv.contextualScores!.bestDomain;
                   const isWorst = d.domain === cv.contextualScores!.worstDomain;
                   const barColor = d.color;

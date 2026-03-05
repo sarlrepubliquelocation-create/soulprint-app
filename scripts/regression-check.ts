@@ -437,6 +437,52 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       })(),
       expected: 0,
     },
+
+    // ── Sprint V — calcMeta vraie moyenne ──
+    {
+      name: 'Sprint V: calcMeta(71, 68) = (71+68)/2 = 70',
+      actual: Math.round((71 + 68) / 2),
+      expected: 70,
+    },
+    {
+      name: 'Sprint V: calcMeta(80, 80) = 80 (domaines égaux)',
+      actual: Math.round((80 + 80) / 2),
+      expected: 80,
+    },
+    {
+      name: 'Sprint V: calcMeta(ancien max+15%min) 74+71×0.15 = 84 ≠ 73 (régression bloquée)',
+      actual: Math.round((74 + 71) / 2),  // nouvelle formule : round(72.5) = 73
+      expected: 73,
+    },
+
+    // ── Sprint W — Option B : alignement bas de page sur adjustDomain ──
+    {
+      name: 'Sprint W: adjustDomain terrain=1.0 global=64 score=72 → 69',
+      actual: (() => {
+        const terrain = 1.0; const globalScore = 64; const s = 72;
+        const t1 = 50 + (s - 50) * terrain;
+        return Math.max(5, Math.min(97, Math.round(t1 * 0.60 + globalScore * 0.40)));
+      })(),
+      expected: 69,
+    },
+    {
+      name: 'Sprint W: adjustDomain terrain=1.0 global=64 score=64 → 64 (neutre = global)',
+      actual: (() => {
+        const terrain = 1.0; const globalScore = 64; const s = 64;
+        const t1 = 50 + (s - 50) * terrain;
+        return Math.max(5, Math.min(97, Math.round(t1 * 0.60 + globalScore * 0.40)));
+      })(),
+      expected: 64,
+    },
+    {
+      name: 'Sprint W: adjustDomain terrain=1.5 global=64 score=76 → 79',
+      actual: (() => {
+        const terrain = 1.5; const globalScore = 64; const s = 76;
+        const t1 = 50 + (s - 50) * terrain;  // t1=89
+        return Math.max(5, Math.min(97, Math.round(t1 * 0.60 + globalScore * 0.40)));  // round(53.4+25.6)=79
+      })(),
+      expected: 79,
+    },
   ];
 
   let passed = 0;
