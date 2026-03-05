@@ -500,7 +500,11 @@ export function calcSlowModules(
   // Formule V7 : (quotidien + synergies) × ctx.multiplier × dashaMultiplier + offset_lent
   // cyclesDelta retiré V7 — narratif pur (R23 unanime) — constant 365j, interdit en additif (doctrine R22)
   // eclipseNatalPts déconnecté du delta V6.2 — narratif uniquement (R16+R17 unanime)
-  let delta = (dailyDeltaSnapshot + v6SynergyBonus) * ctx.multiplier * dashaMultiplier
+  // Sprint Q — capScale(terrain) : atténue le signal L1 quand terrain est extrême (GPT Ronde 14, β=0.20)
+  // Évite l'empilement "L1 fort + terrain fort" → scores extrêmes injustifiés
+  const terrainQ  = ctx.multiplier * dashaMultiplier;
+  const capScale  = Math.max(0.85, Math.min(1.00, 1 - 0.20 * Math.abs(terrainQ - 1)));
+  let delta = (dailyDeltaSnapshot * capScale + v6SynergyBonus) * ctx.multiplier * dashaMultiplier
             + ctx.offsetPts;
 
   // V5.5 — EXCLUSION MUTUELLE ÉCLIPSES

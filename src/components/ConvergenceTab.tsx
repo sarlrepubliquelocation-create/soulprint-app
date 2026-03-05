@@ -925,10 +925,33 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             };
             const domScore = (name: string) => adjustDomain(cv.contextualScores!.domains.find(d => d.domain === name)?.score ?? 50);
             const calcMeta = (a: number, b: number) => Math.min(100, Math.round(Math.max(a, b) + Math.min(a, b) * 0.15));
+
+            // Sprint Q — DOMAIN_AFFINITY dynamique : routing Dasha lord + Année personnelle (Gemini Ronde 14)
+            // Agit uniquement sur l'amplitude des piliers affichés — pas sur le score global
+            const mahaLord = data.dasha?.maha.lord ?? '';
+            const pyVal    = data.num?.py?.v ?? 0;
+            let wF = 1.0, wL = 1.0, wE = 1.0;
+            if ([1, 8, 10].includes(pyVal))           wF += 0.35;
+            else if ([2, 6].includes(pyVal))           wL += 0.35;
+            else if ([7, 9, 11, 22].includes(pyVal))  wE += 0.35;
+            const DASHA_ROUTING: Record<string, 'F'|'L'|'E'> = {
+              'Soleil': 'F', 'Mars': 'F', 'Rahu': 'F',
+              'Vénus': 'L', 'Lune': 'L',
+              'Saturne': 'E', 'Jupiter': 'E', 'Ketu': 'E', 'Mercure': 'E',
+            };
+            const dr = DASHA_ROUTING[mahaLord];
+            if (dr === 'F') wF += 0.25; else if (dr === 'L') wL += 0.25; else if (dr === 'E') wE += 0.25;
+            const wTotal = wF + wL + wE;
+            // Normalisation : avg = 1.0, max ≈ 1.20, min ≈ 0.87 — fail safe clamp
+            const nF = Math.max(0.87, Math.min(1.20, (wF / wTotal) * 3));
+            const nL = Math.max(0.87, Math.min(1.20, (wL / wTotal) * 3));
+            const nE = Math.max(0.87, Math.min(1.20, (wE / wTotal) * 3));
+            const metaScore = (base: number, w: number) => Math.min(100, Math.max(0, Math.round(base * w)));
+
             const meta = [
-              { key: 'FAIRE', icon: '⚡', label: 'Faire', color: '#f59e0b', val: calcMeta(domScore('BUSINESS'), domScore('CREATIVITE')), sub: 'Business · Créativité' },
-              { key: 'LIER',  icon: '🤝', label: 'Lier',  color: '#c084fc', val: calcMeta(domScore('AMOUR'), domScore('RELATIONS')),     sub: 'Amour · Relations'    },
-              { key: 'ETRE',  icon: '🧘', label: 'Être',  color: '#4ade80', val: calcMeta(domScore('VITALITE'), domScore('INTROSPECTION')), sub: 'Vitalité · Intro'   },
+              { key: 'FAIRE', icon: '⚡', label: 'Faire', color: '#f59e0b', val: metaScore(calcMeta(domScore('BUSINESS'), domScore('CREATIVITE')), nF), sub: 'Business · Créativité' },
+              { key: 'LIER',  icon: '🤝', label: 'Lier',  color: '#c084fc', val: metaScore(calcMeta(domScore('AMOUR'), domScore('RELATIONS')), nL),     sub: 'Amour · Relations'    },
+              { key: 'ETRE',  icon: '🧘', label: 'Être',  color: '#4ade80', val: metaScore(calcMeta(domScore('VITALITE'), domScore('INTROSPECTION')), nE), sub: 'Vitalité · Intro'   },
             ];
             return (
               <div style={{ marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
