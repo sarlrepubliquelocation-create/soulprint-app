@@ -421,8 +421,15 @@ export function calcSlowModules(
   ];
 
   const dashaLordKey = currentDashaLord ? DASHA_TO_PLANET[currentDashaLord] : null;
+  // Sprint T — Fix 1 : cohérence Sprint R
+  // _transitBreakdown non filtré contient encore Jupiter/Saturn→Moon (orb-based).
+  // Graha Drishti prend ownership de ces paires → on les exclut aussi ici.
+  const DRISHTI_SLOW_T = new Set(['jupiter', 'saturn']);
   const dashaLordTransitScore = dashaLordKey
-    ? _transitBreakdown.filter(b => b.transitPlanet === dashaLordKey).reduce((s, b) => s + b.score, 0)
+    ? _transitBreakdown
+        .filter(b => b.transitPlanet === dashaLordKey
+                  && !(DRISHTI_SLOW_T.has(b.transitPlanet) && (b as any).natalPoint === 'moon'))
+        .reduce((s, b) => s + b.score, 0)
     : 0;
 
   const profLord = profectionResult?.timeLord ?? null;
@@ -430,6 +437,13 @@ export function calcSlowModules(
   const profectionSignifiantScore = profLordKey
     ? _transitBreakdown.filter(b => b.transitPlanet === profLordKey).reduce((s, b) => s + b.score, 0)
     : 0;
+
+  // Sprint T — Fix 2 : guard R27 × R29
+  // Si profectionLord === dashaLord, les deux règles filtrent le même transitPlanet
+  // → R27 prend ownership (profections hellénistiques) → R29 neutralisé
+  const dashaLordTransitScoreForCtx = (dashaLordKey && profLordKey && dashaLordKey === profLordKey)
+    ? 0
+    : Math.round(dashaLordTransitScore);
 
   const hexYangLines = iching.hexNum >= 1 && iching.hexNum <= 64
     ? KW_YANG[iching.hexNum - 1]
@@ -446,7 +460,7 @@ export function calcSlowModules(
     jupiterPositive: false,
     trinityBonus: 0,
     dashaLord: currentDashaLord,
-    dashaLordTransitScore: Math.round(dashaLordTransitScore),
+    dashaLordTransitScore: dashaLordTransitScoreForCtx, // Sprint T: residuel Drishti + guard R27×R29
     hexYangLines,
     nakshatraName: nakshatraData?.name ?? null,
     hasJupiterReturn,

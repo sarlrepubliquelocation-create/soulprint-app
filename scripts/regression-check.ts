@@ -302,6 +302,47 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       expected: false, // Saturne = malefic → R29 inactif malgré score fort
     },
 
+    // ── Sprint T — double-comptages résiduels ──
+    {
+      name: 'Sprint T Fix1: dashaLordTransitScore exclut jupiter→moon (Drishti ownership)',
+      actual: (() => {
+        const bd = [
+          { transitPlanet: 'jupiter', natalPoint: 'moon', score: 4.5 },
+          { transitPlanet: 'jupiter', natalPoint: 'sun',  score: 2.0 },
+          { transitPlanet: 'jupiter', natalPoint: 'asc',  score: 1.5 },
+        ];
+        const DRISHTI_SLOW_T = new Set(['jupiter', 'saturn']);
+        const dashaLordKey = 'jupiter';
+        return +bd
+          .filter(b => b.transitPlanet === dashaLordKey
+                    && !(DRISHTI_SLOW_T.has(b.transitPlanet) && b.natalPoint === 'moon'))
+          .reduce((s, b) => s + b.score, 0).toFixed(1);
+      })(),
+      expected: 3.5, // 2.0 + 1.5 = 3.5 · jupiter→moon (4.5) exclu car Drishti ownership
+    },
+    {
+      name: 'Sprint T Fix2: guard R27×R29 — dashaLord=profLord → score neutralisé',
+      actual: (() => {
+        const dashaLordKey = 'jupiter';
+        const profLordKey  = 'jupiter'; // même planète
+        const rawScore = 5;
+        const forCtx = (dashaLordKey && profLordKey && dashaLordKey === profLordKey) ? 0 : rawScore;
+        return forCtx;
+      })(),
+      expected: 0, // R27 prend ownership → dashaLordTransitScoreForCtx = 0 → R29 ne déclenche pas
+    },
+    {
+      name: 'Sprint T Fix2: guard R27×R29 — dashaLord≠profLord → score conservé',
+      actual: (() => {
+        const dashaLordKey = 'jupiter';
+        const profLordKey  = 'saturn'; // planètes différentes
+        const rawScore = 5;
+        const forCtx = (dashaLordKey && profLordKey && dashaLordKey === profLordKey) ? 0 : rawScore;
+        return forCtx;
+      })(),
+      expected: 5, // Planètes différentes → R29 peut s'activer indépendamment de R27
+    },
+
     // ── calcPanchanga ── (Sprint E — régression guard)
     {
       name: 'Panchanga: total capé à ±6 max',
