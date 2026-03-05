@@ -709,8 +709,10 @@ export function calcDailyModules(
 
     // ── Sprint G : Tarabala + Chandrabala (additif, Ronde 11 consensus 2/3) ──
     if (natalMoonSidForNak !== null) {
+      let tarabalaPts = 0; // hissé pour R32
       try {
         const tarabalaRes    = calcTarabala(moonLongSidereal, natalMoonSidForNak);
+        tarabalaPts = tarabalaRes.delta; // hissé pour R32
         const chandrabalaRes = calcChandrabala(moonLongSidereal, natalMoonSidForNak);
 
         // Sprint P — combinedBala remplace addition pure (double-comptage géométrique base27 vs base12)
@@ -739,6 +741,34 @@ export function calcDailyModules(
           alerts:  chandrabalaRes.delta < 0 ? [chandrabalaRes.label] : [],
         });
       } catch { /* Tarabala/Chandrabala silently */ }
+
+      // ── R32 : Retour Nakshatra natal (Grok Ronde 3 — ~13j/an) ──
+      // Doctrine Jyotish (BPHS) : quand la Lune de transit retrouve son Nakshatra natal,
+      // un cycle karmique personnel se referme → activation personnelle amplifiée.
+      // Guard Tarabala : si tarabalaPts >= 2 (Sampat/Kshema déjà actifs),
+      //   bonus réduit à +1.5 pour éviter le double-comptage géométrique.
+      // Abhijit exclu (276.67°–280.89° sid.) : nakshatra supra-lunaire hors base-27.
+      try {
+        const NAK_SIZE      = 360 / 27;
+        const transitNakIdx = Math.floor(((moonLongSidereal % 360) + 360) % 360 / NAK_SIZE);
+        const natalNakIdx   = Math.floor(((natalMoonSidForNak % 360) + 360) % 360 / NAK_SIZE);
+        const isAbhijit     = moonLongSidereal >= 276.67 && moonLongSidereal < 280.89;
+
+        if (transitNakIdx === natalNakIdx && !isAbhijit && nakshatraData) {
+          const r32Pts = tarabalaPts >= 2 ? 1.5 : 3.0;
+          luneGroupPts += r32Pts;
+          const label = `🔄 R32 Retour Nakshatra natal — ${nakshatraData.name} actif (+${r32Pts})`;
+          signals.push(label);
+          breakdown.push({
+            system: 'Nakshatra Natal', icon: '🔄',
+            value:  `Retour sur ${nakshatraData.name}`,
+            points: r32Pts,
+            detail: `Nak transit (${transitNakIdx}) = Nak natal · cycle karmique · BPHS · R32`,
+            signals: [label],
+            alerts:  [],
+          });
+        }
+      } catch { /* R32 fail silently */ }
     }
 
     // ── R31 : Cohérence lunaire Nakshatra × Phase (V8 — Synth. védique) ──
@@ -800,6 +830,56 @@ export function calcDailyModules(
     }
 
   } catch { /* nakshatras fail silently */ }
+
+  // ═══════════════════════════════════
+  // R33 : Réconciliation BaZi × Védique (Wu Xing ↔ Tattwa)
+  // Grok Ronde 3 : le Day Master BaZi et le lord du Nakshatra transit partagent
+  // la même essence élémentaire (Tattwa). Harmonie = +1.5, Friction = -1.0.
+  // Table Wu Xing→Tattwa : Bois=Vayu · Feu=Agni · Terre=Prithvi · Métal=Akasha · Eau=Jala
+  // Table Lords→Tattwa : Ketu/Soleil/Mars=Agni · Lune/Vénus=Jala
+  //                      Rahu/Saturne=Vayu · Jupiter=Akasha · Mercure=Prithvi
+  // ═══════════════════════════════════
+  try {
+    const dmElement = baziResult?.natalStem?.element ?? null;
+    const nakLord   = nakshatraData?.lord ?? null;
+
+    if (dmElement && nakLord) {
+      const WU_XING_TO_TATTWA: Record<string, string> = {
+        'Bois':  'Vayu',
+        'Feu':   'Agni',
+        'Terre': 'Prithvi',
+        'Métal': 'Akasha',
+        'Eau':   'Jala',
+      };
+      const LORD_TO_TATTWA: Record<string, string> = {
+        'Ketu':    'Agni', 'Soleil': 'Agni', 'Mars':    'Agni',
+        'Lune':    'Jala', 'Vénus':  'Jala',
+        'Rahu':    'Vayu', 'Saturne':'Vayu',
+        'Jupiter': 'Akasha',
+        'Mercure': 'Prithvi',
+      };
+
+      const dmTattwa  = WU_XING_TO_TATTWA[dmElement] ?? null;
+      const nakTattwa = LORD_TO_TATTWA[nakLord]       ?? null;
+
+      if (dmTattwa && nakTattwa) {
+        const r33Pts = dmTattwa === nakTattwa ? 1.5 : -1.0;
+        delta += r33Pts;
+        const label = r33Pts > 0
+          ? `⚡ R33 BaZi×Védique — ${dmElement} (${dmTattwa}) s'accorde avec ${nakLord} (${nakTattwa}) (+${r33Pts})`
+          : `🔻 R33 BaZi×Védique — ${dmElement} (${dmTattwa}) en friction avec ${nakLord} (${nakTattwa}) (${r33Pts})`;
+        if (r33Pts > 0) signals.push(label); else alerts.push(label);
+        breakdown.push({
+          system: 'Synergies', icon: r33Pts > 0 ? '⚡' : '🔻',
+          value:  `${dmElement} ↔ ${nakLord}`,
+          points: r33Pts,
+          detail: `Wu Xing ${dmElement}=${dmTattwa} | Lord ${nakLord}=${nakTattwa} · R33`,
+          signals: r33Pts > 0 ? [label] : [],
+          alerts:  r33Pts < 0 ? [label] : [],
+        });
+      }
+    }
+  } catch { /* R33 fail silently */ }
 
   // ═══════════════════════════════════
   // 5. MERCURE — V8: alerte narrative (R25 — bruit populaire, valeur commerciale d'acquisition)

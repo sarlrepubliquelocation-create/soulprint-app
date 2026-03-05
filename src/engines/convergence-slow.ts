@@ -747,23 +747,34 @@ export function calcSlowModules(
       else if (SCIS_EPHEM.has(b.system)) dEphem += b.points;
     }
 
+    // Y3c — SCIS nouveau seuil (GPT Ronde 3 — MEMO-Y0)
+    // Ancien seuil : |sumSigns| >= 3 (3/4 groupes alignés faiblement) → trop fréquent
+    // Nouveau seuil : 4/4 groupes alignés + au moins 3 groupes à magnitude forte
+    //   SCIS_MIN_MAG = 3.5 pts ≈ 0.35 × cap_moyen (~10 pts) en espace delta brut
+    //   Fréquence cible : ~15-18 j/an (vs ancien ~40-50 j/an)
     const sgn = (x: number) => Math.abs(x) > 1 ? Math.sign(x) : 0;
-    const signs = [sgn(dNum), sgn(dBazi), sgn(dLune), sgn(dEphem)];
+    const signs    = [sgn(dNum), sgn(dBazi), sgn(dLune), sgn(dEphem)];
     const sumSigns = signs.reduce((a, b) => a + b, 0);
 
-    if (Math.abs(sumSigns) >= 3) {
+    const SCIS_MIN_MAG  = 3.5;
+    const groupDeltas   = [dNum, dBazi, dLune, dEphem];
+    const strongGroups  = groupDeltas.filter(g => Math.abs(g) > SCIS_MIN_MAG).length;
+    const isAllAligned  = Math.abs(sumSigns) === 4;  // 4/4 dans le même sens
+    const scisActive    = isAllAligned && strongGroups >= 3;
+
+    if (scisActive) {
       const scisDelta = sumSigns > 0 ? 2 : -2;
       delta += scisDelta;
       const sLabel = sumSigns > 0
-        ? `🌟 Convergence Inter-Systèmes (+2) — ${Math.abs(sumSigns)}/4 alignés`
-        : `⚠️ Convergence Critique (-2) — ${Math.abs(sumSigns)}/4 alignés`;
+        ? `🌟 Convergence Inter-Systèmes (+2) — 4/4 alignés · ${strongGroups} forts`
+        : `⚠️ Convergence Critique (-2) — 4/4 alignés · ${strongGroups} forts`;
       if (sumSigns > 0) signals.push(sLabel); else alerts.push(sLabel);
       const polarOf = (v: number) => v > 0 ? '+' : v < 0 ? '−' : '○';
       breakdown.push({
         system: 'SCIS', icon: sumSigns > 0 ? '🌟' : '⚠️',
-        value: `${Math.abs(sumSigns)}/4 systèmes convergents`,
+        value: `4/4 systèmes convergents (${strongGroups} forts)`,
         points: scisDelta,
-        detail: `NUM${polarOf(sgn(dNum))} BaZi${polarOf(sgn(dBazi))} Lune${polarOf(sgn(dLune))} Eph${polarOf(sgn(dEphem))} — Sprint P2`,
+        detail: `NUM${polarOf(sgn(dNum))} BaZi${polarOf(sgn(dBazi))} Lune${polarOf(sgn(dLune))} Eph${polarOf(sgn(dEphem))} — Y3c nouveau seuil`,
         signals: sumSigns > 0 ? [sLabel] : [],
         alerts:  sumSigns < 0 ? [sLabel] : [],
       });
