@@ -41,6 +41,7 @@ import {
 } from './convergence-daily';
 import { calcSlowModules } from './convergence-slow';
 import { getAdaptedAlphaG } from './alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
+import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -354,10 +355,8 @@ function calculateContextualScores(
   // Après : ancrage faible → CRÉATIVITÉ 85 raw → 75 avec global=45 (écart 26, directive change)
   const TAU_DOMAIN = 21.0;
   const domains: DomainScore[] = allDomains.map(domain => {
-    const domainScore = Math.max(5, Math.min(97, Math.round(50 + 50 * Math.tanh(domainRaw[domain] / TAU_DOMAIN))));
-    if (isNaN(domainScore) || domainScore < 0 || domainScore > 100) {
-      console.error('[Kaironaute] Tanh compression failure:', domain, domainRaw[domain]);
-    }
+    const rawTanh = 50 + 50 * Math.tanh(safeNum(domainRaw[domain], 0) / TAU_DOMAIN); // Sprint AG: NaN guard
+    const domainScore = Math.max(5, Math.min(97, Math.round(safeNum(rawTanh, 50)))); // Sprint AG: fallback 50
     // Ancrage pondéré partiel (0.35) puis amplification écart (0.15)
     const anchored = domainScore * 0.65 + globalScore * 0.35;
     const spread   = anchored + (anchored - globalScore) * 0.15;
@@ -371,8 +370,9 @@ function calculateContextualScores(
   });
 
   const sorted = [...domains].sort((a, b) => b.score - a.score);
-  const best = sorted[0];
-  const worst = sorted[sorted.length - 1];
+  const fallbackDomain = { domain: 'BUSINESS' as const, icon: '💼', label: 'Business', score: 50, directive: '' };
+  const best = sorted[0] ?? fallbackDomain; // Sprint AG: bounds check
+  const worst = sorted[sorted.length - 1] ?? fallbackDomain; // Sprint AG: bounds check
   const diff = best.score - worst.score;
 
   let conseil: string;
@@ -412,12 +412,15 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
 
   // Pré-calcul natal Nakshatra lord (constant pour l'utilisateur)
   let natalNakLord: string | null = null;
-  try {
-    const natalMoonMC = getMoonPhase(new Date(bd + 'T12:00:00'));
-    const natalAyanMC = getAyanamsa(new Date(bd + 'T12:00:00').getFullYear());
-    const natalSidMC = ((natalMoonMC.longitudeTropical - natalAyanMC) % 360 + 360) % 360;
-    natalNakLord = calcNakshatra(natalSidMC).lord;
-  } catch { /* silent */ }
+  const bdParsed = safeParseDateLocal(bd); // Sprint AG: date validation
+  if (bdParsed) {
+    try {
+      const natalMoonMC = getMoonPhase(bdParsed);
+      const natalAyanMC = getAyanamsa(bdParsed.getFullYear());
+      const natalSidMC = ((natalMoonMC.longitudeTropical - natalAyanMC) % 360 + 360) % 360;
+      natalNakLord = calcNakshatra(natalSidMC).lord;
+    } catch { /* silent */ }
+  }
 
   const scores: number[] = [];
   for (let m = 1; m <= 12; m++) {
@@ -428,7 +431,7 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
 
       // BaZi DM (±6) — signal prédictif Tier 1
       try {
-        const birthD = new Date(bd + 'T12:00:00');
+        const birthD = bdParsed ?? new Date(bd + 'T12:00:00'); // Sprint AG: reuse validated
         const dayD = new Date(ds + 'T12:00:00');
         const baziMC = calcBaZiDaily(birthD, dayD, 50);
         delta += Math.max(-6, Math.min(6, Math.round(baziMC.totalScore * 2)));

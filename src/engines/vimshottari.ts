@@ -182,7 +182,7 @@ function toPhase(ratio: number): DashaPhase {
  */
 function buildLevel(lord: string, startMs: number, endMs: number, todayMs: number): DashaLevel {
   const durationMs   = endMs - startMs;
-  const progressRatio = Math.max(0, Math.min(1, (todayMs - startMs) / durationMs));
+  const progressRatio = durationMs === 0 ? 0.5 : Math.max(0, Math.min(1, (todayMs - startMs) / durationMs)); // Sprint AG: guard div/0
   const SANDHI_MS    = 30 * 24 * 3600 * 1000; // ±30 jours
   const isTransition =
     Math.abs(todayMs - endMs)   < SANDHI_MS ||
@@ -205,7 +205,7 @@ function buildLevel(lord: string, startMs: number, endMs: number, todayMs: numbe
  */
 function buildLevelNoTransition(lord: string, startMs: number, endMs: number, todayMs: number): DashaLevel {
   const durationMs    = endMs - startMs;
-  const progressRatio = Math.max(0, Math.min(1, (todayMs - startMs) / durationMs));
+  const progressRatio = durationMs === 0 ? 0.5 : Math.max(0, Math.min(1, (todayMs - startMs) / durationMs)); // Sprint AG: guard div/0
   return {
     lord,
     startDate:    new Date(startMs),

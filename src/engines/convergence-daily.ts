@@ -13,6 +13,7 @@ import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLuna
 import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
 import { calcInteractions, buildInteractionContext, type InteractionResult } from './interactions';
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
+import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 import { getAyanamsa, calcNakshatraComposite, type NakshatraData, getPada, PADA_MULTIPLIERS, PADA_NAMES } from './nakshatras';
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
@@ -168,7 +169,7 @@ export function ichingScoreV4(hexNum: number, changing: number): IChingScoreResu
 }
 
 export function calcMoonScore(targetDate: string, dayType: DayType): MoonScore {
-  const d = new Date(targetDate + 'T12:00:00');
+  const d = safeParseDateLocal(targetDate) ?? new Date(targetDate + 'T12:00:00'); // Sprint AG: date validation
   const moon = getMoonPhase(d);
   const events = getLunarEvents(d);
   let points = 0;
@@ -370,8 +371,8 @@ export function calcDailyModules(
   const baziSignals: string[] = [];
   const baziAlerts: string[] = [];
 
-  const birthDate = new Date(bd + 'T12:00:00');
-  const todayDate = new Date(todayStr + 'T12:00:00');
+  const birthDate = safeParseDateLocal(bd) ?? new Date(bd + 'T12:00:00'); // Sprint AG: validated
+  const todayDate = safeParseDateLocal(todayStr) ?? new Date(todayStr + 'T12:00:00'); // Sprint AG
 
   try {
 

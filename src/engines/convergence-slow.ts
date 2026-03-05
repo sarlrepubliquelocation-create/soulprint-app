@@ -38,9 +38,10 @@ interface TemporalContext {
 }
 
 export function calcTemporalContext(slowAstroDelta: number): TemporalContext {
+  const safeDelta = isFinite(slowAstroDelta) ? slowAstroDelta : 0; // Sprint AG: NaN guard
   const MULT_RATIO = 0.60;
-  const multPortion = slowAstroDelta * MULT_RATIO;
-  const offsetPts   = slowAstroDelta * (1 - MULT_RATIO);
+  const multPortion = safeDelta * MULT_RATIO;
+  const offsetPts   = safeDelta * (1 - MULT_RATIO);
   const rawMultiplier = 1.0 + (multPortion / 57);
   const multiplier = Math.max(0.95, Math.min(1.05, rawMultiplier)); // V6.2: 0.75-1.25→0.95-1.05 (GPT R17: non-linéarité trop forte)
 

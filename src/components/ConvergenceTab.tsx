@@ -15,6 +15,7 @@ import { INCLUSION_DOMAIN_MAP } from '../engines/numerology'; // V9 Sprint 5 —
 import { getArcana, calcTarotDayNumber, DASHA_ARCANA_MAP } from '../engines/tarot'; // V9 Sprint 6 + 8a
 import { getCalibOffset, getCalibState, setCalibProfile, recordCalibSkip, shouldShowCalibOverlay, PROFILE_LABELS, type CalibProfile } from '../engines/calibration'; // Sprint AC — user_calibration_offset
 import { runWeeklyAlphaGUpdate, getAdaptedAlphaG } from '../engines/alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
+import { runWeeklyPredictiveValidation, getPredictiveUISummary } from '../engines/predictive-validation'; // Sprint AF — Validation prédictive
 
 // V4.0: Couleurs des 6 domaines contextuels
 const DOMAIN_COLORS: Record<string, string> = {
@@ -185,6 +186,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
   // Sprint AE — Phase 2 : calibration αG hebdomadaire (idempotente, 1×/semaine max)
   useEffect(() => {
     runWeeklyAlphaGUpdate(new Date());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sprint AF — Validation prédictive hebdomadaire (idempotente, 1×/semaine max)
+  useEffect(() => {
+    runWeeklyPredictiveValidation(new Date());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -2153,6 +2159,63 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                               </div>
                             );
                           })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* AF — Confiance scientifique (validation prédictive) */}
+                  {(() => {
+                    const pv = getPredictiveUISummary();
+                    if (pv.nWeeks === 0) return null; // pas encore évalué
+                    const confColor = pv.confidence >= 75 ? '#4ade80'
+                      : pv.confidence >= 55 ? '#D4AF37'
+                      : pv.confidence >= 40 ? '#60a5fa'
+                      : P.textDim;
+                    return (
+                      <div style={{ marginTop: 10, borderTop: '1px solid #ffffff10', paddingTop: 8 }}>
+                        <div style={{ fontSize: 10, color: P.textDim, marginBottom: 6 }}>
+                          {pv.icon} Confiance scientifique · {pv.nWeeks} sem.
+                        </div>
+                        <div style={{
+                          padding: '6px 10px', borderRadius: 6,
+                          background: '#ffffff06', border: '1px solid #ffffff14',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: confColor }}>
+                              {pv.confidence.toFixed(0)}%
+                            </div>
+                            <div style={{ fontSize: 11, color: P.textDim, flex: 1 }}>
+                              {pv.label}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                            {pv.groupDetails.map(g => (
+                              <div key={g.group} style={{
+                                flex: 1, padding: '3px 5px', borderRadius: 4,
+                                background: g.significant ? '#4ade8010' : '#ffffff04',
+                                textAlign: 'center',
+                              }}>
+                                <div style={{ fontSize: 9, color: P.textDim }}>
+                                  {g.group === 'lune' ? '🌙' : g.group === 'ephem' ? '⭐' : '☯️'}
+                                </div>
+                                <div style={{
+                                  fontSize: 10, fontWeight: 600,
+                                  color: g.significant ? '#4ade80' : P.textDim,
+                                }}>
+                                  {g.confidence.toFixed(0)}%
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {pv.nullModel && pv.nullModel.verdict !== 'inconclusive' && (
+                            <div style={{ marginTop: 6, fontSize: 9, color: P.textDim, textAlign: 'center' }}>
+                              {pv.nullModel.verdict === 'kairo_better'
+                                ? `vs baseline naïve : +${(pv.nullModel.lift * 100).toFixed(0)}% de signal`
+                                : `baseline naïve comparable (lift ${(pv.nullModel.lift * 100).toFixed(0)}%)`
+                              }
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

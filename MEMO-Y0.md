@@ -146,6 +146,8 @@ delta_final += harmony;
 | AC ✅ | Sprint AC — user_calibration_offset (EMA α=0.22 · bornes ±8 dur · cap 2pts/j · profils Fluide/Équilibré/Exigeant · overlay matin · pause 7j si 3 skips · displayScore post-tanh) | `calibration.ts` (nouveau), `ConvergenceTab.tsx` |
 | AD ✅ | Sprint AD — Observabilité αG (Kendall τ-b par groupe · stockage deltas quotidiens · 3 paliers · Règle réversion · UI observabilité expert panel) | `validation-tracker.ts`, `ConvergenceTab.tsx`, `CalendarTab.tsx` |
 | AE ✅ | Sprint AE — Calibration automatique αG Phase 2 (moteur `runWeeklyAlphaGUpdate` · singleton `getAdaptedAlphaG` · persistance `kairo_alphag_v1` · renorm Algo B · bornes [0.50,2.00] · UI αG actuels dans expert panel) | `alpha-calibration.ts` (nouveau), `convergence.ts`, `ConvergenceTab.tsx` |
+| AF ✅ | Sprint AF — Validation prédictive scientifique (Rondes 11-12 · hybride fréquentiste+bayésien · circular-shift permutation · DOW centering · Holm-Bonferroni · tables exactes τ-b n≤9 · Null Model baseline naïve · Beta-Binomial accumulateur · évaluation préquentielle · UI confiance scientifique + lift vs baseline) | `predictive-validation.ts` (nouveau), `ConvergenceTab.tsx` |
+| AG ✅ | Sprint AG — Cas limites & robustesse (19 vulnérabilités corrigées · `safe-utils.ts` utilitaire central · div/0 guards moon+vimshottari · NaN guards convergence pipeline · date validation safeParseDateLocal · parseInt radix 10 · array bounds check · numerology parseDate robuste) | `safe-utils.ts` (nouveau), `moon.ts`, `vimshottari.ts`, `convergence.ts`, `convergence-daily.ts`, `convergence-slow.ts`, `numerology.ts` |
 
 ---
 
@@ -282,4 +284,87 @@ STD_MIN      = 2.5     // std(delta) min
 ```typescript
 // ConvergenceTab.tsx — useEffect mount (idempotent : 1×/semaine ISO max)
 useEffect(() => { runWeeklyAlphaGUpdate(new Date()); }, []);
+```
+
+---
+
+## Sprint AF — Validation prédictive scientifique (Rondes 11-12)
+
+### Consensus 3 IAs (GPT / Grok / Gemini)
+
+```
+Architecture : HYBRIDE fréquentiste (moteur) + bayésien (accumulateur confiance)
+Évaluation   : Préquentielle (test-then-train) — αG gelés à t-1, prédiction évaluée à t
+Autocorrélation : Circular-shift permutation test (préserve AR(1), pas de shuffle)
+Confondants  : DOW centering (soustraire moyenne historique par jour de semaine)
+Multiples    : Holm-Bonferroni sur 3 groupes (lune, ephem, bazi)
+Densité      : Fenêtre rejetée si < 6/7 feedbacks
+Accumulateur : Beta-Binomial Beta(α,β) — prior uniforme Beta(1,1) — update hebdo
+Stockage     : localStorage 'kairo_predictive_v1' — max 52 records (1 an)
+Module       : LECTURE SEULE — n'écrit rien dans le moteur de scoring
+```
+
+### Constantes du protocole (gelées — pré-enregistrement)
+
+```typescript
+TAU_SUCCESS_THRESHOLD = 0.10   // τ-b > 0.10 = signal détecté
+P_VALUE_THRESHOLD     = 0.05   // significance
+MIN_WINDOW_DENSITY    = 6      // feedbacks min sur 7 jours
+WINDOW_DAYS           = 7      // fenêtre glissante
+N_PERMUTATIONS        = 999    // circular-shift (impair pour p exact)
+ALPHA_GLOBAL          = 0.05   // α familial Holm-Bonferroni
+BETA_PRIOR            = (1, 1) // prior non-informatif (uniforme)
+```
+
+### Pipeline hebdomadaire
+
+```
+1. Charger feedbacks (avec deltas + userScore)
+2. Filtre densité ≥ 6/7 jours
+3. DOW centering (globalMean + moyennes par jour)
+4. Pour chaque groupe (lune, ephem, bazi) :
+   a. Kendall τ-b sur fenêtre 7j (deltas vs userScore centré)
+   b. Circular-shift permutation test (999 shifts)
+5. Holm-Bonferroni sur les 3 p-values
+6. Succès global = au moins 1 groupe avec τ > 0.10 ET pAdjusted < 0.05
+7. Beta update : α++ si succès, β++ si échec
+8. Confiance = α / (α + β) × 100
+```
+
+### Tables exactes Kendall τ-b (n ≤ 9)
+
+```
+Consensus 3/3 Ronde 11 : approximation z imprécise pour petits échantillons
+Source : Best & Gipps (1974) — one-tailed α = 0.05
+n=5: τ_crit=0.800 | n=6: 0.600 | n=7: 0.524 | n=8: 0.429 | n=9: 0.389
+Intégré dans circularShiftPermTest : p-value = max(pPerm, pExact) — conservateur
+```
+
+### Null Model — Baseline naïve (persistence forecast)
+
+```
+Consensus Gemini + GPT : comparer Kaironaute vs prédiction triviale
+Baseline naïve : "demain = feedback d'aujourd'hui" (τ-b sur paires décalées)
+tauKairo = meilleur τ-b parmi les 3 groupes
+lift = tauKairo - tauNaive (> 0 = Kaironaute fait mieux que le hasard informé)
+Verdict : kairo_better (lift > 5%) | naive_better (lift < -5%) | inconclusive
+Affiché dans UI : "vs baseline naïve : +X% de signal"
+```
+
+### UI — Panneau expert
+
+```
+Affiche "Confiance scientifique · X sem." avec :
+- % global (Beta accumulateur)
+- Label user-friendly (Signal fort / modéré / en cours / faible)
+- Mini-barres par groupe (lune/ephem/bazi)
+- Lift vs baseline naïve (si verdict non-inconclusif)
+Visible uniquement après la première évaluation (nWeeks > 0)
+```
+
+### Déclenchement
+
+```typescript
+// ConvergenceTab.tsx — useEffect mount (idempotent : 1×/semaine ISO max)
+useEffect(() => { runWeeklyPredictiveValidation(new Date()); }, []);
 ```

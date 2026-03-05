@@ -7,7 +7,10 @@
  * V2.9: Mercure gradué (6 phases: direct/pré-ombre/stationnaire-rétro/rétrograde/stationnaire-direct/post-ombre)
  * V2.5: Nœuds Lunaires (système 11) — Rahu/Ketu, retours, transit nodal
  * Zéro API, zéro dépendance
+ * Sprint AG: gardes div/0, bounds check, parseInt radix 10, safeInt
  */
+
+import { safeDiv, safeInt, safeArrayGet } from './safe-utils';
 
 /* ══ PHASE LUNAIRE ══ */
 
@@ -65,7 +68,7 @@ export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): 
     if (moonLong < 0) moonLong += 360;
     const positionInSign = moonLong % 30;
     const degreesLeft = 30 - positionInSign;
-    const hoursUntilSignChange = degreesLeft / 0.55;
+    const hoursUntilSignChange = safeDiv(degreesLeft, 0.55, 24); // Sprint AG: guard div/0
 
     if (hoursUntilSignChange < 6) {
       confidence = 'low';
@@ -655,8 +658,8 @@ function getMercuryEventsForYear(year: number): LunarEvent[] {
 
   return retros.map(r => {
     const endParts = r.end.split('-');
-    const endMonth = MOIS_COURTS[parseInt(endParts[1]) - 1];
-    const endDay = parseInt(endParts[2]);
+    const endMonth = safeArrayGet(MOIS_COURTS, safeInt(endParts[1] ?? '1') - 1, 'jan'); // Sprint AG
+    const endDay = safeInt(endParts[2] ?? '1', 1); // Sprint AG
     return {
       date: r.start,
       endDate: r.end,
@@ -1352,8 +1355,8 @@ export function calcLunarNodes(dateStr: string): LunarNodes {
 
 /** Retour des nœuds : calcule les âges/années où les nœuds reviennent à la position natale */
 function calcNodeReturns(birthDate: string, today: string): { age: number; year: number; type: 'return' | 'inverse' }[] {
-  const birthYear = parseInt(birthDate.split('-')[0]);
-  const currentYear = parseInt(today.split('-')[0]);
+  const birthYear = safeInt(birthDate.split('-')[0] ?? '2000', 2000); // Sprint AG
+  const currentYear = safeInt(today.split('-')[0] ?? '2025', 2025); // Sprint AG
   const returns: { age: number; year: number; type: 'return' | 'inverse' }[] = [];
 
   // Retours : ~18.6, ~37.2, ~55.8, ~74.4 ans
@@ -1387,14 +1390,14 @@ export function getLunarNodeTransit(birthDate: string, today: string): LunarNode
   const current = calcLunarNodes(today);
   const returns = calcNodeReturns(birthDate, today);
 
-  const currentAge = parseInt(today.split('-')[0]) - parseInt(birthDate.split('-')[0]);
+  const currentAge = safeInt(today.split('-')[0] ?? '2025') - safeInt(birthDate.split('-')[0] ?? '2000'); // Sprint AG
 
   // Détecter si on est dans un retour (±1 an)
   const closestReturn = returns.find(r => Math.abs(r.age - currentAge) <= 1 && r.type === 'return');
   const isNodeReturn = !!closestReturn;
 
   // Prochain retour futur
-  const nextReturn = returns.find(r => r.year > parseInt(today.split('-')[0]) && r.type === 'return');
+  const nextReturn = returns.find(r => r.year > safeInt(today.split('-')[0] ?? '2025') && r.type === 'return'); // Sprint AG
 
   // Aspect natal ↔ transit
   const angle = angleBetween(natal.northNode.longitude, current.northNode.longitude);
@@ -1431,7 +1434,7 @@ export function getLunarNodeTransit(birthDate: string, today: string): LunarNode
 
 /** Retourne les moments-clés des nœuds pour la life-timeline */
 export function getNodeKeyMoments(birthDate: string): { age: number; year: number; label: string; type: 'return' | 'inverse' }[] {
-  const birthYear = parseInt(birthDate.split('-')[0]);
+  const birthYear = safeInt(birthDate.split('-')[0] ?? '2000', 2000); // Sprint AG
   const returns = calcNodeReturns(birthDate, `${birthYear + 100}-01-01`);
 
   return returns

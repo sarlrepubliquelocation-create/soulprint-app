@@ -128,8 +128,11 @@ export function nameToNumbers(s: string, type: 'p' | 'c' = 'p'): number[] {
 }
 
 export function parseDate(s: string) {
-  const [y, m, d] = s.split('-').map(Number);
-  return { d, m, y };
+  const parts = (s ?? '').split('-');
+  const y = parseInt(parts[0] ?? '2000', 10) || 2000; // Sprint AG: robuste
+  const m = parseInt(parts[1] ?? '1', 10) || 1;
+  const d = parseInt(parts[2] ?? '1', 10) || 1;
+  return { d: Math.max(1, Math.min(31, d)), m: Math.max(1, Math.min(12, m)), y };
 }
 
 // === LIFE PATH (Decoz method) ===
