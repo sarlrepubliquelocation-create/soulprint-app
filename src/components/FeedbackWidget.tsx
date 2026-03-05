@@ -206,32 +206,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
         </div>
       )}
 
-      {/* Y2 shadow — comparaison moteur candidat Cœur Unifié (discret, pour calibration) */}
-      {shadowScore !== undefined && (
-        <div style={{
-          marginTop: 8, padding: '6px 10px', borderRadius: 7,
-          background: '#a78bfa08', border: '1px solid #a78bfa18',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 10, color: P.textDim,
-        }}>
-          <span>🧪 Moteur Cœur (candidat)</span>
-          <span style={{
-            fontWeight: 700,
-            color: Math.abs(shadowScore - score) <= 5
-              ? '#4ade80aa'
-              : Math.abs(shadowScore - score) <= 12
-              ? '#f59e0baa'
-              : '#ef4444aa',
-          }}>
-            {shadowScore}%
-            {Math.abs(shadowScore - score) > 0 && (
-              <span style={{ fontWeight: 400, marginLeft: 4, opacity: 0.6 }}>
-                ({shadowScore > score ? '+' : ''}{shadowScore - score})
-              </span>
-            )}
-          </span>
-        </div>
-      )}
+      {/* Z1 — bandeau shadow désactivé : shadowScore = score depuis Y5 (moteur en production) */}
 
     </div>
   );

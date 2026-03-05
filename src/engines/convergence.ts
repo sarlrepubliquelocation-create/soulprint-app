@@ -65,7 +65,7 @@ function compress(delta: number): number {
   // REVERT Sprint 1 V9 : compress_v2 tanh(2.2 * x^0.7) était concave (p<1)
   //   → boostait les deltas modérés vers Cosmique (202 Cosmique/an observés !)
   //   → paramètres k=2.2, p=0.7 faisaient l'inverse de l'intention
-  // TODO Sprint 2 : recalibrer tanh avec p>1 (convexe) sur distribution simulée
+  // Conservée pour CI, yearly scores, baseline L1 — moteur Y5 utilise calcShadowScore()
   // compress(0)=50, output∈[5,97]
   const maxDelta = 22; // V8.9 GPT Q5 : 18→22 pour calibrer distribution (cible ≥88 ~1.5%, <25 ~6%)
   const sign = Math.sign(delta);
@@ -889,7 +889,7 @@ export function calcDayPreview(
   //   - Ces erreurs créent de fausses intensités de retour → biais annuels artificiels
   // Exemple : Nœud return 2033 et Sat+Jup return 2037 → 17-20 Cosmiques/an au lieu de 5
   // Fix : l2Bonus=0 si |deltaJours|>365. Le CalendarTab (<12 mois) reste précis.
-  // TODO Sprint 2 : éphémérides exactes (Meeus) pour horizon long (calcDayPreview refacto)
+  // Note : éphémérides longue portée (Meeus) — amélioration future non prioritaire
   try {
     if (astro) {
       const natalLongs = extractNatalReturnLongs(astro);
@@ -1101,8 +1101,12 @@ export function calcConvergence(
     dashaMult,
     nuclearHex: nuclearHexResult,
     dashaCertainty,
-    shadowBaseSignal,  // Y1 shadow — noyau védique pur (non utilisé dans le score)
-    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal), // Y2 shadow
+    shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
+    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal), // Y5 — score production tanh
+    // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
+    baziGroupDelta:  daily.baziGroupDelta,
+    luneGroupDelta:  daily.luneGroupDelta,
+    ephemGroupDelta: daily.ephemGroupDelta,
   };
 }
 
@@ -1142,15 +1146,6 @@ function calcShadowScore(
     const delta_sh = A * Math.tanh(k * X_total);
     const raw      = 50 + delta_sh * terrain_sq + bias;
     const shadowScore = Math.max(0, Math.min(100, Math.round(raw)));
-
-    console.debug('[Y2 shadow] tanh-score', {
-      X: X.toFixed(3),
-      X_total: X_total.toFixed(3),
-      terrain_sq: terrain_sq.toFixed(3),
-      delta_sh: delta_sh.toFixed(2),
-      shadowScore,
-      scoreActuel: Math.max(5, Math.min(97, Math.round(50 + 45 * Math.sign(finalDelta) * Math.pow(Math.min(Math.abs(finalDelta) / MAX_DELTA, 1), 1.05)))),
-    });
 
     return shadowScore;
   } catch (e) {

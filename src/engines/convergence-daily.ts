@@ -107,6 +107,10 @@ export interface DailyModuleResult {
   // Needed for R21/R27 scoring in L2
   _transitBreakdown: Array<{ transitPlanet: string; score: number; aspectType?: string }>;
   planetaryHour: PlanetaryHour | null; // V9 Sprint 4 — heure planétaire chaldéenne courante
+  // Z2-B — deltas de groupe pour observabilité L3 (Ronde Z consensus 3/3)
+  baziGroupDelta: number;   // C_BAZI capé ±15
+  luneGroupDelta: number;   // C_LUNE capé ±16
+  ephemGroupDelta: number;  // C_EPHEM capé ±14 (après LuneGate)
 }
 
 // ══════════════════════════════════════
@@ -1382,7 +1386,8 @@ export function calcDailyModules(
   // ΔLUNE fort négatif → légère atténuation Ephem (-8%) : signal lunaire mauvais = transit moins porteur
   const luneGate = luneGroupCapped >= 7 ? 1.06 : luneGroupCapped <= -7 ? 0.92 : 1.00;
   ephemGroupPts = Math.round(ephemGroupPts * luneGate);
-  delta += Math.max(-14, Math.min(14, ephemGroupPts));
+  const ephemGroupCapped = Math.max(-14, Math.min(14, ephemGroupPts)); // Z2-B
+  delta += ephemGroupCapped;
 
   // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4
@@ -1425,5 +1430,9 @@ export function calcDailyModules(
     moonPhaseRawPhase: moonPhaseRaw.phase,
     _transitBreakdown,
     planetaryHour: planetaryHourNow ?? null,  // V9 Sprint 4
+    // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
+    baziGroupDelta:  baziFamilyTotal,
+    luneGroupDelta:  luneGroupCapped,
+    ephemGroupDelta: ephemGroupCapped,
   };
 }

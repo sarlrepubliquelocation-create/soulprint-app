@@ -212,7 +212,11 @@ export interface ConvergenceResult {
   nuclearHex?: NuclearHexScore;       // V9 Sprint 1 — hex nucléaire câblé
   dashaCertainty?: DashaCertaintyResult; // V9 Sprint 1 — fiabilité Dasha sans heure
   shadowBaseSignal?: number;           // Y1 shadow — noyau védique ∈ [-1, +1] (0.55×S_dasha + 0.40×S_nak + 0.05×S_tithi)
-  shadowScore?: number;                // Y2 shadow — score via formule tanh unifiée [0-100] (non utilisé dans l'affichage)
+  shadowScore?: number;                // Y5 — score moteur tanh production [0-100] (= score depuis Y5)
+  // Z2-B — observabilité groupes (consensus Ronde Z 3/3 Option B)
+  baziGroupDelta?: number;             // Z2-B — delta groupe BaZi capé ±15 (C_BAZI)
+  luneGroupDelta?: number;             // Z2-B — delta groupe Lune capé ±16 (C_LUNE)
+  ephemGroupDelta?: number;            // Z2-B — delta groupe Éphém capé ±14 (C_EPHEM)
 }
 
 // ══════════════════════════════════════
