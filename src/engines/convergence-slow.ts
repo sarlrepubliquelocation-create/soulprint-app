@@ -700,6 +700,34 @@ export function calcSlowModules(
   } catch { /* antaraLord amplification fail silently */ }
 
   // ═══════════════════════════════════
+  // NŒUDS LUNAIRES — Sprint U5 (L2)
+  // Rahu en maison angulaire natale (kendra 1/4/7/10) → activation karmique +3
+  // Guard : eclipseNatalPts < 4 (évite double-comptage nœuds × éclipses — Gemini/GPT Ronde 4)
+  // Rahu seul — Ketu exclu (moksha/détachement, BPHS Ch.47 — annulation systématique si pair)
+  // Source : Parashara Hora Shastra — Rahu en kendra = force karmique manifestée
+  // ═══════════════════════════════════
+  try {
+    if (astro) {
+      const rahuNatal    = astro.pl.find((p: any) => p.k === 'northNode');
+      const houseRahu    = rahuNatal?.h ?? 0;
+      const nodeLordScore = ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
+      if (nodeLordScore > 0) {
+        delta += nodeLordScore;
+        const nLabel = `☊ Rahu natal en maison ${houseRahu} (kendra) → activation karmique (+${nodeLordScore})`;
+        signals.push(nLabel);
+        breakdown.push({
+          system: 'Nœuds Lunaires', icon: '☊',
+          value:  `Rahu — Maison ${houseRahu} (angulaire)`,
+          points: nodeLordScore,
+          detail: `Rahu natal en kendra · eclipseNatalPts=${eclipseNatalPts} · Sprint U5`,
+          signals: [nLabel],
+          alerts:  [],
+        });
+      }
+    }
+  } catch { /* Nœuds Lunaires fail silently */ }
+
+  // ═══════════════════════════════════
   // SCIS — Score de Cohérence Inter-Systèmes — Sprint P2 — V10.9
   // Gemini Ronde 14 : seuil déterministe |sumSigns| ≥ 3 (3 systèmes sur 4 alignés)
   // GPT Ronde 14 : micro-delta ±2 capé — ne se déclenche que lors de convergences rares

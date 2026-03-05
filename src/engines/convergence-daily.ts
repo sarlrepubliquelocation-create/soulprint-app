@@ -625,11 +625,13 @@ export function calcDailyModules(
 
   // ═══════════════════════════════════
   // 3. I CHING — V8: consultation séparée (R25 GPT : non calendaire sans question posée)
-  // ichRes calculé pour display, interactions et calcDayType. NON ajouté au delta.
+  // ichRes calculé pour display, interactions et calcDayType.
+  // Sprint U2 — réintroduit avec soft-clamp tanh (V10, était supprimé V8 pour bruit brut)
   // ═══════════════════════════════════
 
   const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
-  // delta += ichRes.pts; // SUPPRIMÉ V8 — outil oraculaire, pas calendaire
+  const ichingCapped = Math.round(6 * Math.tanh(ichRes.pts / 6)); // Sprint U2 — tanh ±6 (soft-clamp)
+  if (ichingCapped !== 0) delta += ichingCapped;
 
   const ichingSignals: string[] = [];
   const ichingAlerts: string[] = [];
@@ -912,7 +914,7 @@ export function calcDailyModules(
     const ayanamsaP    = getAyanamsa(todayDateP.getFullYear());
     panchangaResult    = calcPanchanga(moonTropP, sunTropP, ayanamsaP, todayDateP);
     if (panchangaResult.total !== 0) {
-      luneGroupPts += panchangaResult.total; // groupe LUNE (cap ±13 appliqué après)
+      luneGroupPts += Math.max(-4, Math.min(4, panchangaResult.total)); // Sprint U3 — cap ±4 (était ±6 implicite)
       signals.push(...panchangaResult.signals);
       alerts.push(...panchangaResult.alerts);
     }
@@ -1264,14 +1266,14 @@ export function calcDailyModules(
 
   // ═══════════════════════════════════
   // 12c. ÉTOILES FIXES — V9.6 Sprint A3
-  // 10 étoiles majeures, orbes ±0.5° (exacte) / ±1.5° (large), cap ±8
+  // 10 étoiles majeures, orbes ±0.5° (exacte) / ±1.5° (large), cap ±5 (Sprint U1 — était ±8)
   // ═══════════════════════════════════
 
   let fixedStarResult: FixedStarResult | null = null;
   try {
     fixedStarResult = calcFixedStarScore(new Date(todayStr + 'T12:00:00'));
     if (fixedStarResult.total !== 0) {
-      ephemGroupPts += fixedStarResult.total; // intégré dans groupe EPHEM
+      ephemGroupPts += Math.max(-5, Math.min(5, fixedStarResult.total)); // Sprint U1 — cap ±5
       signals.push(...fixedStarResult.signals);
       alerts.push(...fixedStarResult.alerts);
       if (fixedStarResult.hits.length > 0) {

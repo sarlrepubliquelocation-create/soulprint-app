@@ -912,7 +912,13 @@ export function calcPersonalTransits(
     const sf    = (planetSpeeds && planetSpeeds[tr.tp] !== undefined)
                   ? stationFactor(tr.tp, planetSpeeds[tr.tp])
                   : 1.0;
-    const score = amplitude * natalMult * structuralMod * dignityMod * intensity * sf;
+    // Sprint U4 — retroFactor ×1.08 si planète rétrograde ET vitesse normale (sf < 1.1)
+    // Guard sf < 1.1 : évite double-amplification station+rétro (stationFactor discret : 1.0 / 1.3 / 2.0)
+    // sf=1.0 → retroFactor=1.08 | sf=1.3 quasi-station → bloqué | sf=2.0 totale → bloqué
+    // Threshold 1.1 = sépare "rétro pure" (sf=1.0) de toute proximité station — consensus Ronde 4 (intent Grok+GPT)
+    const retroFactor = (planetSpeeds && planetSpeeds[tr.tp] !== undefined
+                         && planetSpeeds[tr.tp] < 0 && sf < 1.1) ? 1.08 : 1.0;
+    const score = amplitude * natalMult * structuralMod * dignityMod * intensity * sf * retroFactor;
 
     total += score;
 

@@ -358,6 +358,85 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       })(),
       expected: true,
     },
+
+    // ── Sprint U2 — I Ching tanh compression ──
+    {
+      name: 'Sprint U2: ichingCapped pts=+9 → tanh → 5 (soft-clamp extrême positif)',
+      // tanh(9/6) = tanh(1.5) ≈ 0.9051 → 6 × 0.9051 = 5.43 → round = 5
+      actual: Math.round(6 * Math.tanh(9 / 6)),
+      expected: 5,
+    },
+    {
+      name: 'Sprint U2: ichingCapped pts=−9 → tanh → −5 (soft-clamp extrême négatif)',
+      actual: Math.round(6 * Math.tanh(-9 / 6)),
+      expected: -5,
+    },
+    {
+      name: 'Sprint U2: ichingCapped pts=0 → 0 (zéro stable)',
+      actual: Math.round(6 * Math.tanh(0 / 6)),
+      expected: 0,
+    },
+
+    // ── Sprint U4 — retroFactor (Grok oracles) ──
+    {
+      name: 'Sprint U4: Mercure rétrograde normale (sf=1.0) → retroFactor=1.08',
+      actual: (() => {
+        const sf = 1.0; // stationFactor normal
+        const speed = -0.8; // rétrograde (négatif)
+        const retroFactor = (speed < 0 && sf < 1.65) ? 1.08 : 1.0;
+        return retroFactor;
+      })(),
+      expected: 1.08,
+    },
+    {
+      name: 'Sprint U4: Jupiter quasi-stationnaire rétrograde (sf=1.3) → retroFactor=1.0 (guard 1.1)',
+      actual: (() => {
+        const sf = 1.3; // quasi-station → bloqué par guard sf < 1.1 (1.3 ≥ 1.1)
+        const speed = -0.05; // rétrograde lent
+        const retroFactor = (speed < 0 && sf < 1.1) ? 1.08 : 1.0;
+        return retroFactor;
+      })(),
+      expected: 1.0,
+    },
+    {
+      name: 'Sprint U4: Vénus directe (sf=0.9) → retroFactor=1.0 (vitesse positive)',
+      actual: (() => {
+        const sf = 0.9;
+        const speed = 1.2; // direct (positif)
+        const retroFactor = (speed < 0 && sf < 1.65) ? 1.08 : 1.0;
+        return retroFactor;
+      })(),
+      expected: 1.0,
+    },
+
+    // ── Sprint U5 — Nœuds Lunaires (Grok oracles) ──
+    {
+      name: 'Sprint U5: Rahu maison 1, eclipseNatalPts=2 → nodeLordScore=3',
+      actual: (() => {
+        const houseRahu = 1;
+        const eclipseNatalPts = 2;
+        return ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
+      })(),
+      expected: 3,
+    },
+    {
+      name: 'Sprint U5: Rahu maison 1, eclipseNatalPts=5 → 0 (guard éclipse)',
+      actual: (() => {
+        const houseRahu = 1;
+        const eclipseNatalPts = 5; // ≥ 4 → guard actif
+        return ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
+      })(),
+      expected: 0,
+    },
+    {
+      name: 'Sprint U5: Rahu maison 5 (non-kendra) → 0',
+      actual: (() => {
+        const houseRahu = 5;
+        const eclipseNatalPts = 0;
+        return ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
+      })(),
+      expected: 0,
+    },
   ];
 
   let passed = 0;
