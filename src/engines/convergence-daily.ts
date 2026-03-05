@@ -19,7 +19,7 @@ import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, 
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga } from './ashtakavarga'; // V9.6 Sprint C
-import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult, calcGrahaDrishti, type GrahaDrishtiResult, calcYogaKartari, type KartariResult } from './panchanga'; // Sprint D3 + Sprint G + Sprint J + Sprint L + Sprint M
+import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult, calcGrahaDrishti, type GrahaDrishtiResult, calcYogaKartari, type KartariResult, combinedBala } from './panchanga'; // Sprint D3 + Sprint G + Sprint J + Sprint L + Sprint M + Sprint P
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -711,8 +711,9 @@ export function calcDailyModules(
         const tarabalaRes    = calcTarabala(moonLongSidereal, natalMoonSidForNak);
         const chandrabalaRes = calcChandrabala(moonLongSidereal, natalMoonSidForNak);
 
-        luneGroupPts += tarabalaRes.delta;
-        luneGroupPts += chandrabalaRes.delta;
+        // Sprint P — combinedBala remplace addition pure (double-comptage géométrique base27 vs base12)
+        const combinedBalaVal = combinedBala(tarabalaRes.delta, chandrabalaRes.delta);
+        luneGroupPts += combinedBalaVal;
 
         if (tarabalaRes.delta > 0)    signals.push(tarabalaRes.label);
         else if (tarabalaRes.delta < 0) alerts.push(tarabalaRes.label);
@@ -929,7 +930,8 @@ export function calcDailyModules(
 
   // Sprint G — Application cap groupe LUNE ±16 (Nakshatra + R31 + VoC + Ash☽ + Panchanga + Karana + Tarabala + Chandrabala)
   // Cap élargi de ±14 → ±16 : +Tarabala(±3) +Chandrabala(±3), Ronde 11 consensus 2/3
-  delta += Math.max(-16, Math.min(16, luneGroupPts));
+  const luneGroupCapped = Math.max(-16, Math.min(16, luneGroupPts)); // Sprint P — hoissé pour LuneGate
+  delta += luneGroupCapped;
 
   // ═══════════════════════════════════
   // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)
@@ -1282,6 +1284,11 @@ export function calcDailyModules(
   // Le cap ephemGroupPts ±14 reste inchangé (étoiles fixes + heure planétaire UI)
 
   // Sprint D4 : Application cap groupe EPHEM ±14 (sans ASV ☉♂)
+  // Sprint P — LuneGate × Ephem (seuil ±7, consensus GPT/Gemini Ronde 14)
+  // ΔLUNE fort positif → légère amplification Ephem (+6%) : signal favorable = transit plus exploitable
+  // ΔLUNE fort négatif → légère atténuation Ephem (-8%) : signal lunaire mauvais = transit moins porteur
+  const luneGate = luneGroupCapped >= 7 ? 1.06 : luneGroupCapped <= -7 ? 0.92 : 1.00;
+  ephemGroupPts = Math.round(ephemGroupPts * luneGate);
   delta += Math.max(-14, Math.min(14, ephemGroupPts));
 
   // ═══════════════════════════════════

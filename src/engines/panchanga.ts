@@ -371,6 +371,22 @@ export function calcChandrabala(
   return { position, delta, label };
 }
 
+// ── combinedBala — Sprint P — V10.9 ──────────────────────────────
+// Remplace Tara+Chandra additif (double-comptage géométrique base27 vs base12)
+// Formule hybride GPT/Gemini Ronde 14 :
+//   Même signe  → compression 0.7 (anti double-comptage pur)
+//   Signes opp. → somme algébrique pure (annulation doctrinale Muhurta Chintamani)
+//   Un nul      → T + 0.5C
+export function combinedBala(T: number, C: number): number {
+  const t = Math.max(-3, Math.min(3, Math.round(T)));
+  const c = Math.max(-3, Math.min(3, Math.round(C)));
+  if (t === 0 && c === 0) return 0;
+  const st = Math.sign(t), sc = Math.sign(c);
+  if (t !== 0 && c !== 0 && st === sc)
+    return st * Math.min(3, Math.ceil(0.7 * (Math.abs(t) + Math.abs(c))));
+  return Math.max(-3, Math.min(3, Math.round(t + c)));
+}
+
 // ══════════════════════════════════════════════════════════════════
 // ═══ CHANDRA YOGA — Sprint I — V10.3 ═══
 // Source : Parashara BPHS Ch.36 (Yogas lunaires)

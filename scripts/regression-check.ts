@@ -10,7 +10,7 @@
 // RUNNER : npx tsx scripts/regression-check.ts [--save <tag>] [--compare <tag>]
 // ══════════════════════════════════════════════════════════════════
 
-import { calcTarabala, calcChandrabala, calcPanchanga, calcGrahaDrishti, calcYogaKartari } from '../src/engines/panchanga.js';
+import { calcTarabala, calcChandrabala, calcPanchanga, calcGrahaDrishti, calcYogaKartari, combinedBala } from '../src/engines/panchanga.js';
 import { calcNakshatraComposite, getPada, calcPadaMultiplier } from '../src/engines/nakshatras.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -221,6 +221,23 @@ function runOracleTests(): { passed: number; failed: number; failures: string[] 
       // Aucune planète passée → delta = 0
       actual: calcYogaKartari(285, {}).delta,
       expected: 0,
+    },
+
+    // ── combinedBala ── (Sprint P — régression guard)
+    {
+      name: 'combinedBala: même signe (+2,+2) → compression 0.7 → 3',
+      actual: combinedBala(2, 2),
+      expected: 3,
+    },
+    {
+      name: 'combinedBala: signes opposés (+2,-2) → annulation algébrique → 0',
+      actual: combinedBala(2, -2),
+      expected: 0,
+    },
+    {
+      name: 'combinedBala: un nul (T=+2, C=0) → T+0.5C arrondi → 2',
+      actual: combinedBala(2, 0),
+      expected: 2,
     },
 
     // ── calcPanchanga ── (Sprint E — régression guard)

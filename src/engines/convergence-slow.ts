@@ -651,6 +651,79 @@ export function calcSlowModules(
     }
   } catch { /* Chandra Yoga fail silently */ }
 
+  // ═══════════════════════════════════
+  // ANTARDASHA ACTIVATION — Sprint P2 — V10.9
+  // Gemini+GPT Ronde 14 : antaraLord (3 mois-3 ans) plus précis que mahaLord (6-20 ans)
+  // Condition : seigneur Nakshatra transit = seigneur Antardasha actuel → amplification ±1
+  // ═══════════════════════════════════
+  try {
+    if (currentDasha && nakshatraData) {
+      const antaraL = currentDasha.antar.lord;  // ex: 'Vénus', 'Jupiter'
+      const nakL    = nakshatraData.lord;        // ex: 'Vénus', 'Jupiter'
+      if (antaraL && nakL && antaraL === nakL) {
+        const nakBk = breakdown.find(b => b.system === 'Nakshatra');
+        if (nakBk && nakBk.points !== 0) {
+          const ampDelta = Math.sign(nakBk.points); // ±1 exactement — capé
+          delta += ampDelta;
+          const tag = ampDelta > 0 ? `+${ampDelta}` : `${ampDelta}`;
+          const label = `🔥 Antardasha × Nakshatra — ${antaraL} (${tag})`;
+          if (ampDelta > 0) signals.push(label); else alerts.push(label);
+          breakdown.push({
+            system: 'Antardasha Activation', icon: '🔥',
+            value: `${antaraL} — lord Nakshatra + Antara`,
+            points: ampDelta,
+            detail: `Nakshatra transit et Antardasha partagent le même seigneur — Sprint P2`,
+            signals: ampDelta > 0 ? [label] : [],
+            alerts:  ampDelta < 0 ? [label] : [],
+          });
+        }
+      }
+    }
+  } catch { /* antaraLord amplification fail silently */ }
+
+  // ═══════════════════════════════════
+  // SCIS — Score de Cohérence Inter-Systèmes — Sprint P2 — V10.9
+  // Gemini Ronde 14 : seuil déterministe |sumSigns| ≥ 3 (3 systèmes sur 4 alignés)
+  // GPT Ronde 14 : micro-delta ±2 capé — ne se déclenche que lors de convergences rares
+  // ═══════════════════════════════════
+  try {
+    const SCIS_NUM  = new Set(['Numérologie']);
+    const SCIS_BAZI = new Set(['BaZi', '10 Gods', 'Changsheng', 'Na Yin', 'Jian Chu', 'Shen Sha', 'Peach Blossom']);
+    const SCIS_LUNE = new Set(['Nakshatra', 'Nakshatra Pada', 'Tarabala', 'Chandrabala',
+      'Ashtakavarga ☽', 'Panchanga', 'Graha Drishti', 'Yoga Kartari', 'Tithi Lord', 'Chandra Yoga']);
+    const SCIS_EPHEM = new Set(['Astrologie', 'Planètes', 'Étoiles Fixes', 'Synergies']);
+
+    let dNum = 0, dBazi = 0, dLune = 0, dEphem = 0;
+    for (const b of breakdown) {
+      if (SCIS_NUM.has(b.system))  dNum   += b.points;
+      else if (SCIS_BAZI.has(b.system))  dBazi  += b.points;
+      else if (SCIS_LUNE.has(b.system))  dLune  += b.points;
+      else if (SCIS_EPHEM.has(b.system)) dEphem += b.points;
+    }
+
+    const sgn = (x: number) => Math.abs(x) > 1 ? Math.sign(x) : 0;
+    const signs = [sgn(dNum), sgn(dBazi), sgn(dLune), sgn(dEphem)];
+    const sumSigns = signs.reduce((a, b) => a + b, 0);
+
+    if (Math.abs(sumSigns) >= 3) {
+      const scisDelta = sumSigns > 0 ? 2 : -2;
+      delta += scisDelta;
+      const sLabel = sumSigns > 0
+        ? `🌟 Convergence Inter-Systèmes (+2) — ${Math.abs(sumSigns)}/4 alignés`
+        : `⚠️ Convergence Critique (-2) — ${Math.abs(sumSigns)}/4 alignés`;
+      if (sumSigns > 0) signals.push(sLabel); else alerts.push(sLabel);
+      const polarOf = (v: number) => v > 0 ? '+' : v < 0 ? '−' : '○';
+      breakdown.push({
+        system: 'SCIS', icon: sumSigns > 0 ? '🌟' : '⚠️',
+        value: `${Math.abs(sumSigns)}/4 systèmes convergents`,
+        points: scisDelta,
+        detail: `NUM${polarOf(sgn(dNum))} BaZi${polarOf(sgn(dBazi))} Lune${polarOf(sgn(dLune))} Eph${polarOf(sgn(dEphem))} — Sprint P2`,
+        signals: sumSigns > 0 ? [sLabel] : [],
+        alerts:  sumSigns < 0 ? [sLabel] : [],
+      });
+    }
+  } catch { /* SCIS fail silently */ }
+
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));
   return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier, dashaCertainty: dashaCertainityResult };
