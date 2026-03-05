@@ -212,6 +212,7 @@ export interface ConvergenceResult {
   nuclearHex?: NuclearHexScore;       // V9 Sprint 1 — hex nucléaire câblé
   dashaCertainty?: DashaCertaintyResult; // V9 Sprint 1 — fiabilité Dasha sans heure
   shadowBaseSignal?: number;           // Y1 shadow — noyau védique ∈ [-1, +1] (0.55×S_dasha + 0.40×S_nak + 0.05×S_tithi)
+  shadowScore?: number;                // Y2 shadow — score via formule tanh unifiée [0-100] (non utilisé dans l'affichage)
 }
 
 // ══════════════════════════════════════

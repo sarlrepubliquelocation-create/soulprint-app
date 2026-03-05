@@ -1097,7 +1097,61 @@ export function calcConvergence(
     nuclearHex: nuclearHexResult,
     dashaCertainty,
     shadowBaseSignal,  // Y1 shadow — noyau védique pur (non utilisé dans le score)
+    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal), // Y2 shadow
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Y2 SHADOW — Formule tanh unifiée (MEMO-Y0)
+// Calcule le score qu'aurait donné le Cœur Unifié, sans toucher au score réel.
+// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=+5
+// X = finalDelta / MAX_DELTA (MAX_DELTA=22 = point de saturation de compress())
+// terrain_brut = ctxMult × dashaMult (terrain combiné en [0.75, 1.25])
+// terrain_squashé = 1 + 0.25 × tanh((terrain_brut − 1) / 0.35)
+// X_total = X + 0.8 × base_signal
+// ══════════════════════════════════════════════════════════════════════
+function calcShadowScore(
+  finalDelta: number,
+  ctxMult: number,
+  dashaMult: number,
+  shadowBaseSignal: number | undefined,
+): number | undefined {
+  try {
+    const A    = 36.0;
+    const k    = 0.840;
+    const bias = 5;
+    const MAX_DELTA = 22;  // point de saturation de compress() — même référence
+
+    // Normalisation du delta existant → espace [-1, +1] approx
+    const X = Math.max(-2, Math.min(2, finalDelta / MAX_DELTA));
+
+    // Terrain combiné (ctxMult × dashaMult)
+    const terrain_brut = ctxMult * dashaMult;
+    const terrain_sq   = 1 + 0.25 * Math.tanh((terrain_brut - 1) / 0.35);
+
+    // Ajout du noyau védique
+    const beta    = 0.8;
+    const X_total = X + beta * (shadowBaseSignal ?? 0);
+
+    // Formule tanh unifiée
+    const delta_sh = A * Math.tanh(k * X_total);
+    const raw      = 50 + delta_sh * terrain_sq + bias;
+    const shadowScore = Math.max(0, Math.min(100, Math.round(raw)));
+
+    console.debug('[Y2 shadow] tanh-score', {
+      X: X.toFixed(3),
+      X_total: X_total.toFixed(3),
+      terrain_sq: terrain_sq.toFixed(3),
+      delta_sh: delta_sh.toFixed(2),
+      shadowScore,
+      scoreActuel: Math.max(5, Math.min(97, Math.round(50 + 45 * Math.sign(finalDelta) * Math.pow(Math.min(Math.abs(finalDelta) / MAX_DELTA, 1), 1.05)))),
+    });
+
+    return shadowScore;
+  } catch (e) {
+    console.warn('[Y2 shadow] calcShadowScore échec silencieux:', e);
+    return undefined;
+  }
 }
 
 // ══════════════════════════════════════
