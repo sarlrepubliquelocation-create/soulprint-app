@@ -134,7 +134,7 @@ export function calcSlowModules(
   breakdown: SystemBreakdown[],
   signals: string[],
   alerts: string[]
-): { delta: number; ctxMult: number; dashaMult: number; dashaCertainty: DashaCertaintyResult } {
+): { delta: number; ctxMult: number; dashaMult: number; dashaCertainty: DashaCertaintyResult; shadowBaseSignal?: number } {
   const { num, astro, iching, bd, bt } = params;
   const {
     dailyDeltaSnapshot,
@@ -772,5 +772,55 @@ export function calcSlowModules(
 
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));
-  return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier, dashaCertainty: dashaCertainityResult };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Y1 SHADOW — Noyau védique pur (base_signal)
+  // base_signal = 0.55 × S_dasha + 0.40 × S_nak + 0.05 × S_tithi
+  // Champ shadowBaseSignal : non utilisé dans le score final pour l'instant.
+  // Objectif : observer la distribution et valider avant Y2 (formule tanh).
+  // Table S_tithi : Grok Ronde 3 — 30 Tithis ∈ [-1, +1]
+  // ═══════════════════════════════════════════════════════════════════
+  let shadowBaseSignal: number | undefined;
+  try {
+    const evalDay = params.evalDate ?? new Date();
+
+    // S_nak : globalBaseScore est déjà ∈ {-1, 0, +1}
+    const S_nak = nakshatraData?.globalBaseScore ?? 0;
+
+    // S_dasha : dashaTotal ∈ [-9, +9] → normalisation → [-1, +1]
+    const S_dasha = Math.max(-1, Math.min(1, dashaTotal / 9));
+
+    // S_tithi : calculé depuis la longitude tropicale Lune − Soleil
+    const moonLonTrop = getMoonPhase(evalDay).longitudeTropical;
+    const sunLonTrop  = getPlanetLongitudeForDate('sun', evalDay);
+    const tithiIndex  = Math.floor(((moonLonTrop - sunLonTrop + 360) % 360) / 12) + 1; // 1–30
+
+    // Table des 30 Tithis — scores validés par Grok Ronde 3
+    // Croissant (Shukla) 1-15, Décroissant (Krishna) 16-30 (signe inversé du miroir)
+    const TITHI_SCORES: Record<number, number> = {
+       1: +0.6,  2: +0.4,  3: +0.8,  4: -0.9,  5: +0.7,
+       6: +0.5,  7: +0.4,  8: +0.3,  9: -1.0, 10: +0.8,
+      11: +0.9, 12: +0.6, 13: +0.7, 14: -0.7, 15: +1.0,
+      16: -0.6, 17: -0.4, 18: -0.8, 19: +0.9, 20: -0.7,
+      21: -0.5, 22: -0.4, 23: -0.4, 24: -0.3, 25: +1.0,
+      26: -0.8, 27: -0.9, 28: -0.6, 29: -0.7, 30: -0.8,
+    };
+    const S_tithi = TITHI_SCORES[tithiIndex] ?? 0;
+
+    const raw = 0.55 * S_dasha + 0.40 * S_nak + 0.05 * S_tithi;
+    shadowBaseSignal = Math.max(-1, Math.min(1, raw));
+
+    console.debug('[Y1 shadow] base_signal', {
+      S_dasha: S_dasha.toFixed(3),
+      S_nak,
+      S_tithi,
+      tithiIndex,
+      shadowBaseSignal: shadowBaseSignal.toFixed(3),
+    });
+  } catch (e) {
+    console.warn('[Y1 shadow] base_signal échec silencieux:', e);
+    shadowBaseSignal = undefined;
+  }
+
+  return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier, dashaCertainty: dashaCertainityResult, shadowBaseSignal };
 }

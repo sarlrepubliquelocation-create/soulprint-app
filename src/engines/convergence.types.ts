@@ -211,6 +211,7 @@ export interface ConvergenceResult {
   dashaMult?: number;      // V8 — multiplicateur karmique [0.91–1.09]
   nuclearHex?: NuclearHexScore;       // V9 Sprint 1 — hex nucléaire câblé
   dashaCertainty?: DashaCertaintyResult; // V9 Sprint 1 — fiabilité Dasha sans heure
+  shadowBaseSignal?: number;           // Y1 shadow — noyau védique ∈ [-1, +1] (0.55×S_dasha + 0.40×S_nak + 0.05×S_tithi)
 }
 
 // ══════════════════════════════════════

@@ -990,7 +990,7 @@ export function calcConvergence(
   );
 
   // ── L2 : Modules lents → finalDelta (après cap ±60) ──
-  const { delta: finalDelta, ctxMult, dashaMult, dashaCertainty } = calcSlowModules(
+  const { delta: finalDelta, ctxMult, dashaMult, dashaCertainty, shadowBaseSignal } = calcSlowModules(
     { num, astro, iching, bd, bt },
     daily, breakdown, signals, alerts
   );
@@ -1096,6 +1096,7 @@ export function calcConvergence(
     dashaMult,
     nuclearHex: nuclearHexResult,
     dashaCertainty,
+    shadowBaseSignal,  // Y1 shadow — noyau védique pur (non utilisé dans le score)
   };
 }
 
