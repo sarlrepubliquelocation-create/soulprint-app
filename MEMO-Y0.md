@@ -134,7 +134,8 @@ delta_final += harmony;
 | Sprint | Contenu | Fichier principal |
 |--------|---------|-------------------|
 | Y0 ✅ | Calibration (ce fichier) | `scripts/calibrate.ts` |
-| Y1 | S_tithi + base_signal en shadow | `convergence-slow.ts` |
-| Y2 | Formule tanh unifiée en shadow | `convergence-daily.ts`, `convergence.ts` |
-| Y3 | R32 + Réconciliation + SCIS seuil | `convergence-daily.ts`, `interactions.ts` |
-| Y4 | UX (Posture + IMPACT/RÉSONANCE/ANCRAGE + feedback) | `ConvergenceTab.tsx` |
+| Y1 ✅ | S_tithi + base_signal en shadow | `convergence-slow.ts` |
+| Y2 ✅ | Formule tanh unifiée en shadow | `convergence-daily.ts`, `convergence.ts` |
+| Y3 ✅ | R32 + Réconciliation BaZi×Védique + SCIS seuil 4/4 | `convergence-daily.ts`, `interactions.ts` |
+| Y4 ✅ | UX (Posture + IMPACT/RÉSONANCE/ANCRAGE + feedback shadowScore) | `ConvergenceTab.tsx`, `FeedbackWidget.tsx` |
+| Y5 | Bascule production (tanh réel + base_signal actif + terrain_sq) | `convergence.ts`, `convergence-slow.ts` |

@@ -304,3 +304,75 @@ Fix : `git add src/engines/jieqi.ts`
 | Sprint V | +3 | 54 |
 | Sprint W | +3 | 57 |
 | Sprint X | +4 | **61/61** |
+
+---
+
+## Sprints Y — Cœur Unifié (Moteur tanh + Noyau védique)
+
+> Référence paramètres : MEMO-Y0.md (N=50 000 jours, seed=10908)
+> Protocole : shadow mode → validation → bascule production (Y5)
+
+### Y0 ✅ — Calibration
+
+Paramètres calibrés : A=36, k=0.840, bias=+5, MAX_DELTA=22
+Caps P95 par module, terrain squashé, SCIS seuil, table Tithi → voir MEMO-Y0.md
+
+---
+
+### Y1 ✅ — Noyau védique `base_signal` en shadow
+
+**Fichier :** `convergence-slow.ts`
+
+```typescript
+// base_signal = clamp(0.55×S_dasha + 0.40×S_nak + 0.05×S_tithi, -1, +1)
+shadowBaseSignal = clamp(0.55*S_dasha + 0.40*S_nak + 0.05*S_tithi, -1, +1);
+```
+
+Table 30 Tithis (Grok Ronde 3) embarquée dans TITHI_SCORES.
+Propagé : `ConvergenceResult.shadowBaseSignal?: number`
+
+---
+
+### Y2 ✅ — Formule tanh unifiée en shadow
+
+**Fichier :** `convergence.ts`
+
+```typescript
+function calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal): number | undefined {
+  const X          = clamp(finalDelta / 22, -2, +2);
+  const terrain_sq = 1 + 0.25 * tanh((ctxMult*dashaMult - 1) / 0.35);
+  const X_total    = X + 0.8 * (shadowBaseSignal ?? 0);
+  return clamp(Math.round(50 + 36*tanh(0.840*X_total)*terrain_sq + 5), 0, 100);
+}
+```
+
+Propagé : `ConvergenceResult.shadowScore?: number`
+
+---
+
+### Y3 ✅ — R32 + R33 + SCIS seuil 4/4
+
+**Fichier :** `convergence-daily.ts` (R32, R33) + `convergence-slow.ts` (SCIS)
+
+**R32** — Retour Nakshatra natal : `luneGroupPts += tarabala >= 2 ? 1.5 : 3.0` (~13j/an)
+
+**R33** — Wu Xing ↔ Tattwa : `delta += dmTattwa === nakTattwa ? 1.5 : -1.0`
+Correspondances : Bois=Vayu · Feu=Agni · Terre=Prithvi · Métal=Akasha · Eau=Jala
+
+**SCIS Y3c** — Nouveau seuil : 4/4 alignés + 3+ groupes magnitude > 3.5 pts → ~15-18j/an (vs ~40-50j/an ancien)
+
+---
+
+### Y4 ✅ — UX : Posture + Triade IMPACT/RÉSONANCE/ANCRAGE + feedback shadow
+
+**Fichiers :** `ConvergenceTab.tsx`, `FeedbackWidget.tsx`
+
+5 postures (OFFENSIVE/ACTIVE/TACTIQUE/OBSERVATION/DÉFENSIVE) selon `actionReco.verb` + score global.
+Triade 3 panneaux : IMPACT (meilleur domaine), RÉSONANCE (shadowBaseSignal + shadowScore), ANCRAGE (alerte/domaine faible).
+FeedbackWidget : bandeau `🧪 Moteur Cœur` coloré selon |shadowScore − score| (vert ≤5, amber ≤12, rouge >12).
+
+---
+
+### Y5 — Bascule production *(en cours)*
+
+Objectif : remplacer `compress()` et double-couche `ctxMult × dashaMult` par formule tanh + terrain squashé en production réelle.
