@@ -138,4 +138,6 @@ delta_final += harmony;
 | Y2 ✅ | Formule tanh unifiée en shadow | `convergence-daily.ts`, `convergence.ts` |
 | Y3 ✅ | R32 + Réconciliation BaZi×Védique + SCIS seuil 4/4 | `convergence-daily.ts`, `interactions.ts` |
 | Y4 ✅ | UX (Posture + IMPACT/RÉSONANCE/ANCRAGE + feedback shadowScore) | `ConvergenceTab.tsx`, `FeedbackWidget.tsx` |
-| Y5 | Bascule production (tanh réel + base_signal actif + terrain_sq) | `convergence.ts`, `convergence-slow.ts` |
+| Y5 ✅ | Bascule production (tanh réel + base_signal actif + terrain_sq) | `convergence.ts`, `convergence-slow.ts` |
+| Z1 ✅ | Nettoyage prod (console.debug, TODOs, FeedbackWidget shadow) | `convergence.ts`, `FeedbackWidget.tsx` |
+| Z2-B ✅ | Observabilité groupes (baziGroupDelta / luneGroupDelta / ephemGroupDelta) | `convergence.types.ts`, `convergence-daily.ts`, `convergence.ts` |

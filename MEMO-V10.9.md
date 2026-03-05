@@ -373,6 +373,42 @@ FeedbackWidget : bandeau `🧪 Moteur Cœur` coloré selon |shadowScore − scor
 
 ---
 
-### Y5 — Bascule production *(en cours)*
+### Y5 ✅ — Bascule production
 
-Objectif : remplacer `compress()` et double-couche `ctxMult × dashaMult` par formule tanh + terrain squashé en production réelle.
+**Fichier :** `convergence.ts`
+
+```typescript
+// Remplace compress(finalDelta) — fallback silencieux si calcShadowScore() échoue
+const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal);
+const score = _scoreY5 !== undefined
+  ? Math.max(5, Math.min(97, _scoreY5))
+  : Math.max(5, Math.min(97, compress(finalDelta)));
+```
+`compress()` conservée pour CI, yearly scores et baseline L1.
+
+---
+
+### Z1 ✅ — Nettoyage post-Y5
+
+**Fichiers :** `convergence.ts`, `FeedbackWidget.tsx`
+
+- `console.debug` supprimé dans `calcShadowScore` (loggait à chaque calcul)
+- TODOs Sprint 2 obsolètes (lignes 68/892) → commentaires neutres
+- Bandeau `🧪 Moteur Cœur (candidat)` désactivé dans FeedbackWidget (`shadowScore = score` depuis Y5)
+
+---
+
+### Z2-B ✅ — Observabilité groupes (Ronde Z consensus 3/3 Option B)
+
+**Fichiers :** `convergence.types.ts`, `convergence-daily.ts`, `convergence.ts`
+
+Exposition des 3 deltas de groupe dans `ConvergenceResult` sans modification des formules ni des caps :
+
+```typescript
+baziGroupDelta?:  number;  // C_BAZI capé ±15
+luneGroupDelta?:  number;  // C_LUNE capé ±16
+ephemGroupDelta?: number;  // C_EPHEM capé ±14 (après LuneGate)
+```
+
+Propagation propre L1 → L3. Zéro impact sur score, zéro modification modules L1/L2.
+Utilisables pour monitoring futur si un groupe domine la distribution.
