@@ -628,6 +628,54 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             <div style={{ fontSize: 12, color: P.textDim, marginTop: 8 }}>
               {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} · Thème : {cv.theme}
             </div>
+
+            {/* Sprint AX P2 — Shapley contributions UI (Ronde 19 consensus P0) */}
+            {cv.shapley && (() => {
+              const labels = [
+                { key: 'lune' as const,  label: 'Lune',   icon: '🌙', color: '#a78bfa' },
+                { key: 'ephem' as const, label: 'Astro',  icon: '✦',  color: '#60a5fa' },
+                { key: 'bazi' as const,  label: 'BaZi',   icon: '☯',  color: '#f59e0b' },
+                { key: 'indiv' as const, label: 'Profil', icon: '🧬', color: '#4ade80' },
+              ];
+              const vals = labels.map(l => ({ ...l, val: cv.shapley![l.key] }));
+              const maxAbs = Math.max(...vals.map(v => Math.abs(v.val)), 1);
+              const hasSignificant = vals.some(v => Math.abs(v.val) >= 1);
+              if (!hasSignificant) return null;
+              return (
+                <div style={{ marginTop: 14, padding: '10px 16px', background: '#27272a33', borderRadius: 12, border: `1px solid ${P.cardBdr}`, maxWidth: 320, margin: '14px auto 0' }}>
+                  <div style={{ fontSize: 10, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
+                    Pourquoi ce score
+                  </div>
+                  {vals.filter(v => Math.abs(v.val) >= 1).map(v => (
+                    <div key={v.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, width: 56, textAlign: 'right', color: P.textMid }}>{v.icon} {v.label}</span>
+                      <div style={{ flex: 1, height: 12, background: '#18181b', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
+                        {/* Axe central */}
+                        <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: P.textDim + '40' }} />
+                        {/* Barre */}
+                        <div style={{
+                          position: 'absolute',
+                          top: 1, height: 10, borderRadius: 5,
+                          background: v.val >= 0 ? v.color : '#ef4444',
+                          opacity: 0.85,
+                          ...(v.val >= 0
+                            ? { left: '50%', width: `${Math.min(50, (Math.abs(v.val) / maxAbs) * 48)}%` }
+                            : { right: '50%', width: `${Math.min(50, (Math.abs(v.val) / maxAbs) * 48)}%` }),
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, width: 36, textAlign: 'left', fontWeight: 600, color: v.val >= 0 ? v.color : '#ef4444' }}>
+                        {v.val > 0 ? '+' : ''}{v.val.toFixed(1)}
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 9, color: P.textDim, textAlign: 'center', marginTop: 6, opacity: 0.7 }}>
+                    Points de contribution (base : {cv.shapley.baseline}%)
+                  </div>
+                </div>
+              );
+            })()}
+
             {cv.rarityIndex && cv.score >= 85 && (
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,

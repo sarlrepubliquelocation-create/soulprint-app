@@ -564,15 +564,11 @@ export function calcDailyModules(
   const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts)); // C_BAZI ±15 — shenShaPts retiré Sprint AV
   delta += baziFamilyTotal;
 
-  // Direct domain bonuses (Shen Sha per-domain — Changsheng retiré Sprint AP P5)
+  // Direct domain bonuses (Changsheng retiré Sprint AP P5)
+  // Sprint AX P1 : Shen Sha retiré des directDomainBonuses — cohérence avec Sprint AV P4
+  // Shen Sha = narratif partout (scoring global ET contextuels), plus de points numériques
+  // Ronde 19 consensus 3/3 : Constat 4 "Shen Sha incohérent" → résolu
   const directDomainBonuses: Partial<Record<LifeDomain, number>> = {};
-  if (shenShaResult && shenShaResult.active.length > 0) {
-    directDomainBonuses.BUSINESS      = (directDomainBonuses.BUSINESS      || 0) + shenShaResult.totalBusiness;
-    directDomainBonuses.AMOUR         = (directDomainBonuses.AMOUR         || 0) + shenShaResult.totalAmour;
-    directDomainBonuses.CREATIVITE    = (directDomainBonuses.CREATIVITE    || 0) + shenShaResult.totalCreativite;
-    directDomainBonuses.VITALITE      = (directDomainBonuses.VITALITE      || 0) + shenShaResult.totalVitalite;
-    directDomainBonuses.INTROSPECTION = (directDomainBonuses.INTROSPECTION || 0) + shenShaResult.totalIntrospection;
-  }
   // Sprint AN — Peach Blossom hors score global, domaine Amour uniquement (Ronde 6 P5 : consensus 3/3)
   if (peachBlossomActive) {
     directDomainBonuses.AMOUR = (directDomainBonuses.AMOUR || 0) + 2;
