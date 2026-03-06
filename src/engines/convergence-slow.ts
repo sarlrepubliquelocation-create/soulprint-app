@@ -682,8 +682,8 @@ export function calcSlowModules(
       if (antaraL && nakL && antaraL === nakL) {
         const nakBk = breakdown.find(b => b.system === 'Nakshatra');
         if (nakBk && nakBk.points !== 0) {
-          const ampDelta = Math.sign(nakBk.points); // ±1 exactement — capé
-          delta += ampDelta;
+          const ampDelta = 0; // Sprint AN — Antardasha supprimé (Ronde 6 P6 : delta < 2, même logique Pada/R31)
+          // delta += ampDelta; // Sprint AN — neutralisé
           const tag = ampDelta > 0 ? `+${ampDelta}` : `${ampDelta}`;
           const label = `🔥 Antardasha × Nakshatra — ${antaraL} (${tag})`;
           if (ampDelta > 0) signals.push(label); else alerts.push(label);

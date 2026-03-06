@@ -113,7 +113,8 @@ export interface DailyModuleResult {
   // Z2-B — deltas de groupe pour observabilité L3 (Ronde Z consensus 3/3)
   baziGroupDelta: number;   // C_BAZI capé ±15
   luneGroupDelta: number;   // C_LUNE capé ±16
-  ephemGroupDelta: number;  // C_EPHEM capé ±14 (après LuneGate)
+  ephemGroupDelta: number;  // C_EPHEM capé ±10 (Sprint AN — était ±14)
+  indivGroupDelta: number;  // Sprint AN — C_INDIV capé ±8
 }
 
 // ══════════════════════════════════════
@@ -371,6 +372,10 @@ export function calcDailyModules(
   let baziDMPts = 0;
   let tenGodsPts = 0;
   let dmS = 0; // Sprint AJ — facteur DM Strength s ∈ [-1,+1], utilisé aussi par Shen Sha
+  // Sprint AN — C_INDIV hoisted variables (Ronde 6 P2 : individuels groupés cap ±8)
+  let indivTLG = 0;      // Tithi Lord Gochara
+  let indivDrishti = 0;  // Graha Drishti
+  let indivKartari = 0;  // Yoga Kartari
   const baziSignals: string[] = [];
   const baziAlerts: string[] = [];
 
@@ -418,7 +423,7 @@ export function calcDailyModules(
     peachBlossomActive = peachResult.active;
   } catch { /* silent */ }
 
-  const baziCorePts = baziDMPts + tenGodsPts;
+  const baziCorePts = Math.max(-8, Math.min(8, baziDMPts + tenGodsPts)); // Sprint AN — sub-cap ±8 (Ronde 6 P3 : fusion colinéarité DM+10Gods)
 
   signals.push(...baziSignals);
   alerts.push(...baziAlerts);
@@ -620,6 +625,10 @@ export function calcDailyModules(
     directDomainBonuses.VITALITE      = (directDomainBonuses.VITALITE      || 0) + shenShaResult.totalVitalite;
     directDomainBonuses.INTROSPECTION = (directDomainBonuses.INTROSPECTION || 0) + shenShaResult.totalIntrospection;
   }
+  // Sprint AN — Peach Blossom hors score global, domaine Amour uniquement (Ronde 6 P5 : consensus 3/3)
+  if (peachBlossomActive) {
+    directDomainBonuses.AMOUR = (directDomainBonuses.AMOUR || 0) + 2;
+  }
 
   // ═══════════════════════════════════
   // 2e. PROFECTIONS ANNUELLES (V4.7)
@@ -677,7 +686,8 @@ export function calcDailyModules(
 
   const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
   const ichingCapped = Math.round(3 * Math.tanh(ichRes.pts / 6)); // Sprint AM — tanh ±3 (Ronde 5 : compromis orthogonalité vs tradition, était ±6)
-  if (ichingCapped !== 0) delta += ichingCapped;
+  // Sprint AN — I Ching ajouté via C_INDIV (plus d'ajout direct au delta)
+  // if (ichingCapped !== 0) delta += ichingCapped;
 
   const ichingSignals: string[] = [];
   const ichingAlerts: string[] = [];
@@ -1188,9 +1198,10 @@ export function calcDailyModules(
         );
         const sidLon    = ((tropLon - ay_tlg) % 360 + 360) % 360;
         const tlgRes    = calcTithiLordGochara(tlgLord, sidLon, natalMoonSidForNak);
-        const tlgDelta  = Math.max(-2, Math.min(2, tlgRes.delta));
+        const tlgDelta  = Math.max(-1, Math.min(1, tlgRes.delta)); // Sprint AN — ±2→±1 (Ronde 6 P4)
+        indivTLG = tlgDelta; // Sprint AN — C_INDIV
         if (tlgDelta !== 0) {
-          delta += tlgDelta;
+          // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
           if (tlgDelta > 0) signals.push(tlgRes.label);
           else              alerts.push(tlgRes.label);
           breakdown.push({
@@ -1233,7 +1244,8 @@ export function calcDailyModules(
       if (drResults.length > 0) {
         const rawTotal  = drResults.reduce((s, r) => s + r.delta, 0);
         const drCapped  = Math.max(-3, Math.min(3, rawTotal));
-        delta += drCapped;
+        indivDrishti = drCapped; // Sprint AN — C_INDIV
+        // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
 
         drResults.forEach(r => {
           if (r.delta > 0) signals.push(r.label);
@@ -1275,7 +1287,8 @@ export function calcDailyModules(
       const ktRes    = calcYogaKartari(natalMoonSidForNak, transitMap);
       if (ktRes.delta !== 0) {
         const ktCapped = Math.max(-2, Math.min(2, ktRes.delta));
-        delta += ktCapped;
+        indivKartari = ktCapped; // Sprint AN — C_INDIV
+        // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
 
         if (ktRes.delta > 0) signals.push(ktRes.label);
         else                 alerts.push(ktRes.label);
@@ -1478,11 +1491,17 @@ export function calcDailyModules(
   // ΔLUNE fort négatif → légère atténuation Ephem (-8%) : signal lunaire mauvais = transit moins porteur
   const luneGate = luneGroupCapped >= 7 ? 1.06 : luneGroupCapped <= -7 ? 0.92 : 1.00;
   ephemGroupPts = Math.round(ephemGroupPts * luneGate);
-  const ephemGroupCapped = Math.max(-14, Math.min(14, ephemGroupPts)); // Z2-B
+  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemGroupPts)); // Sprint AN — ±14→±10 (Ronde 6 P1 : max théo ±10, cap = max)
   delta += ephemGroupCapped;
 
   // Sprint AM — Kinetic Shocks isolés (hors cap C_EPHEM, appliqués directement au delta global)
   delta += kineticShockDelta;
+
+  // Sprint AN — C_INDIV cap ±8 (Ronde 6 P2 : individuels groupés)
+  // I Ching ±3 + Tithi Lord ±1 + Graha Drishti ±3 + Yoga Kartari ±2 = ±9 théorique → cap ±8
+  const indivGroupPts = ichingCapped + indivTLG + indivDrishti + indivKartari;
+  const indivGroupCapped = Math.max(-8, Math.min(8, indivGroupPts));
+  delta += indivGroupCapped;
 
   // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4
@@ -1529,5 +1548,6 @@ export function calcDailyModules(
     baziGroupDelta:  baziFamilyTotal,
     luneGroupDelta:  luneGroupCapped,
     ephemGroupDelta: ephemGroupCapped,
+    indivGroupDelta: indivGroupCapped, // Sprint AN — C_INDIV observabilité
   };
 }
