@@ -195,16 +195,15 @@ export interface ConvergenceResult {
   lunarNodes: LunarNodeTransit | null;
   baziDaily: DayMasterDailyResult | null;
   tenGods: TenGodsResult | null;
-  changsheng: ChangshengResult | null;
+  // Sprint AR P3 : changsheng, trinity supprimés (Ronde 11 consensus 3/3)
   shenSha: ShenShaResult | null;
-  trinity: boolean;
   scoreLevel: ScoreLevel;
   algoVersion: string;
   contextualScores: ContextualScores;
   temporalConfidence: TemporalConfidence;
   voidOfCourse: VoidOfCourseMoon | null;
   ci: ConfidenceInterval;
-  interactions: InteractionResult;
+  // Sprint AR P3 : interactions supprimé (Ronde 11 consensus 3/3)
   profection?: ProfectionResult;
   rawFinal?: number;
   ctxMult?: number;        // V8 — multiplicateur terrain [0.88–1.12]

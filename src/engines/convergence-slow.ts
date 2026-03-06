@@ -3,7 +3,8 @@
 // Step 5 split : modules lents de calcConvergence
 // Contient : calcTemporalContext() + calcSlowModules() — L2 pass-by-reference Option A
 // Modules : Returns, Progressions, Dasha, Solar Return, Éclipses Natales,
-//           V6 Synergies R21-R27, contextMultiplier, formule finale
+//           contextMultiplier, formule finale
+// Sprint AR QB : header corrigé — V6 Synergies retirées (Ronde 11 consensus 3/3)
 // ══════════════════════════════════════
 
 import { type NumerologyProfile } from './numerology';
@@ -142,15 +143,11 @@ export function calcSlowModules(
     nakshatraData,
     pyv,
     moonResult,
-    _transitBreakdown,
     profectionResult,
     moonPhaseRawPhase,
   } = daily;
 
-  // V6.0 : variables hoistées pour synergies R21-R27
-  let currentDashaLord: string | null = null;
-  let hasJupiterReturn = false;
-  let hasSolarEclipseNatal = false;
+  // Sprint AR P1 : currentDashaLord, hasJupiterReturn, hasSolarEclipseNatal supprimés (Ronde 11 consensus 3/3)
 
   // ═══════════════════════════════════
   // A1.1 : Retours planétaires
@@ -163,7 +160,6 @@ export function calcSlowModules(
       const nakQuality = nakshatraData?.globalBaseScore ?? 0;
       const returnsResult = calcPlanetaryReturns(params.evalDate ?? new Date(), natalLongs, nakQuality);
       returnsScore = returnsResult.totalScore;
-      hasJupiterReturn = returnsResult.breakdown.some(b => /jupiter/i.test(b)); // V6.0 S4
       if (returnsResult.hasActiveReturn) {
         breakdown.push({
           system: 'Retours Planétaires', icon: '🪐',
@@ -255,8 +251,6 @@ export function calcSlowModules(
       dashaMahaScore    = dashaResult.mahaScore;   // V9.0 P4
       dashaAntarScore   = dashaResult.antarScore;  // V9.0 P4
       currentDasha      = dasha;                   // V9.0 P4
-      currentDashaLord  = dasha.maha.lord; // V6.0 R21 + R24
-
       // ── V8 GARDE ANTI-DOUBLE-COMPTAGE Nakshatra lord ↔ Dasha lord ──
       // Signal : Nakshatra (L1) amplifie déjà le transit du lord (ex: Nakshatra Jupiter → +4).
       // Terrain : dashaMultiplier (L2) amplifie ensuite TOUT le delta, y compris ce signal.
@@ -375,10 +369,6 @@ export function calcSlowModules(
       if (Object.keys(natalLongs).length > 0) {
         const eclResult = getEclipseNatalImpacts(natalLongs, params.evalDate ?? new Date());
         eclipseNatalPts = eclResult.total;
-        hasSolarEclipseNatal = eclResult.hits.some(
-          h => /solaire|solar/i.test(h.eclipseName ?? '')
-        );
-
         if (eclipseNatalPts !== 0) {
           const sign = eclipseNatalPts > 0 ? '+' : '';
           const topHit = eclResult.hits[0];
@@ -400,58 +390,10 @@ export function calcSlowModules(
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // V6.0 — SYNERGIES INTER-NIVEAUX TEMPORELS (R21-R27)
-  // ══════════════════════════════════════════════════════════════════
-
-  const DASHA_TO_PLANET: Record<string, string> = {
-    'Soleil': 'sun', 'Lune': 'moon', 'Mercure': 'mercury', 'Vénus': 'venus',
-    'Mars': 'mars', 'Jupiter': 'jupiter', 'Saturne': 'saturn',
-    'Rahu': 'rahu', 'Ketu': 'ketu',
-  };
-
-  const KW_YANG = [
-    6,0,2,2,4,4,1,1,
-    5,5,3,3,5,5,1,1,
-    3,3,2,2,3,3,1,1,
-    4,4,2,4,2,4,3,3,
-    4,4,2,2,4,4,2,2,
-    3,3,5,5,2,2,3,3,
-    4,4,2,2,3,3,3,3,
-    4,4,3,3,4,2,3,3,
-  ];
-
-  const dashaLordKey = currentDashaLord ? DASHA_TO_PLANET[currentDashaLord] : null;
-  // Sprint T — Fix 1 : cohérence Sprint R
-  // _transitBreakdown non filtré contient encore Jupiter/Saturn→Moon (orb-based).
-  // Graha Drishti prend ownership de ces paires → on les exclut aussi ici.
-  const DRISHTI_SLOW_T = new Set(['jupiter', 'saturn']);
-  const dashaLordTransitScore = dashaLordKey
-    ? _transitBreakdown
-        .filter(b => b.transitPlanet === dashaLordKey
-                  && !(DRISHTI_SLOW_T.has(b.transitPlanet) && (b as any).natalPoint === 'moon'))
-        .reduce((s, b) => s + b.score, 0)
-    : 0;
-
-  const profLord = profectionResult?.timeLord ?? null;
-  const profLordKey = profLord ? DASHA_TO_PLANET[profLord] : null;
-  const profectionSignifiantScore = profLordKey
-    ? _transitBreakdown.filter(b => b.transitPlanet === profLordKey).reduce((s, b) => s + b.score, 0)
-    : 0;
-
-  // Sprint T — Fix 2 : guard R27 × R29
-  // Si profectionLord === dashaLord, les deux règles filtrent le même transitPlanet
-  // → R27 prend ownership (profections hellénistiques) → R29 neutralisé
-  const dashaLordTransitScoreForCtx = (dashaLordKey && profLordKey && dashaLordKey === profLordKey)
-    ? 0
-    : Math.round(dashaLordTransitScore);
-
-  const hexYangLines = iching.hexNum >= 1 && iching.hexNum <= 64
-    ? KW_YANG[iching.hexNum - 1]
-    : 3;
-
-  // Sprint AP P3 — Synergies V6 stubé (interactions mortes en L1, cohérence L1=L2 — Ronde 8 consensus 2/3)
-  const v6SynergyBonus = 0;
+  // Sprint AR P1 — Synergies V6 (R21-R27) supprimées intégralement (Ronde 11 consensus 3/3)
+  // Code retiré : DASHA_TO_PLANET, KW_YANG, dashaLordKey, dashaLordTransitScore,
+  // profLordKey, profectionSignifiantScore, dashaLordTransitScoreForCtx, hexYangLines,
+  // DRISHTI_SLOW_T, v6SynergyBonus — tous morts depuis v6SynergyBonus=0 (Sprint AP)
 
   // ══════════════════════════════════════════════════════════════════
   // V6.0 — APPLICATION DU CONTEXTE MULTIPLICATEUR
@@ -483,7 +425,8 @@ export function calcSlowModules(
   // Évite l'empilement "L1 fort + terrain fort" → scores extrêmes injustifiés
   const terrainQ  = ctx.multiplier * dashaMultiplier;
   const capScale  = Math.max(0.85, Math.min(1.00, 1 - 0.20 * Math.abs(terrainQ - 1)));
-  let delta = (dailyDeltaSnapshot * capScale + v6SynergyBonus) * ctx.multiplier * dashaMultiplier
+  // Sprint AR P1 : v6SynergyBonus (=0) retiré — formule simplifiée
+  let delta = dailyDeltaSnapshot * capScale * ctx.multiplier * dashaMultiplier
             + ctx.offsetPts;
 
   // V5.5 — EXCLUSION MUTUELLE ÉCLIPSES

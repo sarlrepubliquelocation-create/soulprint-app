@@ -262,7 +262,7 @@ const DOMAIN_AFFINITY: Record<string, Record<LifeDomain, number>> = {
   'Astrologie':       { BUSINESS: 0.3,  AMOUR: 0.6,  RELATIONS: 0.5,  CREATIVITE: 0.6,  INTROSPECTION: 0.9,  VITALITE: 0.3  },
   'Type de Jour':     { BUSINESS: 0.6,  AMOUR: 0.2,  RELATIONS: 0.4,  CREATIVITE: 0.6,  INTROSPECTION: 0.3,  VITALITE: 0.6  },
   'Peach Blossom':    { BUSINESS: 0.0,  AMOUR: 1.0,  RELATIONS: 0.9,  CREATIVITE: 0.4,  INTROSPECTION: 0.1,  VITALITE: 0.5  },
-  'Changsheng':       { BUSINESS: 0.7,  AMOUR: 0.3,  RELATIONS: 0.3,  CREATIVITE: 0.2,  INTROSPECTION: 0.2,  VITALITE: 1.0  },
+  // Sprint AR P4 : Changsheng supprimé (Ronde 11 consensus 3/3)
   'Shen Sha':         { BUSINESS: 0.6,  AMOUR: 0.6,  RELATIONS: 0.6,  CREATIVITE: 0.5,  INTROSPECTION: 0.4,  VITALITE: 0.4  },
   'Nakshatra':        { BUSINESS: 0.5,  AMOUR: 0.5,  RELATIONS: 0.5,  CREATIVITE: 0.5,  INTROSPECTION: 0.5,  VITALITE: 0.5  },
 };
@@ -590,8 +590,9 @@ function flagMADOutlier(scores: number[], index: number): OutlierFlag {
 // V9.0 P2 — ESS (Effective Sample Size) : regroupe les modules corrélés
 // pour éviter la sous-estimation de la variance (ex: 7 modules BaZi ≠ 7 observations indep.)
 const CORRELATION_GROUPS: Record<string, string> = {
-  'BaZi': 'bazi', '10 Gods': 'bazi', 'Changsheng': 'bazi',
-  'Na Yin': 'bazi', 'Jian Chu': 'bazi', 'Shen Sha': 'bazi', 'Peach Blossom': 'bazi',
+  // Sprint AR P4 : 'Changsheng' et 'Na Yin' supprimés (Ronde 11 consensus 3/3)
+  'BaZi': 'bazi', '10 Gods': 'bazi',
+  'Jian Chu': 'bazi', 'Shen Sha': 'bazi', 'Peach Blossom': 'bazi',
   'Lune': 'lune', 'Nakshatra': 'lune', 'Transit Lunaire': 'lune',
   'Lune Hors Cours': 'lune', 'Nœuds Lunaires': 'lune', 'Vimshottari Dasha': 'lune',
   'Astrologie': 'ephemeris', 'Planètes': 'ephemeris', 'Retours Planétaires': 'ephemeris',
@@ -1029,7 +1030,7 @@ export function calcConvergence(
   );
 
   // V4.2 : Confiance temporelle
-  const { pyPts, pmPts, pinnPts, trinityActive } = daily;
+  const { pyPts, pmPts, pinnPts } = daily; // Sprint AR P5 : trinityActive retiré (Ronde 11 consensus 2/3)
   const positiveCount = breakdown.filter(b => b.points > 0).length;
   const negativeCount = breakdown.filter(b => b.points < 0).length;
   const totalSystems = breakdown.length || 1;
@@ -1042,7 +1043,7 @@ export function calcConvergence(
 
   let confScore = 30;
   confScore += agreementRatio * 0.3;
-  confScore += trinityActive ? 15 : 0;
+  // Sprint AR P5 : trinityActive ? 15 : 0 supprimé — toujours +0 (Ronde 11 consensus 2/3)
   confScore += pyAligned ? 8 : -5;
   // pmAligned + pinnAligned supprimés V6.2 (modules retirés)
   if ((score >= 80 || score <= 30) && agreementRatio < 50) confScore -= 10;
@@ -1050,7 +1051,7 @@ export function calcConvergence(
 
   const confLabel = confScore >= 75 ? 'Très fiable' : confScore >= 55 ? 'Fiable' : confScore >= 35 ? 'Volatil' : 'Anomalie';
   const confReason = confScore >= 75
-    ? `${agreeing}/${totalSystems} systèmes alignés${trinityActive ? ' + Trinity' : ''}. Les cycles longs confirment.`
+    ? `${agreeing}/${totalSystems} systèmes alignés. Les cycles longs confirment.`
     : confScore >= 55 ? `Majorité des systèmes convergent. Signaux contradictoires mineurs.`
     : confScore >= 35 ? `Signaux mixtes — le score pourrait basculer. Prudence.`
     : `Score à contre-courant des cycles longs. Journée atypique.`;
@@ -1080,16 +1081,13 @@ export function calcConvergence(
     lunarNodes: daily.nodeTransit,
     baziDaily: daily.baziResult,
     tenGods: daily.tenGodsResult,
-    changsheng: daily.changshengResult,
     shenSha: daily.shenShaResult,
-    trinity: trinityActive,
     scoreLevel,
     algoVersion: ALGO_VERSION,
     contextualScores,
     temporalConfidence,
     voidOfCourse: daily.vocResult,
     ci,
-    interactions: daily.interactionResult,
     profection: daily.profectionResult,
     rawFinal: finalDelta,
     ctxMult,
@@ -1175,7 +1173,8 @@ function calcShadowScore(
     // Évite double-amplification (terrain fort AND base_signal fort)
     // β_eff = 0.8 × (1 − 0.25 × |terrain_sq − 1| / 0.15) ∈ [0.60, 0.80]
     // P95 (terrain=1.15, base_signal=0.8) : score 83.02 vs 84.40 — atténuation raisonnable
-    const beta    = 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15);
+    // Sprint AR P6 : garde défensive Math.max(0.0) — Ronde 11 consensus 2/3 (GPT+Grok)
+    const beta    = Math.max(0.0, 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15));
     const X_total = X + beta * (shadowBaseSignal ?? 0);
 
     // Formule tanh unifiée

@@ -90,10 +90,8 @@ export interface DailyModuleResult {
   nodeTransit: LunarNodeTransit | null;
   baziResult: DayMasterDailyResult | null;
   tenGodsResult: TenGodsResult | null;
-  changshengResult: ChangshengResult | null;
+  // Sprint AR P3 : changshengResult, trinityActive, interactionResult supprimés (Ronde 11 consensus 3/3)
   shenShaResult: ShenShaResult | null;
-  trinityActive: boolean;
-  interactionResult: InteractionResult;
   profectionResult: ProfectionResult | undefined;
   nakshatraData: NakshatraData | undefined;
   directDomainBonuses: Partial<Record<LifeDomain, number>>;
@@ -103,7 +101,7 @@ export interface DailyModuleResult {
   pyPts: number;
   pmPts: number;
   pinnPts: number;
-  numTotal: number;
+  // Sprint AR P3 : numTotal supprimé (Ronde 11 consensus 3/3)
   // Needed for v6Ctx in L2 + calculateContextualScores in L3
   pyv: number;
   moonPhaseRawPhase: number;  // moonPhaseRaw.phase
@@ -122,15 +120,7 @@ export interface DailyModuleResult {
 // (utilisés aussi par calcDayPreview dans convergence.ts)
 // ══════════════════════════════════════
 
-// ── Helper lissage Na Yin par affinité DM natal (V4.4c — recommandation Grok) ──
-export function getNaYinAffinityFactor(natalElement: string | null, naYinElement: string): number {
-  if (!natalElement) return 1.0;
-  try {
-    const rel = getElementRelation(natalElement as any, naYinElement as any);
-    const MAP: Record<string, number> = { same: 1.4, produces: 1.0, produced_by: 1.0, destroys: 0.6, destroyed_by: 0.7 };
-    return MAP[rel] ?? 1.0;
-  } catch { return 1.0; }
-}
+// Sprint AR P2 : getNaYinAffinityFactor supprimée — zéro appelant (Ronde 11 consensus 3/3)
 
 export function calcDayType(pdv: number, iching: IChingReading, astro: AstroChart | null): DayTypeInfo {
   let base: DayType = PD_TO_DAYTYPE[pdv] || 'observation';
@@ -341,7 +331,7 @@ export function calcDailyModules(
   if (activeChallenge && pdv === activeChallenge.v) { pinnPts = -1; } // Défi narratif supprimé V6.2
 
   // Sprint AO P6 — Numérologie : delta=0 depuis V8, breakdown supprimé
-  const numTotal = 0; // stub interface
+  // Sprint AR P3 : numTotal=0 stub supprimé (Ronde 11 consensus 3/3)
   // Karmic debt signals conservés (valeur narrative)
   if ((num as any).hasKarmicDebt && (num as any).karmicDebt) {
     const kd = (num as any).karmicDebt as number;
@@ -444,10 +434,7 @@ export function calcDailyModules(
     });
   }
 
-  // Sprint AP P5 — Changsheng entièrement mort (Ronde 8 consensus 2/3 : mort = mort)
-  // delta=0 depuis V6.2, breakdown supprimé Sprint AO, domain bonuses supprimés Sprint AP
-  const changshengResult: ChangshengResult | null = null;
-  const changshengPts = 0;
+  // Sprint AR P3 : changshengResult + changshengPts stubs supprimés (Ronde 11 consensus 3/3)
 
   // ═══════════════════════════════════
   // 2c. SHEN SHA 神煞 (0-4 global) — V4.3
@@ -553,7 +540,8 @@ export function calcDailyModules(
   // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4
   // ═══════════════════════════════════
 
-  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + changshengPts + jianchuPts + shenShaPts)); // V9.6 Sprint A2: C_BAZI ±15 + Sprint AJ: Shen Sha ±4
+  // Sprint AR P3 : changshengPts (=0) retiré de la somme (Ronde 11 consensus 3/3)
+  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts + shenShaPts)); // V9.6 Sprint A2: C_BAZI ±15 + Sprint AJ: Shen Sha ±4
   delta += baziFamilyTotal;
 
   // Direct domain bonuses (Shen Sha per-domain — Changsheng retiré Sprint AP P5)
@@ -1128,12 +1116,8 @@ export function calcDailyModules(
   // Sprint AO P6 — DayType Modifier : breakdown supprimé (delta=0 depuis Sprint AM)
   // calcDayType conservé (utilisé par calcMoonScore + actionReco)
 
-  // Sprint AO P6 — Trinity supprimé (code mort depuis V8)
-  const trinityActive = false; // stub interface
-
-  // Sprint AO P6 — Interactions supprimées (Ronde 7 consensus 3/3 : delta=0 depuis Sprint AM, code mort)
+  // Sprint AR P3 : trinityActive + interactionResult stubs supprimés (Ronde 11 consensus 3/3)
   const moonPhaseRaw = getMoonPhase(new Date(todayStr + 'T12:00:00')); // conservé pour moonPhaseRawPhase
-  const interactionResult: InteractionResult = { totalBonus: 0, uncapped: 0, active: [] }; // stub interface
 
   // ═══════════════════════════════════
   // 12b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4
@@ -1249,10 +1233,7 @@ export function calcDailyModules(
     nodeTransit,
     baziResult,
     tenGodsResult,
-    changshengResult,
     shenShaResult,
-    trinityActive,
-    interactionResult,
     profectionResult,
     nakshatraData,
     directDomainBonuses,
@@ -1261,7 +1242,6 @@ export function calcDailyModules(
     pyPts,
     pmPts,
     pinnPts,
-    numTotal,
     pyv,
     moonPhaseRawPhase: moonPhaseRaw.phase,
     _transitBreakdown,

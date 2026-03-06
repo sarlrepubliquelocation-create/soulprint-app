@@ -51,7 +51,8 @@ function buildBrief(data: SoulData): string {
   const line4 = `☰ I Ching #${iching.hexNum} ${iching.name} → ${iching.keyword}`;
   const lineRarity = conv.rarityIndex?.rank ? `${conv.rarityIndex.icon} ${conv.rarityIndex.label} — ${conv.rarityIndex.rank}${conv.rarityIndex.rank === 1 ? 'er' : 'ème'} meilleur jour / 365` : '';
   const lineBaZi = conv.baziDaily ? `☯ ${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.pinyin} (${conv.baziDaily.dailyStem.element}) → ${conv.baziDaily.interaction.dynamique.split('.')[0]}` : '';
-  const lineTrinity = conv.trinity ? `🔱 TRINITY — BaZi + Numérologie + I Ching convergent` : '';
+  // Sprint AR P5 : lineTrinity supprimé — conv.trinity retiré (Ronde 11 consensus 2/3)
+  const lineTrinity = '';
   const lineCtx = conv.contextualScores ? conv.contextualScores.domains.map(d => `  ${d.icon} ${d.label} ${d.score}% — ${d.directive || ''}`).join('\n') : '';
   const line10Gods = conv.tenGods?.dominant ? `✦ ${conv.tenGods.dominant.label} (${conv.tenGods.dominant.isZheng ? 'stable' : 'intense'})` : '';
   return [
@@ -651,17 +652,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 </span>
               </div>
             )}
-            {cv.trinity && (
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                marginTop: 8, marginLeft: 6, padding: '5px 12px',
-                background: '#E0B0FF0c', border: '1px solid #E0B0FF30', borderRadius: 20,
-              }}>
-                <span style={{ fontSize: 13 }}>🔱</span>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: '#E0B0FF' }}>TRINITY</span>
-                <span style={{ fontSize: 10, color: '#E0B0FFaa' }}>BaZi + Num + I Ching convergent</span>
-              </div>
-            )}
+            {/* Sprint AR P5 : badge Trinity supprimé — toujours false (Ronde 11 consensus 2/3) */}
             {/* V4.3b: Badge consensus — affiché seulement si systèmes divisés */}
             {cv.ci && cv.ci.margin > 8 && (
               <div style={{
@@ -843,7 +834,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const signalDelta = terrainMult > 0 ? cv.rawFinal / terrainMult : cv.rawFinal;
             const signalScore = Math.max(5, Math.min(97, Math.round(50 + 45 * Math.sign(signalDelta) * Math.pow(Math.min(Math.abs(signalDelta) / 18, 1), 1.05))));
             const terrainPts  = cv.score - signalScore;
-            const elanBonus   = cv.interactions?.totalBonus ?? 0;
+            const elanBonus   = 0; // Sprint AR P3 : cv.interactions retiré (Ronde 11 consensus 3/3)
             const terrainPct  = Math.round(terrainMult * 100) / 100;
             const terrainPos  = terrainPts >= 0;
             return (
@@ -1481,59 +1472,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             );
           })()}
 
-          {/* ═══ 4d. SYNERGIES ACTIVES (V4.4 — Niveau 2) ═══ */}
-          {cv.interactions && cv.interactions.active?.length > 0 && (() => {
-            const inter = cv.interactions;
-            const lines = getInteractionsSummary(inter);
-            const positive = inter.active.filter(a => a.bonus > 0);
-            const negative = inter.active.filter(a => a.bonus < 0);
-            return (
-              <div style={{ marginBottom: 20, padding: 14, background: P.bg, borderRadius: 10, border: `1px solid ${P.cardBdr}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
-                    ⚡ Synergies du Jour
-                  </div>
-                  <div style={{
-                    padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-                    color: inter.totalBonus > 0 ? '#4ade80' : inter.totalBonus < 0 ? '#ef4444' : P.textDim,
-                    background: inter.totalBonus > 0 ? '#4ade800c' : inter.totalBonus < 0 ? '#ef44440c' : P.surface,
-                    border: `1px solid ${inter.totalBonus > 0 ? '#4ade8025' : inter.totalBonus < 0 ? '#ef444425' : P.cardBdr}`,
-                  }}>
-                    {inter.totalBonus > 0 ? '+' : ''}{inter.totalBonus} pts
-                    {inter.uncapped !== inter.totalBonus && (
-                      <span style={{ fontSize: 9, color: P.textDim, marginLeft: 4 }}>(brut: {inter.uncapped > 0 ? '+' : ''}{inter.uncapped})</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, color: P.textDim, marginBottom: 12, lineHeight: 1.4 }}>
-                  Interactions détectées entre vos systèmes. Quand BaZi, Numérologie, I Ching et la Lune s'alignent, l'effet est amplifié.
-                </div>
-
-                <div style={{ display: 'grid', gap: 6 }}>
-                  {positive.length > 0 && positive.map((a, i) => (
-                    <div key={`p${i}`} style={{
-                      padding: '8px 12px', borderRadius: 8,
-                      background: '#4ade8006', borderLeft: '3px solid #4ade8044',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <span style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>✨ {a.label}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#4ade80', flexShrink: 0, marginLeft: 8 }}>+{a.bonus}</span>
-                    </div>
-                  ))}
-                  {negative.length > 0 && negative.map((a, i) => (
-                    <div key={`n${i}`} style={{
-                      padding: '8px 12px', borderRadius: 8,
-                      background: '#ef44440a', borderLeft: '3px solid #ef444444',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <span style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>⚠️ {a.label}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', flexShrink: 0, marginLeft: 8 }}>{a.bonus}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+          {/* Sprint AR P3 : bloc Synergies Actives supprimé — cv.interactions retiré (Ronde 11 consensus 3/3) */}
 
           {/* ═══ 5. ALERTES — Mercure, Éclipses, compactes ═══ */}
           {lunarEvents.length > 0 && (

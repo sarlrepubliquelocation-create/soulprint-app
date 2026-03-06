@@ -1118,14 +1118,7 @@ function detectContradictions(
     });
   }
 
-  // 16. Cosmic Push vs Friction — Trinity + I Ching E
-  if (conv.trinity && hexTier.tier === 'E') {
-    c.push({
-      type: 'Puissance vs Terrain miné',
-      description: `Une dynamique massive te pousse en avant, mais le Yi King signale un terrain dangereux. `,
-      conseil: `C'est conduire une Ferrari sur du verglas — la puissance est là, le danger aussi.`,
-    });
-  }
+  // Sprint AR P5 : bloc Trinity × I Ching E supprimé — conv.trinity retiré (Ronde 11 consensus 2/3)
 
   // 17. Attraction vs Mur — Peach Blossom + Saturne
   const peachBreak = conv.breakdown.find(b => b.system === 'Peach Blossom');
