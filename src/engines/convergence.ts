@@ -964,7 +964,9 @@ export function calcConvergence(
   // ── L3 : Assemblage final ──
   // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
   // Fallback silencieux vers compress() si calcShadowScore() échoue (guard zéro-régression)
-  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta); // AB-G1 + AO-P2
+  // Sprint AW — calcShadowScore retourne un objet enrichi (score + c4Shadow + cis + shapley)
+  const _shadowResult = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta); // AB-G1 + AO-P2
+  const _scoreY5 = _shadowResult?.score;
   const score = _scoreY5 !== undefined
     ? Math.max(5, Math.min(97, _scoreY5))
     : Math.max(5, Math.min(97, compress(finalDelta)));  // fallback Y5
@@ -1067,6 +1069,10 @@ export function calcConvergence(
     dashaCertainty,
     shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
     shadowScore: _scoreY5, // Sprint AS P5 : réutilise _scoreY5 (était double appel calcShadowScore — même args)
+    // Sprint AW — C4 shadow + SHAP explicabilité (Ronde 17-18 consensus)
+    c4Shadow: _shadowResult?.c4Shadow,     // C4 shadow mode (non injecté dans le score — CIS actif)
+    cisCurrent: _shadowResult?.cis,         // CIS actuel (actif dans le score)
+    shapley: _shadowResult?.shapley,        // Shapley exact 4 contributions + baseline
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,
@@ -1083,6 +1089,136 @@ export function calcConvergence(
       const isPdx   = tension >= 20 && gMax >= 8 && gMin <= -8;
       return { paradoxTension: tension, isParadox: isPdx };
     })(),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Sprint AW — C4 : Correlation-Corrected Concordance/Discordance
+// Ronde 18 consensus 2/3 (GPT v2 + Grok concède) — formule Elena Vasquez révisée
+// Remplace le CIS binaire par une mesure Purity × Intensity × Coverage avec soft gates
+// Range : ±0.35 — actif ~15-40 jours/an (sélectif, anti-bruit)
+// Shadow mode Sprint AW : CIS reste actif, C4 logué en parallèle
+// ══════════════════════════════════════════════════════════════════════
+function calcC4(XL: number, XE: number, XB: number, XI: number): number {
+  const _clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+  const eps = 1e-9;
+  const G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+
+  // 1) Normalisation par caps de groupe → [-1, +1]
+  const vRaw = [
+    _clamp(XL / G_CAP.lune,  -1, +1),
+    _clamp(XE / G_CAP.ephem, -1, +1),
+    _clamp(XB / G_CAP.bazi,  -1, +1),
+    _clamp(XI / G_CAP.indiv, -1, +1),
+  ];
+
+  // 2) Deadzone douce (dz=0.12, rampe linéaire — pas de cliff brutal)
+  const dz = 0.12;
+  const v = vRaw.map(x => {
+    const ax = Math.abs(x);
+    if (ax <= dz) return 0;
+    return Math.sign(x) * (ax - dz) / (1 - dz);
+  });
+
+  const posMass = v.reduce((s, x) => s + Math.max(x, 0), 0);
+  const negMass = v.reduce((s, x) => s + Math.max(-x, 0), 0);
+  const posCount = v.filter(x => x > 0).length;
+  const negCount = v.filter(x => x < 0).length;
+  const domCount = Math.max(posCount, negCount);
+
+  // 3) Condition minimum : ≥3 groupes concordants (sinon pas de "convergence")
+  if (domCount < 3) return 0;
+
+  const domMass = Math.max(posMass, negMass);
+  const oppMass = Math.min(posMass, negMass);
+
+  // 4) Purity : ratio de dominance [0, 1]
+  const purity = (domMass - oppMass) / (domMass + oppMass + eps);
+
+  // 5) Intensity : soft mass gate (rampe à partir de 0.95, pleine à 1.50)
+  const intensity = _clamp((domMass - 0.95) / 0.55, 0, 1);
+
+  // 6) Coverage : 4/4 alignés > 3/4 alignés
+  const coverage = domCount === 4 ? 1.0 : 0.55;
+
+  return 0.35 * Math.sign(posMass - negMass) * purity * intensity * coverage;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Sprint AW — Shapley exact (16 coalitions, N=4 features)
+// Ronde 17-18 consensus 3/3 — contributions marginales additives
+// φᵢ exact : Σ φᵢ = f(N) - f(∅)
+// ══════════════════════════════════════════════════════════════════════
+interface ShapleyContributions {
+  lune: number;
+  ephem: number;
+  bazi: number;
+  indiv: number;
+  baseline: number;  // f(∅) = score avec tous groupes à 0
+}
+
+function _popcount(n: number): number {
+  let c = 0; while (n) { c += n & 1; n >>= 1; } return c;
+}
+
+function computeShapley4(
+  XL: number, XE: number, XB: number, XI: number,
+  terrainSq: number, betaEff: number, baseSignal: number,
+): ShapleyContributions {
+  const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+  const A = 36.0, k = 0.840;
+  const features = [XL, XE, XB, XI];
+
+  // Poids Shapley pour N=4 : |S|!(3-|S|)!/4!
+  const SHAP_W = [1/4, 1/12, 1/12, 1/4] as const; // par taille de coalition |S|=0,1,2,3
+
+  // Précalculer les 16 scores f(S) pour chaque coalition (mask 0..15)
+  const F = new Array<number>(16);
+  for (let mask = 0; mask < 16; mask++) {
+    const xs = [
+      (mask & 1) ? features[0] : 0,
+      (mask & 2) ? features[1] : 0,
+      (mask & 4) ? features[2] : 0,
+      (mask & 8) ? features[3] : 0,
+    ];
+    // Pipeline identique à calcShadowScore : X_core → C4 → X → tanh → score
+    const X_core = _clampG(xs[0] + xs[1] + xs[2] + xs[3], -1.6, +1.6);
+    const c4 = calcC4(xs[0], xs[1], xs[2], xs[3]);
+    const X = _clampG(X_core + c4, -2, +2);
+    const X_total = X + betaEff * baseSignal;
+    const raw = 50 + A * Math.tanh(k * X_total) * terrainSq;
+    F[mask] = Math.max(0, Math.min(100, Math.round(raw)));
+  }
+
+  // Calcul des contributions Shapley exactes
+  const phi = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) {
+    const bit = 1 << i;
+    for (let mask = 0; mask < 16; mask++) {
+      if (mask & bit) continue; // i déjà dans S → skip
+      const s = _popcount(mask);
+      phi[i] += SHAP_W[s] * (F[mask | bit] - F[mask]);
+    }
+  }
+
+  // Correction résiduelle (précision flottante)
+  const baseline = F[0];
+  const total = F[15];
+  const sumPhi = phi.reduce((a, b) => a + b, 0);
+  const resid = (total - baseline) - sumPhi;
+  if (Math.abs(resid) > 1e-6) {
+    const absSum = phi.reduce((a, b) => a + Math.abs(b), 0);
+    for (let i = 0; i < 4; i++) {
+      phi[i] += absSum > 0 ? resid * Math.abs(phi[i]) / absSum : resid / 4;
+    }
+  }
+
+  return {
+    lune: Math.round(phi[0] * 10) / 10,
+    ephem: Math.round(phi[1] * 10) / 10,
+    bazi: Math.round(phi[2] * 10) / 10,
+    indiv: Math.round(phi[3] * 10) / 10,
+    baseline,
   };
 }
 
@@ -1105,7 +1241,7 @@ function calcShadowScore(
   ephemGroupDelta: number,
   baziGroupDelta: number,
   indivGroupDelta: number = 0, // Sprint AO — 4e groupe (Ronde 7 consensus 3/3)
-): number | undefined {
+): { score: number; c4Shadow: number; cis: number; shapley: ShapleyContributions } | undefined {
   try {
     const A    = 36.0;
     const k    = 0.840;
@@ -1134,16 +1270,18 @@ function calcShadowScore(
     // X_core ±1.6 : réserve headroom pour beta_eff × base_signal (BPHS : noyau védique prioritaire)
     const X_core = _clampG(XL + XE + XB + XI, -1.6, +1.6);
 
-    // Sprint AV P5 — SynergyV9 CIS : Concordance Inter-Systèmes (Ronde 16 vote 5, consensus 2/3 Grok+Gemini)
-    // Mesure l'alignement directionnel des 4 groupes : bonus si concordants, malus si discordants
-    // cis = (countAlign − 1) × 0.09 — range [-0.27, +0.27], neutre si mixte
-    // countAlign = max(positifs, négatifs) parmi les groupes non-nuls
+    // Sprint AV P5 — CIS Phase 1 (actif — score réel)
     const _signs = [XL, XE, XB, XI];
     const _pos = _signs.filter(s => s > 0).length;
     const _neg = _signs.filter(s => s < 0).length;
     const _countAlign = Math.max(_pos, _neg);
-    const _alignSign = _pos >= _neg ? 1 : -1; // direction majoritaire
+    const _alignSign = _pos >= _neg ? 1 : -1;
     const cis = (_countAlign - 1) * 0.09 * _alignSign; // [-0.27, +0.27]
+
+    // Sprint AW — C4 shadow mode (Ronde 18 consensus 2/3 GPT+Grok)
+    // C4 calculé en parallèle mais NON injecté dans le score — CIS reste actif
+    // Activation définitive quand critères James Chen validés sur 90 jours
+    const c4_shadow = calcC4(XL, XE, XB, XI);
 
     const X = _clampG(X_core + cis, -2, +2);
 
@@ -1165,7 +1303,11 @@ function calcShadowScore(
     const raw      = 50 + delta_sh * terrain_sq + bias;
     const shadowScore = Math.max(0, Math.min(100, Math.round(raw)));
 
-    return shadowScore;
+    // Sprint AW — Shapley exact 16 coalitions (Ronde 17-18 consensus 3/3)
+    // terrain_sq et betaEff gelés (Ronde 17 Takeshi/Aarav : baseline du jour)
+    const shapley = computeShapley4(XL, XE, XB, XI, terrain_sq, beta, shadowBaseSignal ?? 0);
+
+    return { score: shadowScore, c4Shadow: c4_shadow, cis, shapley };
   } catch (e) {
     console.warn('[Y2 shadow] calcShadowScore échec silencieux:', e);
     return undefined;
