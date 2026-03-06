@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { generateForecast36Months, type MonthForecast, type LifeDomain } from '../engines/convergence';
 import { calcTemporalLayers, calcCI } from '../engines/temporal-layers';
 import { type SoulData } from '../App';
@@ -137,10 +137,25 @@ function mutationOpacity(idx: number): number {
 export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
 
-  const forecast = useMemo(() => {
+  // Sprint AH — Déférer le calcul lourd (1080 calcDayPreview) hors du premier paint.
+  // Le cache Phase 2 rend les re-renders suivants quasi-instantanés.
+  const [forecast, setForecast] = useState<MonthForecast[]>([]);
+  const [forecastLoading, setForecastLoading] = useState(true);
+
+  const computeForecast = useCallback(() => {
     try { return generateForecast36Months(bd, data.num, data.cz, new Date(), 0, data.astro); }
     catch (e) { console.error('Horizon error:', e); return []; }
   }, [bd, data.num, data.cz, data.astro]);
+
+  useEffect(() => {
+    setForecastLoading(true);
+    const timer = setTimeout(() => {
+      const result = computeForecast();
+      setForecast(result);
+      setForecastLoading(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [computeForecast]);
 
   const temporalCtx = useMemo(() => {
     try {
@@ -157,6 +172,16 @@ export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }
     if (!forecast.length) return [];
     return calcMomentum(forecast.map(f => f.score));
   }, [forecast]);
+
+  if (forecastLoading) {
+    return (
+      <Cd>
+        <div style={{ textAlign: 'center', color: P.textDim, padding: 40 }}>
+          Calcul de l'horizon 36 mois…
+        </div>
+      </Cd>
+    );
+  }
 
   if (forecast.length === 0 || momentums.length === 0) {
     return (

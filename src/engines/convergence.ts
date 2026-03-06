@@ -679,10 +679,30 @@ export function estimateSlowTransitBonus(astro: AstroChart | null): number {
 // ═══ DAY PREVIEW (lightweight, calendrier) ═══
 // ══════════════════════════════════════
 
+// Sprint AH — Cache inter-render pour calcDayPreview
+// Évite de recalculer les mêmes jours lors des re-renders React
+// ou lors de la navigation entre onglets (Calendar ↔ Forecast).
+const _dayPreviewCache = new Map<string, DayPreview>();
+const DAY_PREVIEW_CACHE_MAX = 1200; // 36 mois × ~30 jours + marge
+
+function _dayPreviewCacheKey(bd: string, targetDate: string, transitBonus: number): string {
+  return `${bd}|${targetDate}|${transitBonus}`;
+}
+
+/** Vide le cache calcDayPreview (appelé si les données natal changent). */
+export function clearDayPreviewCache(): void {
+  _dayPreviewCache.clear();
+}
+
 export function calcDayPreview(
   bd: string, num: NumerologyProfile, cz: ChineseZodiac,
   targetDate: string, transitBonus: number = 0, astro: AstroChart | null = null
 ): DayPreview {
+  // Sprint AH — cache lookup
+  const _cKey = _dayPreviewCacheKey(bd, targetDate, transitBonus);
+  const _cached = _dayPreviewCache.get(_cKey);
+  if (_cached) return _cached;
+
   const ppd = calcPersonalDay(bd, targetDate);
   const pdv = ppd.v;
   const iching = calcIChing(bd, targetDate);
@@ -944,12 +964,18 @@ export function calcDayPreview(
   const higherOrEqual = yearScores.filter(s => s >= score).length;
   const rarityPct = Math.max(0.1, Math.round((higherOrEqual / yearScores.length) * 1000) / 10);
 
-  return {
+  const _result: DayPreview = {
     date: targetDate, day: parseInt(targetDate.split('-')[2]),
     pdv, dayType, score, lCol,
     hexNum: iching.hexNum, hexName: iching.name, hexKeyword: iching.keyword,
     reasons, conseil, rarityPct,
   };
+
+  // Sprint AH — store in cache (LRU-like : clear if full)
+  if (_dayPreviewCache.size >= DAY_PREVIEW_CACHE_MAX) _dayPreviewCache.clear();
+  _dayPreviewCache.set(_cKey, _result);
+
+  return _result;
 }
 
 export function calcMonthPreviews(

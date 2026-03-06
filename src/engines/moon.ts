@@ -37,7 +37,22 @@ const SYNODIC = 29.53059; // Mois synodique en jours
 // Nouvelle Lune de référence : 6 janvier 2000 18:14 UTC
 const REF_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14, 0);
 
+// Sprint AH — Cache LRU pour getMoonPhase (même date → même résultat)
+// Clé = timestamp arrondi à la minute (précision suffisante, max 500 entrées)
+const _moonCache = new Map<number, MoonPhase>();
+const MOON_CACHE_MAX = 500;
+
+function _getMoonCacheKey(date: Date): number {
+  return Math.floor(date.getTime() / 60000); // arrondi à la minute
+}
+
 export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): MoonPhase {
+  const cacheKey = _getMoonCacheKey(date);
+  // Cache uniquement si noTime=false (cas 99% des appels en boucle)
+  if (!noTime) {
+    const cached = _moonCache.get(cacheKey);
+    if (cached) return cached;
+  }
   const diff = date.getTime() - REF_NEW_MOON;
   const days = diff / (1000 * 60 * 60 * 24);
   const age = ((days % SYNODIC) + SYNODIC) % SYNODIC;
@@ -131,7 +146,15 @@ export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): 
   ];
 
   const p = PHASES[phaseIdx];
-  return { phase: phaseIdx, name: p.name, emoji: p.emoji, illumination: illum, age: Math.round(age * 10) / 10, tactical: p.tactical, energy: p.energy, confidence, confidenceReason, longitudeTropical: Math.round(longitudeTropical * 1000) / 1000 };
+  const result: MoonPhase = { phase: phaseIdx, name: p.name, emoji: p.emoji, illumination: illum, age: Math.round(age * 10) / 10, tactical: p.tactical, energy: p.energy, confidence, confidenceReason, longitudeTropical: Math.round(longitudeTropical * 1000) / 1000 };
+
+  // Sprint AH — Mettre en cache (LRU simple : vider si trop grand)
+  if (!noTime) {
+    if (_moonCache.size >= MOON_CACHE_MAX) _moonCache.clear();
+    _moonCache.set(cacheKey, result);
+  }
+
+  return result;
 }
 
 /**
