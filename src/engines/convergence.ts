@@ -15,10 +15,10 @@ import { extractNatalReturnLongs, interpolateReturnIntensity } from './returns';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { type IChingReading, calcIChing, nuclearHexScore } from './iching';
 import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, type VoidOfCourseMoon } from './moon'; // getPlanetaryRetroScore, getVoidOfCourseMoon retirés Sprint AP
-import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ChangshengResult, type ShenShaResult } from './bazi'; // getChangsheng, getNaYin, NaYinResult retirés Sprint AP
+import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ShenShaResult } from './bazi'; // Sprint AS P1 : ChangshengResult retiré (csResult mort dans calcDayPreview)
 // calcInteractions, buildInteractionContext retirés Sprint AP (interactions stubées)
 import { calcNakshatra, getAyanamsa } from './nakshatras';
-import { calcCurrentDasha, calcDashaScore } from './vimshottari';
+// Sprint AS P6 : calcCurrentDasha, calcDashaScore retirés (bloc Dasha preview supprimé — seul L2 les utilise)
 import { getModuleDomainWeight } from './domain-weights';
 import {
   ALGO_VERSION, SLOW_PLANETS,
@@ -733,9 +733,9 @@ export function calcDayPreview(
   // delta += ichRes.pts; // SUPPRIMÉ V8 — non calendaire sans question
 
   // 6. BaZi FAMILLE
-  let baziDMPts = 0, tenGodsPts = 0, csPts = 0, ssPts = 0;
+  // Sprint AS P2 : csPts, csResult (Changsheng) supprimés — toujours 0/null depuis Sprint AP
+  let baziDMPts = 0, tenGodsPts = 0, ssPts = 0;
   let peachActivePreview = false;
-  let csResult: ChangshengResult | null = null;
   let ssResult: ShenShaResult | null = null;
   let tgResult: TenGodsResult | null = null;
   let natalDMIsYang = false;
@@ -765,9 +765,7 @@ export function calcDayPreview(
     if (peach.active) reasons.push(`🌸 Peach Blossom active — magnétisme relationnel`);
   } catch { /* silent */ }
 
-  // Changsheng entièrement retiré Sprint AP P5 (mort = mort, Ronde 8 consensus 2/3)
-  csResult = null;
-  csPts = 0;
+  // Sprint AS P2 : bloc csResult/csPts Changsheng supprimé (mort depuis Sprint AP P5)
 
   try {
     ssResult = checkShenSha(new Date(bd + 'T12:00:00'), new Date(targetDate + 'T12:00:00'));
@@ -775,10 +773,9 @@ export function calcDayPreview(
     if (ssResult.active.length > 0) reasons.push(`⭐ ${ssResult.active.map((s: { chinese: string }) => s.chinese).join(' ')} (narratif BaZi)`);
   } catch { /* silent */ }
 
-  // NaYin — V6.2: supprimé (symbolisme poétique, impact algorithmique non justifié)
-  const naYinPts = 0;
-
-  const baziFamilyPrev = Math.max(-22, Math.min(22, baziDMPts + tenGodsPts + csPts + ssPts + naYinPts));
+  // Sprint AS P2 : naYinPts (=0) supprimé — NaYin retiré V6.2
+  // Sprint AS P2 : csPts (=0) retiré de la somme — Changsheng mort depuis Sprint AP
+  const baziFamilyPrev = Math.max(-22, Math.min(22, baziDMPts + tenGodsPts + ssPts));
   delta += baziFamilyPrev;
 
   // 7. Lune — V8: narratif visible (R25 : absorbée par Nakshatra, valeur contextuelle)
@@ -833,41 +830,8 @@ export function calcDayPreview(
     if (nakLordTotalL !== 0) { delta += nakLordTotalL; reasons.push(`🌙 Lord ${transitLordL} ${nakL.name} (${nakLordTotalL > 0 ? '+' : ''}${nakLordTotalL})`); }
   } catch { /* nakshatra lords fail silent */ }
 
-  // 11c. Vimshottari Dasha (±9)
-  // 11c. Vimshottari Dasha — V6.1 Option A (Gemini R9 + GPT R9 + Grok R9)
-  // Dasha retiré du delta (plus additif — biais 17 ans insoluble)
-  // dashaDeltaPrevHoisted conservé pour Trinity anti-stack
-  // Narrative uniquement lors des Sandhi (transitions de cycle)
-  let dashaDeltaPrevHoisted = 0;
-  try {
-    const birthDPrev = new Date(bd + 'T12:00:00');
-    const natalMoonPrev = getMoonPhase(birthDPrev);
-    const natalAyanPrev = getAyanamsa(birthDPrev.getFullYear());
-    const natalMoonSidPrev = ((natalMoonPrev.longitudeTropical - natalAyanPrev) % 360 + 360) % 360;
-    const natalMoonIsWaxingPrev = (natalMoonPrev.phase ?? 0) <= 4;
-    const targetDateObj = new Date(targetDate + 'T12:00:00');
-    const dashaPrev = calcCurrentDasha(natalMoonSidPrev, birthDPrev, targetDateObj);
-    let transitLordPrev: string | undefined;
-    try {
-      const moonDPrev2  = getMoonPhase(targetDateObj);
-      const ayanPrev2   = getAyanamsa(parseInt(targetDate.split('-')[0]));
-      const sidPrev2    = ((moonDPrev2.longitudeTropical - ayanPrev2) % 360 + 360) % 360;
-      transitLordPrev   = calcNakshatra(sidPrev2).lord;
-    } catch { /* silent */ }
-    const dashaResultPrev = calcDashaScore(dashaPrev, { transitLord: transitLordPrev, natalMoonIsWaxing: natalMoonIsWaxingPrev });
-    // Total brut conservé pour Trinity anti-stack (pas ajouté à delta)
-    dashaDeltaPrevHoisted = dashaResultPrev.total;
-    // Narrative uniquement lors des transitions de cycle (Sandhi)
-    if (dashaPrev.maha.isTransition || dashaPrev.antar.isTransition || dashaPrev.pratyantar.isTransition) {
-      reasons.push(`🕉 Dasha en transition (${dashaPrev.maha.lord}/${dashaPrev.antar.lord}/${dashaPrev.pratyantar.lord})`);
-    }
-  } catch { /* vimshottari preview fail silent */ }
-
-  // Trinity — SUPPRIMÉ V8 (R25 GPT : synthèse moderne sans tradition, dépend de modules narratifs)
-  // trinityBonusPrev conservé à 0 pour interactions buildInteractionContext
-  const trinityBonusPrev = 0;
-
-  // 13. Interactions — stubé Sprint AO P6 (delta=0) + Sprint AP P2 (alignement preview)
+  // Sprint AS P6 : bloc Dasha preview supprimé — dashaDeltaPrevHoisted était mort (Trinity supprimée)
+  // Sprint AS P2 : trinityBonusPrev (=0) + Interactions stub supprimés — zéro consommateur
 
   // ── P3.1 : estimateL2Bonus — Retours planétaires interpolés (Saturne, Jupiter, Nœud Nord) ──
   // Objectif : réduire la divergence CalendarTab ↔ ConvergenceTab (Issue #1 audit V8.1)
@@ -1095,7 +1059,7 @@ export function calcConvergence(
     nuclearHex: nuclearHexResult,
     dashaCertainty,
     shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
-    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta), // Y5 + AB-G1 + AO-P2
+    shadowScore: _scoreY5, // Sprint AS P5 : réutilise _scoreY5 (était double appel calcShadowScore — même args)
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,

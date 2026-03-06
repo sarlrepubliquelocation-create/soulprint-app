@@ -51,13 +51,12 @@ function buildBrief(data: SoulData): string {
   const line4 = `☰ I Ching #${iching.hexNum} ${iching.name} → ${iching.keyword}`;
   const lineRarity = conv.rarityIndex?.rank ? `${conv.rarityIndex.icon} ${conv.rarityIndex.label} — ${conv.rarityIndex.rank}${conv.rarityIndex.rank === 1 ? 'er' : 'ème'} meilleur jour / 365` : '';
   const lineBaZi = conv.baziDaily ? `☯ ${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.pinyin} (${conv.baziDaily.dailyStem.element}) → ${conv.baziDaily.interaction.dynamique.split('.')[0]}` : '';
-  // Sprint AR P5 : lineTrinity supprimé — conv.trinity retiré (Ronde 11 consensus 2/3)
-  const lineTrinity = '';
+  // Sprint AS P3 : lineTrinity supprimé (toujours '', zéro effet — Trinity morte depuis Sprint AR)
   const lineCtx = conv.contextualScores ? conv.contextualScores.domains.map(d => `  ${d.icon} ${d.label} ${d.score}% — ${d.directive || ''}`).join('\n') : '';
   const line10Gods = conv.tenGods?.dominant ? `✦ ${conv.tenGods.dominant.label} (${conv.tenGods.dominant.isZheng ? 'stable' : 'intense'})` : '';
   return [
     `🔮 SoulPrint Oracle — Brief du ${new Date().toLocaleDateString('fr-FR')}`,
-    '', line1, lineNarr, line2, lineAR, lineMoon, lineBaZi, line10Gods, lineTrinity,
+    '', line1, lineNarr, line2, lineAR, lineMoon, lineBaZi, line10Gods,
     '', '🎯 Domaines :', lineCtx,
     '', lineRarity, line3, line4, '', 'Bonne journée ! ✦'
   ].filter(l => l !== undefined).join('\n');
@@ -834,7 +833,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const signalDelta = terrainMult > 0 ? cv.rawFinal / terrainMult : cv.rawFinal;
             const signalScore = Math.max(5, Math.min(97, Math.round(50 + 45 * Math.sign(signalDelta) * Math.pow(Math.min(Math.abs(signalDelta) / 18, 1), 1.05))));
             const terrainPts  = cv.score - signalScore;
-            const elanBonus   = 0; // Sprint AR P3 : cv.interactions retiré (Ronde 11 consensus 3/3)
+            // Sprint AS P4 : elanBonus retiré (toujours 0 depuis Sprint AR P3 — widget mort)
             const terrainPct  = Math.round(terrainMult * 100) / 100;
             const terrainPos  = terrainPts >= 0;
             return (
@@ -866,16 +865,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                       {terrainPts >= 0 ? `+${terrainPts}` : terrainPts} pts
                     </div>
                   </div>
-                  {/* Séparateur */}
-                  <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>·</div>
-                  {/* Élan */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 70 }}>
-                    <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Élan</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: elanBonus > 0 ? '#4ade80' : elanBonus < 0 ? '#ef4444' : P.textDim }}>
-                      {elanBonus > 0 ? `+${elanBonus}` : elanBonus === 0 ? '—' : elanBonus}
-                    </div>
-                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>Synergies</div>
-                  </div>
+                  {/* Sprint AS P4 : widget Élan supprimé (elanBonus toujours 0 — Ronde 11) */}
                   {/* Séparateur */}
                   <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>=</div>
                   {/* Score final */}

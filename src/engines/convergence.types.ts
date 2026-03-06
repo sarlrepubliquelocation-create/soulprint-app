@@ -5,8 +5,8 @@
 // Ne contient AUCUNE logique — zéro fonction
 // ══════════════════════════════════════
 
-import { type DayMasterDailyResult, type TenGodsResult, type ChangshengResult, type ShenShaResult } from './bazi';
-import { type InteractionResult } from './interactions';
+import { type DayMasterDailyResult, type TenGodsResult, type ShenShaResult } from './bazi'; // Sprint AS P1 : ChangshengResult retiré (plus aucun champ dans les interfaces)
+// Sprint AS P1 : InteractionResult retiré (plus aucun champ dans les interfaces)
 import { type ProfectionResult } from './profections';
 import { type LunarNodeTransit, type VoidOfCourseMoon } from './moon';
 import { type NuclearHexResult } from './iching';

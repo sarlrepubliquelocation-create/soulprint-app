@@ -10,8 +10,8 @@ import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx }
 import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
 import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon'; // Sprint AO P6: getPlanetaryRetroScore retiré
-import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, getElementRelation, type ChangshengResult, type ShenShaResult } from './bazi'; // getChangsheng retiré Sprint AP P5
-import { type InteractionResult } from './interactions'; // Sprint AO P6: calcInteractions, buildInteractionContext retirés
+import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ShenShaResult } from './bazi'; // Sprint AS P1 : getElementRelation + ChangshengResult retirés (zéro usage dans ce fichier)
+// Sprint AS P1 : InteractionResult retiré (zéro usage dans ce fichier)
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 import { calcDMStrength, getDMMultiplier, type DMStrengthResult } from './dm-strength'; // Sprint AI
