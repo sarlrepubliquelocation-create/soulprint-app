@@ -14,9 +14,9 @@ import { calcProgressions } from './progressions';
 import { extractNatalReturnLongs, interpolateReturnIntensity } from './returns';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { type IChingReading, calcIChing, nuclearHexScore } from './iching';
-import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, getPlanetaryRetroScore, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon';
-import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
-import { calcInteractions, buildInteractionContext } from './interactions';
+import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, type VoidOfCourseMoon } from './moon'; // getPlanetaryRetroScore, getVoidOfCourseMoon retirés Sprint AP
+import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ChangshengResult, type ShenShaResult } from './bazi'; // getChangsheng, getNaYin, NaYinResult retirés Sprint AP
+// calcInteractions, buildInteractionContext retirés Sprint AP (interactions stubées)
 import { calcNakshatra, getAyanamsa } from './nakshatras';
 import { calcCurrentDasha, calcDashaScore } from './vimshottari';
 import { getModuleDomainWeight } from './domain-weights';
@@ -36,7 +36,7 @@ export type { ScoreLevel, DayType, DayTypeInfo, ActionVerb, ActionReco, ClimateS
 } from './convergence.types';
 export type { VoidOfCourseMoon } from './moon';
 import {
-  calcDailyModules, calcDayType, ichingScoreV4, calcMoonScore, getNaYinAffinityFactor,
+  calcDailyModules, calcDayType, ichingScoreV4, calcMoonScore, // getNaYinAffinityFactor retiré Sprint AP
   type DailyModuleResult,
 } from './convergence-daily';
 import { calcSlowModules } from './convergence-slow';
@@ -764,11 +764,9 @@ export function calcDayPreview(
     if (peach.active) reasons.push(`🌸 Peach Blossom active — magnétisme relationnel`);
   } catch { /* silent */ }
 
-  try {
-    csResult = getChangsheng(new Date(bd + 'T12:00:00'), new Date(targetDate + 'T12:00:00'));
-    csPts = 0; // V6.2: neutralisé (texture énergétique, redondant avec DM — R16 unanime)
-    if (csResult.scoring.global !== 0) reasons.push(`${csResult.scoring.chinese} ${csResult.phase} (phase active)`);
-  } catch { /* silent */ }
+  // Changsheng entièrement retiré Sprint AP P5 (mort = mort, Ronde 8 consensus 2/3)
+  csResult = null;
+  csPts = 0;
 
   try {
     ssResult = checkShenSha(new Date(bd + 'T12:00:00'), new Date(targetDate + 'T12:00:00'));
@@ -801,9 +799,7 @@ export function calcDayPreview(
   if (mercPts < 0) { reasons.push(`⚠️ ${mercStatus.label} — double-vérifier communications (narratif)`); }
   // delta += mercPts; // SUPPRIMÉ V8 — bruit non prédictif (R25 GPT)
 
-  // 10. Rétrogrades — V6.2: déconnecté du delta (biais asymétrique, R16 unanime)
-  const planetRetro = getPlanetaryRetroScore(new Date(targetDate + 'T12:00:00'));
-  if (planetRetro.totalPts !== 0) reasons.push(`🪐 Rétrogrades actives (narratif)`);
+  // 10. Rétrogrades — retiré Sprint AO P6 (module mort) + Sprint AP P2 (alignement preview)
 
   // 11. Transits lents — supprimés V6.3 de calcDayPreview (transitBonus statique → biais annuel, Gemini R21)
   // Transits lents actifs uniquement dans calcSlowModules (L2, temps réel)
@@ -870,38 +866,7 @@ export function calcDayPreview(
   // trinityBonusPrev conservé à 0 pour interactions buildInteractionContext
   const trinityBonusPrev = 0;
 
-  // 13. Interactions cross-systèmes — V8: seules les règles BaZi-centriques actives
-  // hexNum=-1 et moonPhaseIdx=-1 désactivent les règles I Ching/Lune (narratif V8)
-  // mercuryRetro=false désactive règles Mercure (narratif V8)
-  try {
-    let vocPrev: VoidOfCourseMoon | null = null;
-    try { vocPrev = getVoidOfCourseMoon(targetDate); } catch { /* silent */ }
-    const prevCtx = buildInteractionContext({
-      changshengPhase: csResult?.phase ?? null,
-      tenGodDominant: tgResult?.dominant?.label ?? null,
-      dmIsYang: natalDMIsYang,
-      dmElement: natalDMElement,
-      hexNum: -1,          // V8: I Ching narratif → règles IChing désactivées
-      personalDay: pdv,    // conservé pour display breakdown (non actif dans règles V8)
-      personalYear: calcPersonalYear(bd, tYear).v,
-      personalMonth: calcPersonalMonth(bd, tYear, tMonth).v,
-      moonPhaseIdx: -1,    // V8: Lune narrative → règles Lune désactivées
-      isVoC: vocPrev?.isVoC ?? false,
-      mercuryRetro: false, // V8: Mercure narratif → règles Mercure désactivées
-      jupiterPositive: transitBonus > 0,
-      peachBlossomActive: peachActivePreview,
-      shenShaActive: ssResult?.active ?? [],
-      trinityBonus: 0,     // V8: Trinity supprimé
-    });
-    const prevInteractions = calcInteractions(prevCtx);
-    if (prevInteractions.totalBonus !== 0) {
-      delta += prevInteractions.totalBonus;
-      for (const ia of prevInteractions.active) {
-        const sign = ia.bonus > 0 ? '+' : '';
-        reasons.push(`${ia.bonus > 0 ? '✨' : '⚠️'} ${ia.label} (${sign}${ia.bonus})`);
-      }
-    }
-  } catch { /* interactions fail silently */ }
+  // 13. Interactions — stubé Sprint AO P6 (delta=0) + Sprint AP P2 (alignement preview)
 
   // ── P3.1 : estimateL2Bonus — Retours planétaires interpolés (Saturne, Jupiter, Nœud Nord) ──
   // Objectif : réduire la divergence CalendarTab ↔ ConvergenceTab (Issue #1 audit V8.1)

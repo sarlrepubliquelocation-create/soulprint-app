@@ -1,0 +1,97 @@
+═══════════════════════════════════════════════════════════════
+KAIRONAUTE V10.9 — RONDE 8 · AUDIT POST-SPRINT AO · GROK
+═══════════════════════════════════════════════════════════════
+
+PERSONA : Tu es un ingénieur quantitatif spécialisé en systèmes
+de scoring multi-signaux. Tu challenges les choix d'architecture
+et traques les incohérences structurelles.
+
+ÉTAT DU MOTEUR POST-SPRINT AO :
+— Pipeline : L1 (daily, delta ±30) → L2 (terrain/dasha) → L3 (tanh → 0-100)
+— 4 groupes shadow score : C_BAZI ±15, C_LUNE ±12, C_EPHEM ±10, C_INDIV ±8
+— αG : {lune:1.20, ephem:1.10, bazi:1.00, indiv:0.90}
+— P95_G empiriques (Monte Carlo 500k) : {lune:9, ephem:7, bazi:11, indiv:6}
+— G_CAP normalisé : {lune:0.90, ephem:0.80, bazi:0.85, indiv:0.70}
+— Score final : 50 + 36 × tanh(0.840 × X_total) × terrain_sq
+— KineticShocks : ±3 direct, hors cap L1
+— Dead code purgé : NaYin, R31, R33, Pada, Retro, SCIS, Antardasha
+— Interactions/Trinity stubés à 0
+— 61/61 tests regression passent
+
+══════════════════════════════════════════════════════════════
+6 PROBLÈMES + 1 BONUS — VOTE REQUIS (a/b/c)
+══════════════════════════════════════════════════════════════
+
+── P1 · IMPORTS FANTÔMES ──────────────────────────────────
+convergence.ts et convergence-slow.ts importent des fonctions
+mortes : getPlanetaryRetroScore, getNaYin, NaYinResult,
+calcInteractions, buildInteractionContext, getNaYinAffinityFactor.
+Aucune n'est appelée.
+
+a) Purger tous les imports fantômes
+b) Laisser (pas d'impact runtime)
+c) Purger + commentaire traçabilité "// retiré Sprint AO"
+
+── P2 · calcDayPreview DÉSYNCHRONISÉ ─────────────────────
+Le preview (convergence.ts, ~L805) utilise encore retro et
+interactions avec delta actif. Le moteur principal les a stubés.
+Résultat : preview ≠ score final.
+
+a) Aligner preview sur le moteur (stuber retro/interactions)
+b) Supprimer calcDayPreview (le front utilise le pipeline complet)
+c) Deprecated + fix au prochain sprint
+
+── P3 · SYNERGIES V6 — FUITE L2 ──────────────────────────
+convergence-slow.ts appelle calcInteractions dans Synergies V6
+(cap ±3) et ajoute le résultat au delta L2. Contradiction :
+L1 dit interactions=0, L2 injecte ±3 du même calcul.
+
+a) Stuber le delta interactions dans Synergies V6 (= 0)
+b) Supprimer tout le bloc Synergies V6
+c) Documenter comme incohérence tolérée
+
+── P4 · COMMENTAIRE STALE C_LUNE ────────────────────────
+Interface DailyModuleResult : commentaire dit "capé ±16" au
+lieu de "±12" (changé en Sprint AO BONUS).
+
+a) Corriger → "±12"
+b) Supprimer les commentaires de caps des interfaces
+c) JSDoc complet avec tous les caps
+
+── P5 · CHANGSHENG — SIGNAL FANTÔME DOMAINES ────────────
+Changsheng delta=0 dans le score principal, mais
+getChangsheng() alimente encore les directDomainBonuses
+(VITALITE ±1, BUSINESS ±1). Module "mort" qui injecte
+de l'info dans les sous-scores domaine.
+
+a) Garder — domain bonuses ≠ score principal, signal légitime
+b) Retirer les domain bonuses aussi (cohérence totale)
+c) Documenter "Changsheng: delta=0, domains actifs"
+
+── P6 · KINETIC SHOCKS HORS MODÈLE αG ───────────────────
+KS ajoute ±3 APRÈS cap L1 (±30), invisible au shadow score.
+Un jour delta=30 peut monter à 33. Le shadow score ne capture
+pas cette variation.
+
+a) Absorber KS dans C_EPHEM (capé ±10, visible dans αG)
+b) 5e groupe C_KS dédié avec αG et cap propres
+c) Garder KS comme wild card hors modèle (documenter)
+
+── BONUS · COMPRESSION P95_G.lune ─────────────────────────
+P95=9, cap=12 → ratio 0.75. 25% d'espace au-dessus de P95
+non utilisé en routine. Les éclipses justifient-elles ±12 ?
+
+a) Baisser cap C_LUNE ±12 → ±10
+b) Garder ±12 (marge éclipses/conjonctions rares)
+c) Relancer Monte Carlo avec σ_lune=4.8 avant de décider
+
+══════════════════════════════════════════════════════════════
+FORMAT DE RÉPONSE
+══════════════════════════════════════════════════════════════
+Pour chaque (P1-P6 + BONUS) :
+1. Vote (a/b/c)
+2. Justification quant (2-3 phrases)
+3. Risques supplémentaires éventuels
+
+Termine par tableau :
+| Problème | Vote | Résumé 1 ligne |

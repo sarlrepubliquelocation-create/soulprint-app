@@ -1,0 +1,158 @@
+═══════════════════════════════════════════════════════════════
+KAIRONAUTE V10.9 — RONDE 8 · AUDIT POST-SPRINT AO · GPT
+═══════════════════════════════════════════════════════════════
+
+PERSONA : Tu es un architecte scoring prédictif senior.
+Tu audites un moteur de scoring quotidien (0–100) combinant
+BaZi, Jyotish, numérologie et éphémérides astronomiques.
+
+CONTEXTE SPRINT AO (déjà mergé) :
+— 4 groupes αG : C_BAZI ±15, C_LUNE ±12, C_EPHEM ±10, C_INDIV ±8
+— Shadow Score : αG = {lune:1.20, ephem:1.10, bazi:1.00, indiv:0.90}
+— P95_G Monte Carlo 500k : {lune:9, ephem:7, bazi:11, indiv:6}
+— G_CAP : {lune:0.90, ephem:0.80, bazi:0.85, indiv:0.70}
+— Score = 50 + 36 × tanh(0.840 × X_total) × terrain_sq
+— Cap global L1 : ±30 ; KineticShocks ±3 direct (hors cap)
+— Dead code nettoyé : NaYin, R31, R33, Pada, Retro, SCIS, Antardasha
+— Interactions/Trinity stubés (delta=0)
+— 61/61 tests regression OK
+
+PIPELINE 3 COUCHES :
+L1 = convergence-daily.ts (modules quotidiens → delta ±30)
+L2 = convergence-slow.ts (terrain Dasha, Synergies V6)
+L3 = convergence.ts (fusion tanh → score 0-100, shadow score)
+
+══════════════════════════════════════════════════════════════
+PROBLÈMES IDENTIFIÉS — VOTE 3 OPTIONS CHACUN
+══════════════════════════════════════════════════════════════
+
+────────────────────────────────────────
+P1 · IMPORTS FANTÔMES
+────────────────────────────────────────
+convergence.ts importe encore :
+  getPlanetaryRetroScore, getNaYin, NaYinResult,
+  calcInteractions, buildInteractionContext, getNaYinAffinityFactor
+convergence-slow.ts importe encore :
+  calcInteractions, buildInteractionContext
+
+Ces fonctions ne sont plus appelées (dead code Sprint AO P6).
+
+OPTIONS :
+a) Supprimer tous les imports fantômes maintenant (0 risque, pur nettoyage)
+b) Laisser — les imports inutilisés ne coûtent rien au runtime
+c) Supprimer + ajouter commentaire "// retiré Sprint AO" pour traçabilité
+
+────────────────────────────────────────
+P2 · calcDayPreview DIVERGE DU MOTEUR PRINCIPAL
+────────────────────────────────────────
+calcDayPreview (convergence.ts, ~ligne 805+) est une version
+simplifiée du pipeline L1→L3. Problème : elle utilise encore
+getPlanetaryRetroScore et calcInteractions avec delta ACTIF
+(delta += prevInteractions.totalBonus), alors que le moteur
+principal a stubé ces modules à delta=0.
+
+Un utilisateur consultant le preview puis le score final
+pourrait voir des écarts non explicables.
+
+OPTIONS :
+a) Aligner calcDayPreview : stuber retro/interactions comme L1
+b) Supprimer calcDayPreview entièrement (le front peut utiliser
+   le pipeline complet)
+c) Marquer calcDayPreview deprecated + warning console, corriger
+   au prochain sprint
+
+────────────────────────────────────────
+P3 · SYNERGIES V6 (L2) TOUJOURS ACTIVES
+────────────────────────────────────────
+convergence-slow.ts appelle encore calcInteractions (ligne ~473)
+dans le module Synergies V6 avec cap ±3 ajouté au delta L2.
+Cela signifie que les interactions (retirées en L1) injectent
+encore ±3 points via L2.
+
+Incohérence : L1 dit "interactions = 0" mais L2 ajoute ±3
+via le même calcul.
+
+OPTIONS :
+a) Stuber Synergies V6 comme L1 (interactions.totalBonus = 0)
+b) Retirer tout le bloc Synergies V6 de convergence-slow.ts
+c) Garder Synergies V6 mais documenter l'incohérence comme
+   "design intentionnel L2 ≠ L1"
+
+────────────────────────────────────────
+P4 · COMMENTAIRE STALE C_LUNE ±16 → ±12
+────────────────────────────────────────
+Interface DailyModuleResult (convergence-daily.ts, ~ligne 115) :
+le commentaire dit encore "// C_LUNE capé ±16" alors que le
+Sprint AO BONUS a réduit le cap à ±12.
+
+OPTIONS :
+a) Corriger le commentaire → "// C_LUNE capé ±12"
+b) Supprimer tous les commentaires de cap des interfaces
+   (les caps sont documentés dans le code exécutable)
+c) Ajouter JSDoc complet avec tous les caps actuels
+
+────────────────────────────────────────
+P5 · CHANGSHENG DOMAIN BONUSES — SIGNAL "FANTÔME"
+────────────────────────────────────────
+Le module Changsheng a été retiré du breakdown (delta=0) mais
+getChangsheng() est encore appelé pour alimenter les
+directDomainBonuses (VITALITE, BUSINESS : ±1 chacun).
+
+Ces domain bonuses ne touchent PAS le delta/score principal
+mais influencent les sous-scores par domaine. C'est un
+"signal fantôme" : le module est déclaré mort mais injecte
+encore de l'information.
+
+OPTIONS :
+a) Garder tel quel — les domain bonuses sont indépendants
+   du score principal, le signal est légitime
+b) Retirer aussi les domain bonuses Changsheng pour cohérence
+   complète (un module mort ne doit rien injecter)
+c) Documenter explicitement "Changsheng : delta=0, domain
+   bonuses actifs" dans le code
+
+────────────────────────────────────────
+P6 · KINETIC SHOCKS BYPASS ARCHITECTURAL
+────────────────────────────────────────
+KineticShocks ajoute ±3 directement au delta APRÈS le cap
+global L1 (±30). Ce delta est invisible au shadow score αG
+car il n'appartient à aucun des 4 groupes.
+
+Impact : un jour avec delta=30 (max L1) peut monter à 33
+via KS, soit +10% hors modèle. Le shadow score ne le voit pas.
+
+OPTIONS :
+a) Inclure KS dans C_EPHEM (transit exceptionnel) : le delta
+   KS serait capé par C_EPHEM ±10 et visible dans αG
+b) Créer un 5e groupe C_KS avec son propre αG et cap
+c) Garder KS hors groupes — c'est un "wild card" intentionnel
+   qui doit pouvoir dépasser les caps (documenter)
+
+────────────────────────────────────────
+BONUS · COMPRESSION P95_G.lune
+────────────────────────────────────────
+Le Monte Carlo donne P95_G.lune = 9 pour un cap de ±12.
+Ratio = 0.75, soit 25% de "marge morte" au-dessus de P95.
+
+Question : faut-il baisser le cap C_LUNE de ±12 à ±10
+pour resserrer l'espace utile, ou le cap ±12 est-il
+justifié pour les événements rares (éclipses) ?
+
+OPTIONS :
+a) Baisser C_LUNE à ±10 (95% des jours dans [-9,+9], les
+   éclipses montent à ±10)
+b) Garder ±12 — les éclipses et conjonctions rares justifient
+   la marge
+c) Ajuster σ_lune (4.2 → 4.8) dans le Monte Carlo pour
+   vérifier si P95 remonte avant de décider
+
+══════════════════════════════════════════════════════════════
+FORMAT DE RÉPONSE ATTENDU
+══════════════════════════════════════════════════════════════
+Pour chaque problème (P1 à P6 + BONUS), donne :
+1. Ton vote (a, b ou c)
+2. Justification technique (2-3 phrases max)
+3. Si tu vois un risque non listé, signale-le
+
+Termine par un résumé tabulaire :
+| Problème | Vote | Résumé 1 ligne |

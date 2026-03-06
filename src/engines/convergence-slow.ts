@@ -14,7 +14,7 @@ import { calcSolarReturn } from './solar-return';
 import { type IChingReading } from './iching';
 import { getMoonPhase, getEclipseNatalImpacts } from './moon';
 import { getAyanamsa } from './nakshatras';
-import { calcInteractions, buildInteractionContext } from './interactions';
+// calcInteractions, buildInteractionContext retirés Sprint AP P3 (Synergies V6 stubées)
 import { calcCurrentDasha, calcDashaScore, composeDashaMultipliers, calcSandhiSmoothing, type CurrentDasha } from './vimshottari';
 import { type SystemBreakdown, SLOW_PLANETS, type DashaCertaintyResult, type DashaCertaintyLevel } from './convergence.types';
 import { type DailyModuleResult } from './convergence-daily';
@@ -450,44 +450,8 @@ export function calcSlowModules(
     ? KW_YANG[iching.hexNum - 1]
     : 3;
 
-  const v6Ctx = buildInteractionContext({
-    hexNum: -1,
-    personalDay: -1,
-    personalYear: pyv,
-    personalMonth: -1,
-    moonPhaseIdx: moonPhaseRawPhase,
-    isVoC: false,
-    mercuryRetro: false,
-    jupiterPositive: false,
-    trinityBonus: 0,
-    dashaLord: currentDashaLord,
-    dashaLordTransitScore: dashaLordTransitScoreForCtx, // Sprint T: residuel Drishti + guard R27×R29
-    hexYangLines,
-    nakshatraName: nakshatraData?.name ?? null,
-    hasJupiterReturn,
-    hasSolarEclipseNatal,
-    profectionSignifiantScore: Math.round(profectionSignifiantScore),
-    profectionHouse: profectionResult?.activeHouse ?? (profectionResult as any)?.house ?? 0,
-  });
-
-  const v6Result = calcInteractions(v6Ctx);
-  const v6SynergyBonus = Math.max(-3, Math.min(3, v6Result.totalBonus)); // V6.2: ±6→±3 (surcouche amplificatrice — R17)
-
-  if (v6SynergyBonus !== 0) {
-    for (const ia of v6Result.active) {
-      const sign = ia.bonus > 0 ? '+' : '';
-      if (ia.bonus > 0) signals.push(`✨ ${ia.label} (${sign}${ia.bonus})`);
-      else alerts.push(`⚠️ ${ia.label} (${ia.bonus})`);
-    }
-    breakdown.push({
-      system: 'Synergies V6', icon: '🌀',
-      value: `${v6Result.active.length} synergie${v6Result.active.length > 1 ? 's' : ''} temporelle${v6Result.active.length > 1 ? 's' : ''}`,
-      points: v6SynergyBonus,
-      detail: v6Result.active.map(a => a.label.split('—')[0].trim()).join(' · '),
-      signals: v6Result.active.filter(a => a.bonus > 0).map(a => `${a.label} (+${a.bonus})`),
-      alerts:  v6Result.active.filter(a => a.bonus < 0).map(a => `${a.label} (${a.bonus})`),
-    });
-  }
+  // Sprint AP P3 — Synergies V6 stubé (interactions mortes en L1, cohérence L1=L2 — Ronde 8 consensus 2/3)
+  const v6SynergyBonus = 0;
 
   // ══════════════════════════════════════════════════════════════════
   // V6.0 — APPLICATION DU CONTEXTE MULTIPLICATEUR

@@ -1,0 +1,108 @@
+═══════════════════════════════════════════════════════════════
+KAIRONAUTE V10.9 — RONDE 8 · AUDIT POST-SPRINT AO · GEMINI
+═══════════════════════════════════════════════════════════════
+
+PERSONA : Tu es un expert en data science appliquée aux systèmes
+de scoring prédictif. Tu évalues la rigueur statistique, la
+cohérence architecturale et la maintenabilité du moteur.
+
+ARCHITECTURE POST-SPRINT AO :
+Pipeline 3 couches :
+  L1 = convergence-daily.ts → delta quotidien capé ±30
+  L2 = convergence-slow.ts → terrain (Dasha, Synergies V6)
+  L3 = convergence.ts → fusion : Score = 50 + 36 × tanh(0.840 × X_total) × terrain_sq
+
+Shadow Score (4 groupes normalisés) :
+  C_BAZI ±15, αG=1.00, G_CAP=0.85, P95_G=11
+  C_LUNE ±12, αG=1.20, G_CAP=0.90, P95_G=9
+  C_EPHEM ±10, αG=1.10, G_CAP=0.80, P95_G=7
+  C_INDIV ±8,  αG=0.90, G_CAP=0.70, P95_G=6
+
+KineticShocks : ±3 direct (hors cap L1, hors groupes αG)
+Monte Carlo : 500k sims, P5=20.3, P50=50.0, P95=79.8, Cosmique≥88=1j/an
+Dead code Sprint AO : NaYin, R31, R33, Pada, Retro, SCIS, Antardasha purgés
+Interactions/Trinity stubés (delta=0). 61/61 tests OK.
+
+══════════════════════════════════════════════════════════════
+6 PROBLÈMES + 1 BONUS — CHOISIS a, b OU c POUR CHACUN
+══════════════════════════════════════════════════════════════
+
+▸ P1 — IMPORTS FANTÔMES
+convergence.ts importe : getPlanetaryRetroScore, getNaYin,
+NaYinResult, calcInteractions, buildInteractionContext,
+getNaYinAffinityFactor. convergence-slow.ts importe :
+calcInteractions, buildInteractionContext.
+Fonctions jamais appelées post-Sprint AO.
+
+a) Supprimer tous les imports morts
+b) Laisser (aucun impact runtime ni bundle)
+c) Supprimer avec commentaire traçabilité
+
+▸ P2 — calcDayPreview INCOHÉRENT
+calcDayPreview (convergence.ts, ~L805) est un pipeline
+simplifié qui appelle encore getPlanetaryRetroScore et
+calcInteractions avec delta actif (+= totalBonus).
+Le moteur principal a stubé ces modules à 0.
+Un utilisateur voit des scores preview ≠ scores finaux.
+
+a) Stuber retro/interactions dans calcDayPreview (alignement)
+b) Supprimer calcDayPreview (le front appelle le pipeline complet)
+c) Marquer deprecated, corriger sprint suivant
+
+▸ P3 — SYNERGIES V6 INJECTENT ±3 VIA INTERACTIONS
+convergence-slow.ts, Synergies V6 appelle calcInteractions
+(cap ±3). Le résultat est ajouté au delta L2.
+Contradiction logique : L1 a stubé interactions à 0,
+mais L2 les réactive via un chemin parallèle.
+
+a) Stuber interactions dans Synergies V6 (cohérence L1=L2)
+b) Retirer entièrement le bloc Synergies V6
+c) Tolérer et documenter comme design intentionnel
+
+▸ P4 — COMMENTAIRE STALE "C_LUNE capé ±16"
+DailyModuleResult interface, ligne ~115 : commentaire dit
+"±16" alors que Sprint AO BONUS a réduit à ±12.
+
+a) Corriger → "±12"
+b) Retirer tous les commentaires de cap des interfaces
+c) Ajouter JSDoc exhaustif avec caps, αG, P95_G
+
+▸ P5 — CHANGSHENG DOMAIN BONUSES (MODULE "MORT")
+getChangsheng() est encore appelé pour injecter
+directDomainBonuses (VITALITE ±1, BUSINESS ±1).
+Le delta Changsheng est 0 dans le score principal.
+Paradoxe : module mort mais signal actif dans les domaines.
+
+a) Garder — les domain bonuses sont un canal séparé légitime
+b) Retirer aussi les domain bonuses (mort = mort)
+c) Documenter explicitement "delta=0 mais domains actifs"
+
+▸ P6 — KINETIC SHOCKS : BYPASS ARCHITECTURAL
+KS (+3) s'ajoute APRÈS le cap global L1 (±30).
+Ce delta est invisible au shadow score car hors des 4 groupes αG.
+Impact max : delta=33 sur un plafond théorique de 30.
+
+a) Intégrer KS dans C_EPHEM (capé ±10, traçable dans αG)
+b) Créer C_KS comme 5e groupe avec αG et cap propres
+c) Garder comme wild card assumé (documenter le bypass)
+
+▸ BONUS — COMPRESSION P95/CAP POUR C_LUNE
+P95_G.lune = 9 vs cap = 12. Ratio 0.75.
+25% de l'espace au-delà de P95 n'est utilisé que par les
+événements rares (éclipses, occultations). Est-ce excessif ?
+
+a) Réduire cap C_LUNE de ±12 à ±10
+b) Conserver ±12 pour les événements astronomiques rares
+c) Ajuster σ_lune (4.2 → 4.8) dans Monte Carlo pour tester
+   si P95 remonte, puis décider avec données
+
+══════════════════════════════════════════════════════════════
+FORMAT DE RÉPONSE ATTENDU
+══════════════════════════════════════════════════════════════
+Pour chaque problème (P1 à P6 + BONUS) :
+1. Ton vote : a, b ou c
+2. Justification (2-3 phrases max)
+3. Risque additionnel si tu en vois un
+
+Finis par un tableau récapitulatif :
+| Problème | Vote | Résumé 1 ligne |

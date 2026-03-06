@@ -10,7 +10,7 @@ import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx }
 import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
 import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon'; // Sprint AO P6: getPlanetaryRetroScore retiré
-import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getElementRelation, type ChangshengResult, type ShenShaResult } from './bazi'; // Sprint AO P6: getNaYin, NaYinResult retirés
+import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, getElementRelation, type ChangshengResult, type ShenShaResult } from './bazi'; // getChangsheng retiré Sprint AP P5
 import { type InteractionResult } from './interactions'; // Sprint AO P6: calcInteractions, buildInteractionContext retirés
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
@@ -112,7 +112,7 @@ export interface DailyModuleResult {
   planetaryHour: PlanetaryHour | null; // V9 Sprint 4 — heure planétaire chaldéenne courante
   // Z2-B — deltas de groupe pour observabilité L3 (Ronde Z consensus 3/3)
   baziGroupDelta: number;   // C_BAZI capé ±15
-  luneGroupDelta: number;   // C_LUNE capé ±16
+  luneGroupDelta: number;   // C_LUNE capé ±12 (Sprint AO BONUS)
   ephemGroupDelta: number;  // C_EPHEM capé ±10 (Sprint AN — était ±14)
   indivGroupDelta: number;  // Sprint AN — C_INDIV capé ±8
 }
@@ -444,13 +444,10 @@ export function calcDailyModules(
     });
   }
 
-  // Sprint AO P6 — Changsheng : delta=0 depuis V6.2, breakdown supprimé
-  // Calcul conservé uniquement pour directDomainBonuses (VITALITE, BUSINESS)
-  let changshengResult: ChangshengResult | null = null;
-  try {
-    changshengResult = getChangsheng(new Date(bd + 'T12:00:00'), new Date(todayStr + 'T12:00:00'));
-  } catch { /* Changsheng fail silently */ }
-  const changshengPts = 0; // stub pour baziFamilyTotal (inerte)
+  // Sprint AP P5 — Changsheng entièrement mort (Ronde 8 consensus 2/3 : mort = mort)
+  // delta=0 depuis V6.2, breakdown supprimé Sprint AO, domain bonuses supprimés Sprint AP
+  const changshengResult: ChangshengResult | null = null;
+  const changshengPts = 0;
 
   // ═══════════════════════════════════
   // 2c. SHEN SHA 神煞 (0-4 global) — V4.3
@@ -559,13 +556,8 @@ export function calcDailyModules(
   const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + changshengPts + jianchuPts + shenShaPts)); // V9.6 Sprint A2: C_BAZI ±15 + Sprint AJ: Shen Sha ±4
   delta += baziFamilyTotal;
 
-  // Direct domain bonuses (Changsheng + Shen Sha per-domain)
+  // Direct domain bonuses (Shen Sha per-domain — Changsheng retiré Sprint AP P5)
   const directDomainBonuses: Partial<Record<LifeDomain, number>> = {};
-  if (changshengResult) {
-    const cs = changshengResult.scoring;
-    directDomainBonuses.VITALITE = (directDomainBonuses.VITALITE || 0) + (cs.vitalite - cs.global);
-    directDomainBonuses.BUSINESS = (directDomainBonuses.BUSINESS || 0) + (cs.business - cs.global);
-  }
   if (shenShaResult && shenShaResult.active.length > 0) {
     directDomainBonuses.BUSINESS      = (directDomainBonuses.BUSINESS      || 0) + shenShaResult.totalBusiness;
     directDomainBonuses.AMOUR         = (directDomainBonuses.AMOUR         || 0) + shenShaResult.totalAmour;
@@ -1198,7 +1190,13 @@ export function calcDailyModules(
   // Consensus 3/3 IAs Ronde 4 confrontation
   // ═══════════════════════════════════
 
-  let kineticShockDelta = 0; // Sprint AM — isolé hors cap C_EPHEM (Ronde 5 : dirac capé = dirac invisible)
+  // ⚡ WILD CARD ARCHITECTURAL — KineticShocks ±3 (Sprint AP P6, Ronde 8 Gemini)
+  // Intentionnellement HORS groupes αG et hors cap global L1 (±30).
+  // Justification : impulsion de Dirac (ingress/station) qui doit contourner les caps
+  // pour capturer le choc événementiel pur. Si capé dans C_EPHEM, le signal s'écrase
+  // contre le plafond d'un jour saturé et disparaît. Le shadow score ne le voit pas — assumé.
+  // Impact max : delta global peut atteindre ±33 (30 + 3). Le tanh(0.840×X/12) absorbe.
+  let kineticShockDelta = 0;
   try {
     const ksResult = calcKineticShocks(todayStr);
     if (ksResult.totalDelta !== 0) {
