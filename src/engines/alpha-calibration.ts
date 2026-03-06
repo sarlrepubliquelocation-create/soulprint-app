@@ -21,9 +21,9 @@ const ALPHAG_MAX   = 2.00;   // borne abs par groupe
 const CAP_WEEKLY   = 0.05;   // ±0.05/groupe/semaine
 const LAMBDA_REV   = 0.15;   // taux réversion exponentielle (Ronde 9 hybride)
 const TAU_APPLY    = 0.30;   // seuil d'application (Ronde 8 — 2/3)
-const TAU_REV_P3   = 0.20;   // trigger réversion palier 3 (σ=0.089 → p≈0.024)
-const TAU_REV_P2   = 0.15;   // trigger réversion palier 2 (σ plus grand)
-const TAU_CANCEL   = 0.27;   // annulation réversion (Ronde 9)
+const TAU_REV_P3   = 0.15;   // trigger réversion palier 3 N≥60 (Ronde 10 consensus 2/3 GPT+Gemini — σ=0.089 → p≈0.046)
+const TAU_REV_P2   = 0.20;   // trigger réversion palier 2 shadow 21≤N<60 (Ronde 10 consensus 2/3 GPT+Gemini — σ≈0.12-0.15 → seuil plus tolérant)
+const TAU_CANCEL   = 0.25;   // seuil sortie réversion, 1 fenêtre suffit (Ronde 10 consensus 2/3 GPT+Grok)
 const MIN_WIN_FBKS = 3;      // feedbacks minimum par fenêtre 7j
 const NEFF_MIN     = 10;     // N_eff minimum sur données historiques
 const STD_MIN      = 2.5;    // std minimum des deltas dans fenêtre
@@ -285,6 +285,11 @@ export function runWeeklyAlphaGUpdate(now: Date = new Date()): AlphaGState {
     if (inReversion) {
       // Réversion exponentielle douce vers α_init : λ=0.15
       newCurrent[g] = (1 - LAMBDA_REV) * state.current[g] + LAMBDA_REV * state.init[g];
+      // Epsilon snap-to-grid (Ronde 10 Gemini, unanime logique)
+      // L'exponentielle ne touche jamais son asymptote → forcer α_init quand écart ≤ 0.01
+      if (Math.abs(newCurrent[g] - state.init[g]) <= 0.01) {
+        newCurrent[g] = state.init[g];
+      }
     } else if (absT >= TAU_APPLY) {
       // Critères qualité
       const stdOK = kMap[g].stdX >= STD_MIN;
