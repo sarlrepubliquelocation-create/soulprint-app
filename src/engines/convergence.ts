@@ -986,13 +986,14 @@ export function calcConvergence(
 
   const nakshatraMods = daily.nakshatraData?.domainModifiers as Record<string, number> | undefined;
   // V9.0 P3 — Nakshatra affinités dynamiques : traduit domainModifiers (0.5-1.5) → [0,1] pour DOMAIN_AFFINITY
+  // Sprint AU P3 : mapping corrigé (x-0.5)/1.0 — était x/1.5 → [0.33,1.0] au lieu de [0,1]
   const nakshatraAffinityOverride = nakshatraMods ? {
-    BUSINESS:      (nakshatraMods['Business']      ?? 1.0) / 1.5,
-    AMOUR:         (nakshatraMods['Amour']         ?? 1.0) / 1.5,
-    RELATIONS:     (nakshatraMods['Relations']     ?? 1.0) / 1.5,
-    CREATIVITE:    (nakshatraMods['Créativité']    ?? 1.0) / 1.5,
-    INTROSPECTION: (nakshatraMods['Introspection'] ?? 1.0) / 1.5,
-    VITALITE:      (nakshatraMods['Vitalité']      ?? 1.0) / 1.5,
+    BUSINESS:      ((nakshatraMods['Business']      ?? 1.0) - 0.5),
+    AMOUR:         ((nakshatraMods['Amour']         ?? 1.0) - 0.5),
+    RELATIONS:     ((nakshatraMods['Relations']     ?? 1.0) - 0.5),
+    CREATIVITE:    ((nakshatraMods['Créativité']    ?? 1.0) - 0.5),
+    INTROSPECTION: ((nakshatraMods['Introspection'] ?? 1.0) - 0.5),
+    VITALITE:      ((nakshatraMods['Vitalité']      ?? 1.0) - 0.5),
   } as Record<LifeDomain, number> : undefined;
   const contextualScores = calculateContextualScores(
     breakdown, score, num.py.v, num.pm.v,
@@ -1523,8 +1524,8 @@ export function debugAnalyzeCapture(): void {
     console.log('Aucun delta capturé. Active la capture avec : window.__kDebug = true');
     return;
   }
-  const compress47 = (d: number) => Math.round(50 + 45 * Math.sign(d) * Math.pow(Math.min(Math.abs(d) / 47, 1), 1.4));
-  const scores = buf.map(d => Math.max(5, Math.min(97, compress47(d))));
+  // Sprint AU P2 : aligné sur compress() réel (maxDelta=22, exp=1.05) — était compress47(47, 1.4) obsolète
+  const scores = buf.map(d => Math.max(5, Math.min(97, compress(d))));
   const n = scores.length;
   console.log(`\n=== CAPTURE PASSIVE — ${n} appels réels ===`);
   console.table([{

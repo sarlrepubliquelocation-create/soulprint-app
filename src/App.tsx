@@ -3,7 +3,7 @@ import { calcNumerology, calcPersonalYear, calcPersonalMonth, calcPersonalDay, r
 import { calcAstro, type AstroChart, findCity, getPlanetLongitudeForDate } from './engines/astrology';
 import { calcChineseZodiac, type ChineseZodiac } from './engines/chinese-zodiac';
 import { calcIChing, getHexTier, type IChingReading } from './engines/iching';
-import { calcConvergence, clearRarityCache, calcDayPreview, estimateSlowTransitBonus, type ConvergenceResult } from './engines/convergence';
+import { calcConvergence, clearRarityCache, clearDayPreviewCache, calcDayPreview, estimateSlowTransitBonus, type ConvergenceResult } from './engines/convergence';
 import { calculateLuckPillars, type LuckPillarResult } from './engines/bazi';
 import { generateStrategicReading } from './engines/strategic-reading';
 import { getRetroSchedule, getEclipseList, getMercuryStatus, getMoonPhase, getVoidOfCourseMoon, getPlanetaryRetroScore, getPlanetaryRetrogrades } from './engines/moon';
@@ -104,7 +104,7 @@ export default function App() {
     document.head.appendChild(s);
   }, []);
 
-  const doVal = () => { clearRarityCache(); setLock({ fn, mn, ln, bd, bt, bp, gn, tz }); setTab('convergence'); setNarr(''); };
+  const doVal = () => { clearRarityCache(); clearDayPreviewCache(); setLock({ fn, mn, ln, bd, bt, bp, gn, tz }); setTab('convergence'); setNarr(''); };
 
   const data = useMemo<SoulData | null>(() => {
     const L = lock;
