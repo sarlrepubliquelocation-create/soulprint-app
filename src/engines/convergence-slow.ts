@@ -670,35 +670,7 @@ export function calcSlowModules(
     }
   } catch { /* Chandra Yoga fail silently */ }
 
-  // ═══════════════════════════════════
-  // ANTARDASHA ACTIVATION — Sprint P2 — V10.9
-  // Gemini+GPT Ronde 14 : antaraLord (3 mois-3 ans) plus précis que mahaLord (6-20 ans)
-  // Condition : seigneur Nakshatra transit = seigneur Antardasha actuel → amplification ±1
-  // ═══════════════════════════════════
-  try {
-    if (currentDasha && nakshatraData) {
-      const antaraL = currentDasha.antar.lord;  // ex: 'Vénus', 'Jupiter'
-      const nakL    = nakshatraData.lord;        // ex: 'Vénus', 'Jupiter'
-      if (antaraL && nakL && antaraL === nakL) {
-        const nakBk = breakdown.find(b => b.system === 'Nakshatra');
-        if (nakBk && nakBk.points !== 0) {
-          const ampDelta = 0; // Sprint AN — Antardasha supprimé (Ronde 6 P6 : delta < 2, même logique Pada/R31)
-          // delta += ampDelta; // Sprint AN — neutralisé
-          const tag = ampDelta > 0 ? `+${ampDelta}` : `${ampDelta}`;
-          const label = `🔥 Antardasha × Nakshatra — ${antaraL} (${tag})`;
-          if (ampDelta > 0) signals.push(label); else alerts.push(label);
-          breakdown.push({
-            system: 'Antardasha Activation', icon: '🔥',
-            value: `${antaraL} — lord Nakshatra + Antara`,
-            points: ampDelta,
-            detail: `Nakshatra transit et Antardasha partagent le même seigneur — Sprint P2`,
-            signals: ampDelta > 0 ? [label] : [],
-            alerts:  ampDelta < 0 ? [label] : [],
-          });
-        }
-      }
-    }
-  } catch { /* antaraLord amplification fail silently */ }
+  // Sprint AO P6 — Antardasha supprimé (code mort depuis Sprint AN, delta < 2)
 
   // ═══════════════════════════════════
   // NŒUDS LUNAIRES — Sprint U5 (L2)
@@ -728,59 +700,7 @@ export function calcSlowModules(
     }
   } catch { /* Nœuds Lunaires fail silently */ }
 
-  // ═══════════════════════════════════
-  // SCIS — Score de Cohérence Inter-Systèmes — Sprint P2 — V10.9
-  // Gemini Ronde 14 : seuil déterministe |sumSigns| ≥ 3 (3 systèmes sur 4 alignés)
-  // GPT Ronde 14 : micro-delta ±2 capé — ne se déclenche que lors de convergences rares
-  // ═══════════════════════════════════
-  try {
-    const SCIS_NUM  = new Set(['Numérologie']);
-    const SCIS_BAZI = new Set(['BaZi', '10 Gods', 'Changsheng', 'Na Yin', 'Jian Chu', 'Shen Sha', 'Peach Blossom']);
-    const SCIS_LUNE = new Set(['Nakshatra', 'Nakshatra Pada', 'Tarabala', 'Chandrabala',
-      'Ashtakavarga ☽', 'Panchanga', 'Graha Drishti', 'Yoga Kartari', 'Tithi Lord', 'Chandra Yoga']);
-    const SCIS_EPHEM = new Set(['Astrologie', 'Planètes', 'Étoiles Fixes', 'Synergies']);
-
-    let dNum = 0, dBazi = 0, dLune = 0, dEphem = 0;
-    for (const b of breakdown) {
-      if (SCIS_NUM.has(b.system))  dNum   += b.points;
-      else if (SCIS_BAZI.has(b.system))  dBazi  += b.points;
-      else if (SCIS_LUNE.has(b.system))  dLune  += b.points;
-      else if (SCIS_EPHEM.has(b.system)) dEphem += b.points;
-    }
-
-    // Y3c — SCIS nouveau seuil (GPT Ronde 3 — MEMO-Y0)
-    // Ancien seuil : |sumSigns| >= 3 (3/4 groupes alignés faiblement) → trop fréquent
-    // Nouveau seuil : 4/4 groupes alignés + au moins 3 groupes à magnitude forte
-    //   SCIS_MIN_MAG = 3.5 pts ≈ 0.35 × cap_moyen (~10 pts) en espace delta brut
-    //   Fréquence cible : ~15-18 j/an (vs ancien ~40-50 j/an)
-    const sgn = (x: number) => Math.abs(x) > 1 ? Math.sign(x) : 0;
-    const signs    = [sgn(dNum), sgn(dBazi), sgn(dLune), sgn(dEphem)];
-    const sumSigns = signs.reduce((a, b) => a + b, 0);
-
-    const SCIS_MIN_MAG  = 3.5;
-    const groupDeltas   = [dNum, dBazi, dLune, dEphem];
-    const strongGroups  = groupDeltas.filter(g => Math.abs(g) > SCIS_MIN_MAG).length;
-    const isAllAligned  = Math.abs(sumSigns) === 4;  // 4/4 dans le même sens
-    const scisActive    = isAllAligned && strongGroups >= 3;
-
-    if (scisActive) {
-      const scisDelta = 0; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : variable poubelle)
-      // delta += scisDelta; // SUPPRIMÉ Sprint AM
-      const sLabel = sumSigns > 0
-        ? `🌟 Convergence Inter-Systèmes (+2) — 4/4 alignés · ${strongGroups} forts`
-        : `⚠️ Convergence Critique (-2) — 4/4 alignés · ${strongGroups} forts`;
-      if (sumSigns > 0) signals.push(sLabel); else alerts.push(sLabel);
-      const polarOf = (v: number) => v > 0 ? '+' : v < 0 ? '−' : '○';
-      breakdown.push({
-        system: 'SCIS', icon: sumSigns > 0 ? '🌟' : '⚠️',
-        value: `4/4 systèmes convergents (${strongGroups} forts)`,
-        points: scisDelta,
-        detail: `NUM${polarOf(sgn(dNum))} BaZi${polarOf(sgn(dBazi))} Lune${polarOf(sgn(dLune))} Eph${polarOf(sgn(dEphem))} — Y3c nouveau seuil`,
-        signals: sumSigns > 0 ? [sLabel] : [],
-        alerts:  sumSigns < 0 ? [sLabel] : [],
-      });
-    }
-  } catch { /* SCIS fail silently */ }
+  // Sprint AO P6 — SCIS supprimé (code mort depuis Sprint AM, delta=0)
 
   // Cap global ±60 avant compression
   const clampedDelta = Math.max(-60, Math.min(60, delta));

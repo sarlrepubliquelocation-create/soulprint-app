@@ -1028,7 +1028,7 @@ export function calcConvergence(
   // ── L3 : Assemblage final ──
   // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
   // Fallback silencieux vers compress() si calcShadowScore() échoue (guard zéro-régression)
-  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta); // AB-G1
+  const _scoreY5 = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta); // AB-G1 + AO-P2
   const score = _scoreY5 !== undefined
     ? Math.max(5, Math.min(97, _scoreY5))
     : Math.max(5, Math.min(97, compress(finalDelta)));  // fallback Y5
@@ -1132,7 +1132,7 @@ export function calcConvergence(
     nuclearHex: nuclearHexResult,
     dashaCertainty,
     shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
-    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta), // Y5 + AB-G1
+    shadowScore: calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta), // Y5 + AB-G1 + AO-P2
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,
@@ -1142,7 +1142,7 @@ export function calcConvergence(
     // Déclenchement : range ≥ 20 ET garde signe (max ≥ +8 AND min ≤ -8)
     // Seuil intermédiaire : 20 pts (consensus GPT ≥22 / Gemini >18 → médiane arrondie)
     ...(() => {
-      const gDeltas = [daily.baziGroupDelta, daily.luneGroupDelta, daily.ephemGroupDelta];
+      const gDeltas = [daily.baziGroupDelta, daily.luneGroupDelta, daily.ephemGroupDelta, daily.indivGroupDelta]; // AO-P2: 4e groupe
       const gMax    = Math.max(...gDeltas);
       const gMin    = Math.min(...gDeltas);
       const tension = gMax - gMin;
@@ -1170,6 +1170,7 @@ function calcShadowScore(
   luneGroupDelta: number,
   ephemGroupDelta: number,
   baziGroupDelta: number,
+  indivGroupDelta: number = 0, // Sprint AO — 4e groupe (Ronde 7 consensus 3/3)
 ): number | undefined {
   try {
     const A    = 36.0;
@@ -1178,24 +1179,26 @@ function calcShadowScore(
     const MAX_DELTA = 22;  // point de saturation de compress() — même référence
 
     // AB-G1 — X_hier avec αG hiérarchisés (GPT G1 Ronde 3 + Ronde 4 T1)
-    // αG : lune=1.20, ephem=1.10, bazi=1.00 (num/iching ajoutés en Sprint AC)
-    // X_core clamped ±1.6 pour préserver headroom base_signal védique (2/3 IAs Ronde 4)
-    // P95 groupes (N=50k) : lune=12, ephem=10, bazi=11
+    // Sprint AO — 4 groupes : lune, ephem, bazi, indiv (Ronde 7 consensus 3/3)
+    // Sprint AO P3 — P95_G recalibrés par Monte Carlo (N=500k, robustP95 winsorisé)
     const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
     const ALPHA_G = getAdaptedAlphaG().current; // Sprint AE — αG adaptatifs (fallback init si localStorage vide)
-    const P95_G   = { lune: 12,   ephem: 10,   bazi: 11   } as const;
-    const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85 } as const;
+    const ALPHA_I = 0.90;  // Sprint AO — αI fixe, sera intégré dans calibration adaptative post-Monte Carlo
+    const P95_G   = { lune: 9,    ephem: 7,    bazi: 11,   indiv: 6  } as const; // Monte Carlo AO-P3
+    const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
 
     const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
     const xE = _clampG(ephemGroupDelta / P95_G.ephem, -1, +1);
     const xB = _clampG(baziGroupDelta  / P95_G.bazi,  -1, +1);
+    const xI = _clampG(indivGroupDelta / P95_G.indiv, -1, +1);
 
     const XL = _clampG(ALPHA_G.lune  * xL, -G_CAP.lune,  +G_CAP.lune);
     const XE = _clampG(ALPHA_G.ephem * xE, -G_CAP.ephem, +G_CAP.ephem);
     const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
+    const XI = _clampG(ALPHA_I       * xI, -G_CAP.indiv, +G_CAP.indiv);
 
     // X_core ±1.6 : réserve headroom pour beta_eff × base_signal (BPHS : noyau védique prioritaire)
-    const X_core = _clampG(XL + XE + XB, -1.6, +1.6);
+    const X_core = _clampG(XL + XE + XB + XI, -1.6, +1.6);
     const X      = _clampG(X_core, -2, +2);
 
     // Terrain combiné (ctxMult × dashaMult)

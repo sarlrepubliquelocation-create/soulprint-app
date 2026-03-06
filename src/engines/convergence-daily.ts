@@ -1,7 +1,7 @@
 // ══════════════════════════════════════
 // ═══ CONVERGENCE DAILY — L1 — V8.0 ═══
 // Step 5 split : modules quotidiens de calcConvergence
-// Contient : helpers (calcDayType, ichingScoreV4, calcMoonScore, getNaYinAffinityFactor)
+// Contient : helpers (calcDayType, ichingScoreV4, calcMoonScore)
 //           + calcDailyModules() — L1 pass-by-reference Option A
 // Ne contient PAS les modules lents (L2) ni l'assemblage final (L3)
 // ══════════════════════════════════════
@@ -9,13 +9,13 @@
 import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx } from './numerology';
 import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
-import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getPlanetaryRetroScore, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon';
-import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getNaYin, getElementRelation, type ChangshengResult, type ShenShaResult, type NaYinResult } from './bazi';
-import { calcInteractions, buildInteractionContext, type InteractionResult } from './interactions';
+import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon'; // Sprint AO P6: getPlanetaryRetroScore retiré
+import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, getChangsheng, checkShenSha, getElementRelation, type ChangshengResult, type ShenShaResult } from './bazi'; // Sprint AO P6: getNaYin, NaYinResult retirés
+import { type InteractionResult } from './interactions'; // Sprint AO P6: calcInteractions, buildInteractionContext retirés
 import { calcProfection, getDomainScore, type ProfectionResult } from './profections';
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 import { calcDMStrength, getDMMultiplier, type DMStrengthResult } from './dm-strength'; // Sprint AI
-import { getAyanamsa, calcNakshatraComposite, type NakshatraData, getPada, PADA_MULTIPLIERS, PADA_NAMES } from './nakshatras';
+import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './nakshatras'; // Sprint AO P6: getPada, PADA_MULTIPLIERS, PADA_NAMES retirés
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
 import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
@@ -340,28 +340,16 @@ export function calcDailyModules(
   if (activePinnacle && pdv === activePinnacle.v) { pinnPts = 1; } // Pinnacle narratif supprimé V6.2
   if (activeChallenge && pdv === activeChallenge.v) { pinnPts = -1; } // Défi narratif supprimé V6.2
 
-  // V8 : PD narratif + onboarding commercial (R25 GPT — redondant BaZi, valeur acquisition)
-  // numTotal=0 → non ajouté au delta. pdPts conservé pour breakdown display uniquement.
-  const numTotal = 0;
-  // delta += numTotal; // SUPPRIMÉ V8
-
-  // ── V4.7: Signal dette karmique ──
+  // Sprint AO P6 — Numérologie : delta=0 depuis V8, breakdown supprimé
+  const numTotal = 0; // stub interface
+  // Karmic debt signals conservés (valeur narrative)
   if ((num as any).hasKarmicDebt && (num as any).karmicDebt) {
     const kd = (num as any).karmicDebt as number;
     const kdMsg = kd === 13 ? 'effort & discipline' : kd === 14 ? 'liberté & excès' : kd === 16 ? 'ego & humilité' : 'puissance & abus';
-    numSignals.push(`⚖️ Dette karmique ${kd} active — ${kdMsg}`);
     signals.push(`⚖️ Dette karmique ${kd} — ${kdMsg}`);
   }
-
   signals.push(...numSignals);
   alerts.push(...numAlerts);
-  breakdown.push({
-    system: 'Numérologie', icon: '✦',
-    value: `PD ${pdv} ${pdInfo.k}`,
-    points: 0, // V8 : narratif — pdPts affiché mais zéro delta (R25)
-    detail: numDetail.length > 0 ? numDetail.join(' · ') : 'Aucune résonance',
-    signals: numSignals, alerts: numAlerts,
-  });
 
   // ═══════════════════════════════════
   // 2. BaZi FAMILLE (±18 groupé) — V4.4b
@@ -456,28 +444,13 @@ export function calcDailyModules(
     });
   }
 
-  // ═══════════════════════════════════
-  // 2b. CHANGSHENG 十二長生 (±4 global) — V4.3
-  // ═══════════════════════════════════
-
+  // Sprint AO P6 — Changsheng : delta=0 depuis V6.2, breakdown supprimé
+  // Calcul conservé uniquement pour directDomainBonuses (VITALITE, BUSINESS)
   let changshengResult: ChangshengResult | null = null;
-  let changshengPts = 0;
   try {
-    const csBirthDate = new Date(bd + 'T12:00:00');
-    const csTodayDate = new Date(todayStr + 'T12:00:00');
-    changshengResult = getChangsheng(csBirthDate, csTodayDate);
-    changshengPts = 0; // V6.2: neutralisé (texture, redondant avec DM — R16)
-    if (changshengPts > 0) signals.push(`${changshengResult.scoring.chinese} ${changshengResult.phase} → ${changshengResult.scoring.label_fr.split('—')[0].trim()}`);
-    if (changshengPts < 0) alerts.push(`${changshengResult.scoring.chinese} ${changshengResult.phase} → ${changshengResult.scoring.label_fr.split('—')[0].trim()}`);
-    breakdown.push({
-      system: 'Changsheng', icon: '♻',
-      value: `${changshengResult.scoring.chinese} ${changshengResult.phase}`,
-      points: changshengPts,
-      detail: changshengResult.scoring.label_fr,
-      signals: changshengPts > 0 ? [`${changshengResult.scoring.chinese} → phase ascendante`] : [],
-      alerts: changshengPts < 0 ? [`${changshengResult.scoring.chinese} → phase descendante`] : [],
-    });
+    changshengResult = getChangsheng(new Date(bd + 'T12:00:00'), new Date(todayStr + 'T12:00:00'));
   } catch { /* Changsheng fail silently */ }
+  const changshengPts = 0; // stub pour baziFamilyTotal (inerte)
 
   // ═══════════════════════════════════
   // 2c. SHEN SHA 神煞 (0-4 global) — V4.3
@@ -531,32 +504,7 @@ export function calcDailyModules(
     }
   } catch { /* Shen Sha fail silently */ }
 
-  // ═══════════════════════════════════
-  // 2c-bis. NA YIN 纳音 (±1 lissé) — V4.4
-  // ═══════════════════════════════════
-
-  let naYinPts = 0;
-  let naYinResult: NaYinResult | null = null;
-  try {
-    naYinResult = getNaYin(new Date(todayStr + 'T12:00:00'));
-    const cat = naYinResult.entry.category;
-    const natalEl = baziResult?.natalStem?.element ?? null;
-    const rawNY = (cat === 'puissant' || cat === 'transformateur') ? 1 : cat === 'subtil' ? -1 : 0;
-    if (rawNY !== 0) {
-      const affinity = getNaYinAffinityFactor(natalEl, naYinResult.entry.element);
-      naYinPts = 0; // V6.2: neutralisé (symbolisme poétique — R15/R16)
-    }
-    if (false && naYinResult) { // signals NaYin supprimés V6.2
-      breakdown.push({
-        system: 'Na Yin', icon: '纳',
-        value: naYinResult!.entry.name_fr,
-        points: naYinPts,
-        detail: `${naYinResult!.entry.name_cn} — ${naYinResult!.entry.description}`,
-        signals: naYinPts > 0 ? [naYinResult!.advice] : [],
-        alerts: naYinPts < 0 ? [naYinResult!.advice] : [],
-      });
-    }
-  } catch { /* Na Yin fail silently */ }
+  // Sprint AO P6 — NaYin supprimé (code mort depuis V6.2, if(false))
 
   // ═══════════════════════════════════
   // 2f. JIAN CHU 建除 (12 Officers) — V8.9 T1
@@ -798,152 +746,17 @@ export function calcDailyModules(
         });
       } catch { /* Tarabala/Chandrabala silently */ }
 
-      // ── R32 : Retour Nakshatra natal (Grok Ronde 3 — ~13j/an) ──
-      // Doctrine Jyotish (BPHS) : quand la Lune de transit retrouve son Nakshatra natal,
-      // un cycle karmique personnel se referme → activation personnelle amplifiée.
-      // Guard Tarabala : si tarabalaPts >= 2 (Sampat/Kshema déjà actifs),
-      //   bonus réduit à +1.5 pour éviter le double-comptage géométrique.
-      // Abhijit exclu (276.67°–280.89° sid.) : nakshatra supra-lunaire hors base-27.
-      try {
-        const NAK_SIZE      = 360 / 27;
-        const transitNakIdx = Math.floor(((moonLongSidereal % 360) + 360) % 360 / NAK_SIZE);
-        const natalNakIdx   = Math.floor(((natalMoonSidForNak % 360) + 360) % 360 / NAK_SIZE);
-        const isAbhijit     = moonLongSidereal >= 276.67 && moonLongSidereal < 280.89;
-
-        if (transitNakIdx === natalNakIdx && !isAbhijit && nakshatraData) {
-          const r32Pts = tarabalaPts >= 2 ? 1.5 : 3.0;
-          luneGroupPts += r32Pts;
-          const label = `🔄 R32 Retour Nakshatra natal — ${nakshatraData.name} actif (+${r32Pts})`;
-          signals.push(label);
-          breakdown.push({
-            system: 'Nakshatra Natal', icon: '🔄',
-            value:  `Retour sur ${nakshatraData.name}`,
-            points: r32Pts,
-            detail: `Nak transit (${transitNakIdx}) = Nak natal · cycle karmique · BPHS · R32`,
-            signals: [label],
-            alerts:  [],
-          });
-        }
-      } catch { /* R32 fail silently */ }
+      // Sprint AO — R32 Retour Nakshatra supprimé (Ronde 7 consensus 2/3 GPT+Gemini)
+      // Biais positif unilatéral (+3, ~13j/an), colinéaire avec Janma Tara (Tarabala pos.1)
     }
 
-    // ── R31 : Cohérence lunaire Nakshatra × Phase (V8 — Synth. védique) ──
-    // Doctrine Jyotish : L'effet du Nakshatra est amplifié si la Lune est croissante sur un Nakshatra
-    // harmonique (Chandra Bala renforcé), et atténué si elle est décroissante sur un Nakshatra maléfique.
-    // Lune croissante = phases 1-4 (Nouvelle → Pleine), décroissante = phases 5-7 (Pleine → Nouvelle).
-    // moonPhaseRaw.phase : 0=New, 1-3=croissant, 4=Full, 5-7=décroissant
-    try {
-      const moonPhaseForR31 = getMoonPhase(new Date(todayStr + 'T12:00:00'));
-      const phaseIdx = moonPhaseForR31.phase ?? -1;
-      const nakQuality = nakshatraData?.globalBaseScore ?? 0;
-      const isWaxing = phaseIdx >= 1 && phaseIdx <= 3;   // croissante (hors nouvelle lune = phase 0)
-      const isWaning = phaseIdx >= 5 && phaseIdx <= 7;   // décroissante
-      let r31Pts = 0;
-      if (isWaxing && nakQuality > 0) {
-        // Amplification : Nakshatra harmonique + Lune montante → cap étendu de ±7 à ±8
-        r31Pts = 1;
-        signals.push(`🌒 R31 Cohérence lunaire — Lune croissante sur Nakshatra harmonique (+1)`);
-      } else if (isWaning && nakQuality < 0) {
-        // Atténuation : Nakshatra maléfique + Lune décroissante → ×0.8 du score Nakshatra
-        // Implémentation additive : réduire légèrement l'impact total (pas de multiplication directe)
-        r31Pts = -1;
-        alerts.push(`🌘 R31 Cohérence lunaire — Lune décroissante amplifie Nakshatra maléfique (-1)`);
-      } else if (isWaxing && nakQuality < 0) {
-        // Contrebalancement partiel : Lune montante atténue le Nakshatra négatif
-        r31Pts = 1;
-        signals.push(`🌒 R31 Cohérence lunaire — Lune croissante contrebalance Nakshatra maléfique (+1)`);
-      }
-      // if (r31Pts !== 0) luneGroupPts += r31Pts; // Sprint AM — neutralisé (Ronde 5 : delta < 2, bruit d'arrondi)
-    } catch { /* R31 fail silently */ }
+    // Sprint AO P6 — R31 Cohérence lunaire supprimée (code mort depuis Sprint AM, delta < 2)
 
-    // ── Sprint K : Nakshatra Pada (groupe LUNE) ──
-    // Pada = quart de Nakshatra (3.333°) · Purusharthas (Dharma/Artha/Kama/Moksha)
-    // Delta = globalBaseScore × (padaMult − 1.0) : affine le score nakshatra sans surpondérer
-    // Si globalBaseScore = 0 (nakshatra neutre) → padaDelta = 0 (aucun effet)
-    if (nakshatraData) {
-      try {
-        const padaIdx   = getPada(moonLongSidereal);
-        const padaMult  = PADA_MULTIPLIERS[padaIdx];
-        const padaName  = PADA_NAMES[padaIdx];
-        const rawDelta  = nakshatraData.globalBaseScore * (padaMult - 1.0);
-        const padaDelta = Math.max(-1, Math.min(1, rawDelta));
-        if (padaDelta !== 0) {
-          // luneGroupPts += padaDelta; // Sprint AM — neutralisé (Ronde 5 : delta < 2, noyé dans cap)
-          const sign  = padaDelta > 0 ? '+' : '';
-          const label = `🌟 Pada ${padaIdx + 1} ${padaName} — ${nakshatraData.name} (${sign}${padaDelta.toFixed(2)})`;
-          if (padaDelta > 0) signals.push(label);
-          else               alerts.push(label);
-          breakdown.push({
-            system: 'Nakshatra Pada', icon: '🪐',
-            value:  `Pada ${padaIdx + 1} — ${padaName}`,
-            points: padaDelta,
-            detail: `${nakshatraData.name} Pada ${padaIdx + 1} (×${padaMult}) — Purushartha`,
-            signals: padaDelta > 0 ? [label] : [],
-            alerts:  padaDelta < 0 ? [label] : [],
-          });
-        }
-      } catch { /* Pada fail silently */ }
-    }
+    // Sprint AO P6 — Pada supprimé (code mort depuis Sprint AM, delta < 2)
 
   } catch { /* nakshatras fail silently */ }
 
-  // ═══════════════════════════════════
-  // R33 : Réconciliation BaZi × Védique (Wu Xing ↔ Tattwa)
-  // Grok Ronde 3 : le Day Master BaZi et le lord du Nakshatra transit partagent
-  // la même essence élémentaire (Tattwa). Harmonie = +1.5, Friction = -1.0.
-  // Table Wu Xing→Tattwa : Bois=Vayu · Feu=Agni · Terre=Prithvi · Métal=Vayu · Eau=Jala
-  // AA-1 — correction doctrinale (Grok R1 Ronde 2 — Tattwa Bodha + Pañcadaśī §1.14-1.18)
-  // Métal=Akasha était incorrect → Métal=Vayu (descendant-contractif, Bois=montant-expansif)
-  // Table Lords→Tattwa : Ketu/Soleil/Mars=Agni · Lune/Vénus=Jala
-  //                      Rahu/Saturne=Vayu · Jupiter=Akasha · Mercure=Prithvi
-  // ═══════════════════════════════════
-  try {
-    const dmElement = baziResult?.natalStem?.element ?? null;
-    const nakLord   = nakshatraData?.lord ?? null;
-
-    if (dmElement && nakLord) {
-      const WU_XING_TO_TATTWA: Record<string, string> = {
-        'Bois':  'Vayu',
-        'Feu':   'Agni',
-        'Terre': 'Prithvi',
-        'Métal': 'Vayu',   // AA-1 — corrigé depuis Akasha (Grok R1 Ronde 2)
-        'Eau':   'Jala',
-      };
-      const LORD_TO_TATTWA: Record<string, string> = {
-        'Ketu':    'Agni', 'Soleil': 'Agni', 'Mars':    'Agni',
-        'Lune':    'Jala', 'Vénus':  'Jala',
-        'Rahu':    'Vayu', 'Saturne':'Vayu',
-        'Jupiter': 'Akasha',
-        'Mercure': 'Prithvi',
-      };
-
-      const dmTattwa  = WU_XING_TO_TATTWA[dmElement] ?? null;
-      const nakTattwa = LORD_TO_TATTWA[nakLord]       ?? null;
-
-      if (dmTattwa && nakTattwa) {
-        // AC-R2 — nuance qualitative Bois/Métal dans l'harmonie Vayu (Grok R3 Ronde 3)
-        // Bois=Vayu montant/expansif vs Métal=Vayu descendant/contractif (San Ming Tong Hui)
-        // Quand harmonie Vayu×Vayu : nuance selon le Day Master
-        const r33Nuance = (dmTattwa === nakTattwa && dmTattwa === 'Vayu')
-          ? (dmElement === 'Bois' ? -0.5 : dmElement === 'Métal' ? +0.3 : 0)
-          : 0;
-        const r33Pts = 0; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : syncrétisme arbitraire)
-        // delta += r33Pts; // SUPPRIMÉ Sprint AM
-        const label = r33Pts > 0
-          ? `⚡ R33 BaZi×Védique — ${dmElement} (${dmTattwa}) s'accorde avec ${nakLord} (${nakTattwa}) (+${r33Pts})`
-          : `🔻 R33 BaZi×Védique — ${dmElement} (${dmTattwa}) en friction avec ${nakLord} (${nakTattwa}) (${r33Pts})`;
-        if (r33Pts > 0) signals.push(label); else alerts.push(label);
-        breakdown.push({
-          system: 'Synergies', icon: r33Pts > 0 ? '⚡' : '🔻',
-          value:  `${dmElement} ↔ ${nakLord}`,
-          points: r33Pts,
-          detail: `Wu Xing ${dmElement}=${dmTattwa} | Lord ${nakLord}=${nakTattwa} · R33`,
-          signals: r33Pts > 0 ? [label] : [],
-          alerts:  r33Pts < 0 ? [label] : [],
-        });
-      }
-    }
-  } catch { /* R33 fail silently */ }
+  // Sprint AO P6 — R33 BaZi×Védique supprimé (code mort depuis Sprint AM, syncrétisme arbitraire)
 
   // ═══════════════════════════════════
   // 5. MERCURE — V8: alerte narrative (R25 — bruit populaire, valeur commerciale d'acquisition)
@@ -1092,31 +905,12 @@ export function calcDailyModules(
     });
   } catch { /* panchanga fail silently */ }
 
-  // Sprint G — Application cap groupe LUNE ±16 (Nakshatra + R31 + VoC + Ash☽ + Panchanga + Karana + Tarabala + Chandrabala)
-  // Cap élargi de ±14 → ±16 : +Tarabala(±3) +Chandrabala(±3), Ronde 11 consensus 2/3
-  const luneGroupCapped = Math.max(-16, Math.min(16, luneGroupPts)); // Sprint P — hoissé pour LuneGate
+  // Sprint AO — C_LUNE cap ±16 → ±12 (Ronde 7 consensus 2/3 GPT+Grok : surdominance lunaire)
+  // Max théo post-R32 supprimé : Nak(±8) + Tara/Chandra(±2) + VoC(-2) + BAV+SAV(±5) + Panchanga(±4) = ±21
+  const luneGroupCapped = Math.max(-12, Math.min(12, luneGroupPts));
   delta += luneGroupCapped;
 
-  // ═══════════════════════════════════
-  // 7. RÉTROGRADES PLANÉTAIRES (-3 à 0)
-  // ═══════════════════════════════════
-
-  const planetRetro = getPlanetaryRetroScore(new Date(todayStr + 'T12:00:00'));
-  const retroPts = Math.max(-3, planetRetro.totalPts); // V6.2: narratif uniquement
-  if (false && retroPts !== 0) { // déconnecté V6.2 (biais asymétrique — R16)
-    const prAlerts: string[] = [];
-    for (const r of planetRetro.retros) {
-      prAlerts.push(`${r.label} (${r.daysLeft ? `fin ${r.daysLeft}j` : 'actif'})`);
-    }
-    alerts.push(...prAlerts);
-    breakdown.push({
-      system: 'Planètes', icon: '🪐',
-      value: planetRetro.retros.map(r => r.label.split(' ')[1]).join('+') || 'Directes',
-      points: retroPts,
-      detail: planetRetro.detail,
-      signals: [], alerts: prAlerts,
-    });
-  }
+  // Sprint AO P6 — Rétrogrades planétaires supprimées (code mort depuis V6.2, if(false))
 
   // ═══════════════════════════════════
   // 8. TRANSITS PERSONNELS GAUSSIENS (±15) V4.8
@@ -1339,75 +1133,15 @@ export function calcDailyModules(
     });
   }
 
-  // ═══════════════════════════════════
-  // 10. DAY TYPE MODIFIER
-  // ═══════════════════════════════════
+  // Sprint AO P6 — DayType Modifier : breakdown supprimé (delta=0 depuis Sprint AM)
+  // calcDayType conservé (utilisé par calcMoonScore + actionReco)
 
-  // Sprint AM — Day Type Modifier neutralisé (Ronde 5 consensus 3/3 : tradition trop floue, signal ≈ bruit)
-  const dtPts = 0;
-  breakdown.push({
-    system: 'Type de Jour', icon: dayType.icon,
-    value: dayType.label,
-    points: 0, // Sprint AM : narratif uniquement
-    detail: dayType.desc,
-    signals: [], alerts: [],
-  });
+  // Sprint AO P6 — Trinity supprimé (code mort depuis V8)
+  const trinityActive = false; // stub interface
 
-  // ═══════════════════════════════════
-  // 11. TRINITY — SUPPRIMÉ V8 (R25 GPT : synthèse moderne sans tradition)
-  // trinityActive=false, trinityBonus=0 conservés pour interface DailyModuleResult
-  // ═══════════════════════════════════
-
-  const trinityActive = false;
-  const trinityBonus = 0;
-
-  // ═══════════════════════════════════
-  // 12. INTERACTIONS CROSS-SYSTÈMES — V8 (règles BaZi-centriques uniquement)
-  // hexNum=-1 → règles I Ching désactivées (narratif V8)
-  // moonPhaseIdx=-1 → règles Lune désactivées (narratif V8)
-  // mercuryRetro=false → règles Mercure désactivées (narratif V8)
-  // cap ±6 (V7 : ±8→±6 après suppression R10/R21/R28/R30)
-  // ═══════════════════════════════════
-
-  const moonPhaseRaw = getMoonPhase(new Date(todayStr + 'T12:00:00'));
-  const interactionCtx = buildInteractionContext({
-    changshengPhase: changshengResult?.phase ?? null,
-    tenGodDominant: tenGodsResult?.dominant?.label ?? null,
-    dmIsYang: baziResult?.natalStem?.yinYang === 'Yang',
-    dmElement: baziResult?.natalStem?.element ?? null,
-    peachBlossomActive,
-    shenShaActive: shenShaResult?.active ?? [],
-    hexNum: -1,          // V8 : I Ching narratif → règles IChing désactivées
-    hexLower: iching.lower, // R28 : trigramme inférieur passé séparément (élément structurel)
-    personalDay: pdv,
-    personalYear: pyv,
-    personalMonth: pmv,
-    moonPhaseIdx: -1,    // V8 : Lune narrative → règles Lune désactivées
-    isVoC: vocResult?.isVoC ?? false,
-    mercuryRetro: false, // V8 : Mercure narratif → règles Mercure désactivées
-    jupiterPositive: astroPts > 0,
-    trinityBonus: 0,     // V8 : Trinity supprimé
-  });
-
-  const interactionResult = calcInteractions(interactionCtx);
-  if (interactionResult.totalBonus !== 0) {
-    const clampedBonus = Math.max(-6, Math.min(6, interactionResult.totalBonus)); // V7→V8: cap ±6
-    // ephemGroupPts += clampedBonus; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : règles opaques, signal hétérogène)
-    console.assert(Math.abs(clampedBonus) <= 6.1, '[Interactions] Cap ±6 percé:', clampedBonus);
-    for (const ia of interactionResult.active) {
-      const sign = ia.bonus > 0 ? '+' : '';
-      if (ia.bonus > 0) signals.push(`✨ ${ia.label} (${sign}${ia.bonus})`);
-      else alerts.push(`⚠️ ${ia.label} (${ia.bonus})`);
-    }
-    breakdown.push({
-      system: 'Synergies', icon: '⚡',
-      value: `${interactionResult.active.length} interaction${interactionResult.active.length > 1 ? 's' : ''}`,
-      points: clampedBonus,
-      detail: interactionResult.active.map(a => a.label.split('→')[0].trim()).join(' · '),
-      signals: interactionResult.active.filter(a => a.bonus > 0).map(a => `${a.label} (+${a.bonus})`),
-      alerts:  interactionResult.active.filter(a => a.bonus < 0).map(a => `${a.label} (${a.bonus})`),
-    });
-  }
+  // Sprint AO P6 — Interactions supprimées (Ronde 7 consensus 3/3 : delta=0 depuis Sprint AM, code mort)
+  const moonPhaseRaw = getMoonPhase(new Date(todayStr + 'T12:00:00')); // conservé pour moonPhaseRawPhase
+  const interactionResult: InteractionResult = { totalBonus: 0, uncapped: 0, active: [] }; // stub interface
 
   // ═══════════════════════════════════
   // 12b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4
@@ -1485,13 +1219,9 @@ export function calcDailyModules(
     }
   } catch { /* kinetic shocks fail silently */ }
 
-  // Sprint D4 : Application cap groupe EPHEM ±14
-  // Sprint P — LuneGate × Ephem (seuil ±7, consensus GPT/Gemini Ronde 14)
-  // ΔLUNE fort positif → légère amplification Ephem (+6%) : signal favorable = transit plus exploitable
-  // ΔLUNE fort négatif → légère atténuation Ephem (-8%) : signal lunaire mauvais = transit moins porteur
-  const luneGate = luneGroupCapped >= 7 ? 1.06 : luneGroupCapped <= -7 ? 0.92 : 1.00;
-  ephemGroupPts = Math.round(ephemGroupPts * luneGate);
-  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemGroupPts)); // Sprint AN — ±14→±10 (Ronde 6 P1 : max théo ±10, cap = max)
+  // Sprint AO — LuneGate supprimée (Ronde 7 consensus 2/3 Grok+Gemini)
+  // Multiplier EPHEM par LUNE détruit l'orthogonalité L1, double-comptage punitif
+  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemGroupPts));
   delta += ephemGroupCapped;
 
   // Sprint AM — Kinetic Shocks isolés (hors cap C_EPHEM, appliqués directement au delta global)
@@ -1503,15 +1233,9 @@ export function calcDailyModules(
   const indivGroupCapped = Math.max(-8, Math.min(8, indivGroupPts));
   delta += indivGroupCapped;
 
-  // ═══════════════════════════════════
-  // 13. BIAIS CONDITIONNEL — V4.4
-  // ═══════════════════════════════════
-
-  // V8 : biais conditionnel — mercPts retiré (narratif), VoC seul reste actif
-  // mercPts exclu : non dans le delta V8, ne doit pas générer de compensation
-  const negAsymmetric = (vocResult?.isVoC ? (vocResult.intensity === 'forte' ? -2 : -1) : 0) + retroPts;
-  const biasCorrection = negAsymmetric < 0 ? Math.min(4, Math.abs(negAsymmetric) * 0.5) : 0;
-  delta += biasCorrection;
+  // Sprint AO — biasCorrection supprimée (Ronde 7 consensus 2/3 Grok+Gemini)
+  // VoC est déjà dans C_LUNE, sa pénalité fait partie du signal légitime
+  // retroPts était fantôme (déconnecté V6.2), compensait un signal absent → bug
 
   // V9.6 Sprint A2 — Cap global L1 ±30 (C_L1 anti double-comptage)
   const dailyDeltaSnapshot = Math.max(-30, Math.min(30, delta));

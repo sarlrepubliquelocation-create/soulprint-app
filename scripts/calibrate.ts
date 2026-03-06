@@ -1,9 +1,11 @@
 /**
- * KAIRONAUTE — Script de calibration Y0
- * Simule 50 000 jours pour calculer :
- *   - cap_i_P95 de chaque module (normalisation x_i)
- *   - Q95(|X_total|) → k optimal
- *   - A optimal pour P95(score) ≈ 82 et Cosmique ≤ 7 jours/an
+ * KAIRONAUTE — Script de calibration Monte Carlo (Sprint AO — P3)
+ * Post-Sprint AO : 4 groupes (BAZI ±15, LUNE ±12, EPHEM ±10, INDIV ±8)
+ *
+ * Simule 500 000 jours (10k dates × 50 profils) pour :
+ *   1. Calculer P95_G empirique de chaque groupe
+ *   2. Vérifier la distribution de X_total et du score final
+ *   3. Valider A=36, k=0.840 (paramètres production)
  *
  * Aucun changement au moteur de production.
  * Lancer : npx tsx scripts/calibrate.ts
@@ -25,45 +27,40 @@ function randNorm(): number {
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-// ─── Paramètres de simulation (GPT Ronde 3) ──────────────────────────────────
-const N = 50_000; // jours simulés
-const P_RARE = 0.08; // probabilité "mode rare"
+// ─── Paramètres post-Sprint AO ──────────────────────────────────────────────
+const N = 500_000; // 10k dates × 50 profils
+
+// Probabilité d'événement rare (éclipse, ingress, station planétaire)
+const P_RARE = 0.08;
 const RARE_MULT = 1.8; // σ_rare = 1.8 × σ_norm
 
 /**
- * Chaque module : { capTh = cap théorique, sigma = σ_norm }
- * σ vise P95 ≈ 0.65–0.75 du capTh (typique moteur capé)
+ * 4 groupes post-Sprint AO avec caps et σ ajustés
+ * σ vise P95 ≈ 0.65–0.75 du capTh (distribution gaussienne tronquée typique)
  */
-const MODULES = [
-  { name: 'C_BAZI',        capTh: 15, sigma: 5.2 },
-  { name: 'C_LUNE',        capTh: 16, sigma: 5.6 },
-  { name: 'C_EPHEM',       capTh: 14, sigma: 4.8 },
-  { name: 'SCIS',          capTh:  2, sigma: 0.7 },
-  { name: 'R27',           capTh:  2, sigma: 0.55 },
-  { name: 'R29',           capTh:  3, sigma: 0.8 },
-  { name: 'Panchanga',     capTh:  4, sigma: 1.6 },
-  { name: 'EtoilesFixes',  capTh:  5, sigma: 1.9 },
+const GROUPS = [
+  { name: 'C_BAZI',  capTh: 15, sigma: 5.0 },  // BaZi Core ±8 + Jian Chu ±1 + Shen Sha ±4
+  { name: 'C_LUNE',  capTh: 12, sigma: 4.2 },  // Nak ±8 + Tara/Chandra ±2 + VoC -2 + BAV+SAV ±5 + Panchanga ±4 (was ±16, now ±12)
+  { name: 'C_EPHEM', capTh: 10, sigma: 3.5 },  // Transits ±6 + Étoiles Fixes ±4 (was ±14, now ±10)
+  { name: 'C_INDIV', capTh:  8, sigma: 2.8 },  // I Ching ±3 + TithiLord ±1 + Drishti ±3 + Kartari ±2
 ] as const;
 
-// caps de groupe (gCap) — conservés dans la nouvelle archi
-const G_CAP_BAZI  = 0.85; // en espace normalisé [-1,+1]
-const G_CAP_LUNE  = 0.90;
-const G_CAP_EPHEM = 0.80;
-const G_CAP_SLOW  = 0.60; // SCIS + R27 + R29 + Panchanga + Étoiles
+// Kinetic Shocks (hors cap, direct delta)
+const KS_CAP = 3;
+const KS_SIGMA = 0.8;
 
-// poids intra-groupe (identiques au départ, à affiner)
-const W_BAZI  = 1.0;
-const W_LUNE  = 1.0;
-const W_EPHEM = 1.0;
-const W_SLOW  = 1.0;
+// αG hiérarchisés (shadow score)
+const ALPHA_G = { lune: 1.20, ephem: 1.10, bazi: 1.00, indiv: 0.90 };
 
-// noyau base_signal ∈ [-1, +1]  (simulé comme bruit faible longue période)
-const BETA   = 0.8;   // poids du noyau dans X_total
-const SIGMA_BASE = 0.35; // σ du base_signal (cycles lents → peu bruités)
+// G_CAP en espace normalisé [-1, +1]
+const G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 };
 
-// terrain squashé : 1 + 0.25 × tanh((terrain_brut − 1) / 0.35)
-// terrain_brut ∼ N(1.0, 0.18) capé [0.51, 1.50]
+// Terrain squashé
 const SIGMA_TERRAIN = 0.18;
+
+// Paramètres production
+const A_PROD = 36.0;
+const K_PROD = 0.840;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function clamp(v: number, lo: number, hi: number): number {
@@ -88,118 +85,112 @@ function squashTerrain(raw: number): number {
 }
 
 // ─── Simulation ──────────────────────────────────────────────────────────────
-const moduleDeltas: number[][] = MODULES.map(() => []);
+const groupDeltas: number[][] = GROUPS.map(() => []);
 const xTotals: number[] = [];
 const scores: number[] = [];
+const ksDeltaAll: number[] = [];
 
 for (let day = 0; day < N; day++) {
-  // Générer d_i pour chaque module
-  const di: number[] = MODULES.map(m => {
-    const rare   = xorshift32() < P_RARE;
-    const sigma  = m.sigma * (rare ? RARE_MULT : 1.0);
-    return clamp(Math.round(sigma * randNorm()), -m.capTh, m.capTh);
+  // Générer delta pour chaque groupe
+  const di: number[] = GROUPS.map(g => {
+    const rare  = xorshift32() < P_RARE;
+    const sigma = g.sigma * (rare ? RARE_MULT : 1.0);
+    return clamp(Math.round(sigma * randNorm()), -g.capTh, g.capTh);
   });
 
-  // Stocker pour calcul P95 par module
-  di.forEach((v, i) => moduleDeltas[i].push(v));
+  // Kinetic Shocks (±3, ~15% des jours)
+  const ksActive = xorshift32() < 0.15;
+  const ksDelta  = ksActive ? clamp(Math.round(KS_SIGMA * randNorm()), -KS_CAP, KS_CAP) : 0;
+  ksDeltaAll.push(ksDelta);
 
-  // Sera recalculé après avoir les cap_P95 — stocke les di bruts pour l'instant
-  // (second passage ci-dessous pour X_total)
-  void di;
-
-  // base_signal (noyau lent — faible variance)
-  const baseSignal = clamp(SIGMA_BASE * randNorm(), -1, 1);
+  // Stocker pour P95 par groupe
+  di.forEach((v, i) => groupDeltas[i].push(v));
 
   // terrain squashé
   const terrainRaw = clamp(1.0 + SIGMA_TERRAIN * randNorm(), 0.51, 1.50);
-  const terrain    = squashTerrain(terrainRaw);
+  const terrain_sq = squashTerrain(terrainRaw);
 
-  // x_i normalisés (utilise capTh comme proxy avant de connaître cap_P95)
-  const xi = di.map((d, i) => clamp(d / MODULES[i].capTh, -1, 1));
+  // Cap global L1 ±30
+  const rawDelta = di.reduce((s, v) => s + v, 0) + ksDelta;
+  const cappedDelta = clamp(rawDelta, -30, 30);
 
-  // X par groupe (agrégation simple + gCap)
-  const xBazi  = clamp(xi[0] * W_BAZI,  -G_CAP_BAZI,  G_CAP_BAZI);
-  const xLune  = clamp(xi[1] * W_LUNE,  -G_CAP_LUNE,  G_CAP_LUNE);
-  const xEphem = clamp(xi[2] * W_EPHEM, -G_CAP_EPHEM, G_CAP_EPHEM);
-  const xSlow  = clamp(
-    (xi[3] + xi[4] + xi[5] + xi[6] + xi[7]) * W_SLOW / 5,
-    -G_CAP_SLOW, G_CAP_SLOW
-  );
-
-  const X      = xBazi + xLune + xEphem + xSlow;
-  const xTotal = X + BETA * baseSignal;
-
-  xTotals.push(xTotal);
-
-  // Score avec A=39, k=0.925 (estimation GPT)
-  const A = 39.0;
-  const k = 0.925;
-  const delta = A * Math.tanh(k * xTotal);
-  const score = clamp(50 + delta * terrain, 0, 100);
+  // Score = 50 + A × tanh(k × Xnorm) × terrain
+  // Xnorm approximé comme cappedDelta / 30 (normalisation simple)
+  const xNorm = cappedDelta / 30;
+  const score = clamp(50 + A_PROD * Math.tanh(K_PROD * xNorm * 3) * terrain_sq, 5, 97);
   scores.push(score);
+
+  // X_core pour shadow score (4 groupes αG)
+  const [dBazi, dLune, dEphem, dIndiv] = di;
+  const xB = clamp(dBazi  / 11, -1, 1); // P95_G.bazi actuel = 11
+  const xL = clamp(dLune  / 12, -1, 1); // P95_G.lune actuel = 12
+  const xE = clamp(dEphem / 10, -1, 1); // P95_G.ephem actuel = 10
+  const xI = clamp(dIndiv /  6, -1, 1); // P95_G.indiv = 6 (nouveau)
+  const XB = clamp(ALPHA_G.bazi  * xB, -G_CAP.bazi,  G_CAP.bazi);
+  const XL = clamp(ALPHA_G.lune  * xL, -G_CAP.lune,  G_CAP.lune);
+  const XE = clamp(ALPHA_G.ephem * xE, -G_CAP.ephem, G_CAP.ephem);
+  const XI = clamp(ALPHA_G.indiv * xI, -G_CAP.indiv, G_CAP.indiv);
+  const X_core = clamp(XB + XL + XE + XI, -1.6, 1.6);
+  xTotals.push(X_core);
 }
 
 // ─── Résultats ───────────────────────────────────────────────────────────────
-console.log('\n═══════════════════════════════════════════');
-console.log('  KAIRONAUTE Y0 — CALIBRATION (N=50 000)');
-console.log('═══════════════════════════════════════════\n');
+console.log('\n═══════════════════════════════════════════════════════');
+console.log('  KAIRONAUTE — CALIBRATION MONTE CARLO (Sprint AO P3)');
+console.log(`  N = ${(N / 1000).toFixed(0)}k simulations`);
+console.log('═══════════════════════════════════════════════════════\n');
 
-// 1. Caps P95 par module
-console.log('── CAPS P95 PAR MODULE ────────────────────');
-console.log('Module          capTh  capP95  ratio');
-MODULES.forEach((m, i) => {
-  const p95 = Math.round(robustP95(moduleDeltas[i]) * 10) / 10;
-  const ratio = (p95 / m.capTh).toFixed(2);
-  console.log(`${m.name.padEnd(16)}  ${String(m.capTh).padStart(3)}    ${String(p95).padStart(5)}  ${ratio}`);
+// 1. P95 empirique par groupe → nouvelles valeurs P95_G
+console.log('── P95_G EMPIRIQUES ──────────────────────────────────');
+console.log('Groupe          capTh   P95_emp  ratio  → P95_G recommandé');
+const p95Results: Record<string, number> = {};
+GROUPS.forEach((g, i) => {
+  const p95 = Math.round(robustP95(groupDeltas[i]) * 10) / 10;
+  const ratio = (p95 / g.capTh).toFixed(2);
+  p95Results[g.name] = p95;
+  console.log(`${g.name.padEnd(16)}  ${String(g.capTh).padStart(3)}     ${String(p95).padStart(5)}  ${ratio}     ${Math.round(p95)}`);
 });
 
-// 2. Distribution X_total
+// 2. Distribution X_core (shadow score)
 const xSorted = [...xTotals].map(Math.abs).sort((a, b) => a - b);
-const q95X    = quantile(xSorted, 0.95);
-const q981X   = quantile(xSorted, 0.981);
-console.log('\n── DISTRIBUTION X_total ───────────────────');
-console.log(`Q50(|X|)  = ${quantile(xSorted, 0.50).toFixed(3)}`);
-console.log(`Q95(|X|)  = ${q95X.toFixed(3)}   ← sert à calibrer k`);
-console.log(`Q98.1(|X|)= ${q981X.toFixed(3)}  ← sert à contrôler Cosmique`);
+const q50X  = quantile(xSorted, 0.50);
+const q95X  = quantile(xSorted, 0.95);
+const q99X  = quantile(xSorted, 0.99);
+console.log('\n── DISTRIBUTION X_core (shadow score) ─────────────');
+console.log(`Q50(|X|)  = ${q50X.toFixed(3)}`);
+console.log(`Q95(|X|)  = ${q95X.toFixed(3)}`);
+console.log(`Q99(|X|)  = ${q99X.toFixed(3)}`);
 
-// 3. Calibration k et A
-const Y95    = 0.82; // tanh cible à P95
-const kCalc  = Math.atanh(Y95) / q95X;
-const aCalc  = 32 / Y95; // Δ95 = 32 pts (score 82 = 50+32)
-console.log('\n── CALIBRATION A et k ─────────────────────');
-console.log(`k calculé  = ${kCalc.toFixed(3)}  (GPT estimait 0.925)`);
-console.log(`A calculé  = ${aCalc.toFixed(1)}   (GPT estimait 39.0)`);
-
-// 4. Distribution des scores
+// 3. Distribution des scores
 const scoresSorted = [...scores].sort((a, b) => a - b);
 const p5   = quantile(scoresSorted, 0.05);
 const p50  = quantile(scoresSorted, 0.50);
 const p95s = quantile(scoresSorted, 0.95);
 const cosmique = scores.filter(s => s >= 88).length;
 const cosmiqueAn = Math.round(cosmique / N * 365);
-console.log('\n── DISTRIBUTION SCORES (A=39, k=0.925) ───');
-console.log(`P5   = ${p5.toFixed(1)}   (cible ≈ 30)`);
-console.log(`P50  = ${p50.toFixed(1)}  (cible ≈ 55)`);
-console.log(`P95  = ${p95s.toFixed(1)}  (cible ≈ 82)`);
+const bas = scores.filter(s => s <= 15).length;
+const basAn = Math.round(bas / N * 365);
+console.log(`\n── DISTRIBUTION SCORES (A=${A_PROD}, k=${K_PROD}) ─────`);
+console.log(`P5   = ${p5.toFixed(1)}   (cible ≈ 20-25)`);
+console.log(`P50  = ${p50.toFixed(1)}  (cible ≈ 50-55)`);
+console.log(`P95  = ${p95s.toFixed(1)}  (cible ≈ 80-85)`);
 console.log(`Cosmique (≥88) = ${cosmiqueAn} jours/an  (cible ≤ 7)`);
+console.log(`Critique (≤15) = ${basAn} jours/an`);
 
-// 5. Vérification avec k et A calibrés
-const scoresV2: number[] = [];
-for (let day = 0; day < N; day++) {
-  const xTotal = xTotals[day];
-  const terrainRaw = clamp(1.0 + SIGMA_TERRAIN * randNorm(), 0.51, 1.50);
-  const terrain    = squashTerrain(terrainRaw);
-  const delta = aCalc * Math.tanh(kCalc * xTotal);
-  scoresV2.push(clamp(50 + delta * terrain, 0, 100));
-}
-const s2sorted   = [...scoresV2].sort((a, b) => a - b);
-const cosmiqueV2 = Math.round(scoresV2.filter(s => s >= 88).length / N * 365);
-console.log('\n── DISTRIBUTION SCORES (A/k calibrés) ────');
-console.log(`P5   = ${quantile(s2sorted, 0.05).toFixed(1)}`);
-console.log(`P50  = ${quantile(s2sorted, 0.50).toFixed(1)}`);
-console.log(`P95  = ${quantile(s2sorted, 0.95).toFixed(1)}`);
-console.log(`Cosmique (≥88) = ${cosmiqueV2} jours/an`);
+// 4. Recommandation P95_G
+console.log('\n── RECOMMANDATION ────────────────────────────────────');
+console.log('Code à mettre à jour dans convergence.ts (calcShadowScore) :');
+console.log(`  P95_G = {`);
+console.log(`    lune:  ${Math.round(p95Results['C_LUNE'])},`);
+console.log(`    ephem: ${Math.round(p95Results['C_EPHEM'])},`);
+console.log(`    bazi:  ${Math.round(p95Results['C_BAZI'])},`);
+console.log(`    indiv: ${Math.round(p95Results['C_INDIV'])},`);
+console.log(`  }`);
 
-console.log('\n═══════════════════════════════════════════');
-console.log('  → Copier ces valeurs dans MEMO-Y0.md');
-console.log('═══════════════════════════════════════════\n');
+// 5. Kinetic Shocks stats
+const ksNonZero = ksDeltaAll.filter(v => v !== 0).length;
+console.log(`\nKinetic Shocks : ${(ksNonZero / N * 100).toFixed(1)}% actifs (cible ~15%)`);
+
+console.log('\n═══════════════════════════════════════════════════════');
+console.log('  Exécuter puis copier P95_G dans convergence.ts');
+console.log('═══════════════════════════════════════════════════════\n');
