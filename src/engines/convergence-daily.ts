@@ -54,6 +54,45 @@ const ICHING_V4_POINTS: Record<string, number> = {
 };
 
 // ══════════════════════════════════════
+// ═══ JIAN CHU — FONCTION PARTAGÉE ═══
+// Sprint AT : extrait de calcDailyModules pour partage avec calcDayPreview (Ronde 13 consensus 3/3 Option A)
+// ══════════════════════════════════════
+
+const JIAN_CHU_OFFICERS: ReadonlyArray<{ zh: string; fr: string; pts: number }> = [
+  { zh: '建', fr: 'Établir',    pts:  2 },  // 0 — lancer, commencer
+  { zh: '除', fr: 'Retirer',    pts:  0 },  // 1 — purification, transition
+  { zh: '满', fr: 'Remplir',    pts:  1 },  // 2 — abondance
+  { zh: '平', fr: 'Équilibrer', pts:  0 },  // 3 — stable, neutre
+  { zh: '定', fr: 'Fixer',      pts:  1 },  // 4 — contrats, stabilité
+  { zh: '执', fr: 'Saisir',     pts:  0 },  // 5 — exécution ordinaire
+  { zh: '破', fr: 'Briser',     pts: -2 },  // 6 — très défavorable, éviter
+  { zh: '危', fr: 'Danger',     pts: -1 },  // 7 — prudence, risques
+  { zh: '成', fr: 'Succès',     pts:  2 },  // 8 — le meilleur, toutes actions
+  { zh: '收', fr: 'Récolter',   pts:  1 },  // 9 — clôturer, encaisser
+  { zh: '开', fr: 'Ouvrir',     pts:  2 },  // 10 — débuter, voyager
+  { zh: '闭', fr: 'Fermer',     pts: -1 },  // 11 — éviter les actions
+];
+
+/**
+ * Sprint AT — Jian Chu score pur (débias + ×0.5).
+ * Fonction extraite pour partage L1 (calcDailyModules) et L3 (calcDayPreview).
+ * @returns { pts: number, officer: { zh, fr, pts } | null }
+ */
+export function calcJianChuPts(dateStr: string): { pts: number; officer: { zh: string; fr: string; pts: number } | null } {
+  try {
+    const jcDate        = new Date(dateStr + 'T12:00:00');
+    const dayBranchIdx  = calcDayMaster(jcDate).branch.index;
+    const monthBranchIdx = getMonthPillar(jcDate).branchIdx;
+    const officerIdx    = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
+    const officer       = JIAN_CHU_OFFICERS[officerIdx];
+    const pts           = (officer.pts - (5 / 12)) * 0.5; // V8.9 debias + ×0.5 (Ronde 5)
+    return { pts, officer };
+  } catch {
+    return { pts: 0, officer: null };
+  }
+}
+
+// ══════════════════════════════════════
 // ═══ INTERFACES INTERNES ═══
 // ══════════════════════════════════════
 
@@ -497,44 +536,23 @@ export function calcDailyModules(
   // Amplitude ±2 conservatrice — signal pur, anti-bruit
   // ═══════════════════════════════════
 
-  const JIAN_CHU_OFFICERS: Array<{ zh: string; fr: string; pts: number }> = [
-    { zh: '建', fr: 'Établir',    pts:  2 },  // 0 — lancer, commencer
-    { zh: '除', fr: 'Retirer',    pts:  0 },  // 1 — purification, transition
-    { zh: '满', fr: 'Remplir',    pts:  1 },  // 2 — abondance
-    { zh: '平', fr: 'Équilibrer', pts:  0 },  // 3 — stable, neutre
-    { zh: '定', fr: 'Fixer',      pts:  1 },  // 4 — contrats, stabilité
-    { zh: '执', fr: 'Saisir',     pts:  0 },  // 5 — exécution ordinaire
-    { zh: '破', fr: 'Briser',     pts: -2 },  // 6 — très défavorable, éviter
-    { zh: '危', fr: 'Danger',     pts: -1 },  // 7 — prudence, risques
-    { zh: '成', fr: 'Succès',     pts:  2 },  // 8 — le meilleur, toutes actions
-    { zh: '收', fr: 'Récolter',   pts:  1 },  // 9 — clôturer, encaisser
-    { zh: '开', fr: 'Ouvrir',     pts:  2 },  // 10 — débuter, voyager
-    { zh: '闭', fr: 'Fermer',     pts: -1 },  // 11 — éviter les actions
-  ];
-
-  let jianchuPts = 0;
-  let jianchuOfficer: { zh: string; fr: string; pts: number } | null = null;
-  try {
-    const jcDate        = new Date(todayStr + 'T12:00:00');
-    const dayBranchIdx  = calcDayMaster(jcDate).branch.index;
-    const monthBranchIdx = getMonthPillar(jcDate).branchIdx;
-    const officerIdx    = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
-    jianchuOfficer      = JIAN_CHU_OFFICERS[officerIdx];
-    const jianchuRaw    = jianchuOfficer.pts;
-    // V8.9 GPT Q1 : debias espérance +5/12 · Sprint AM — ×0.5 (Ronde 5 : ±2→±1, signal cyclique)
-    jianchuPts          = (jianchuRaw - (5 / 12)) * 0.5;
+  // Sprint AT : refactorisé — utilise calcJianChuPts() partagé (Ronde 13 consensus 3/3)
+  const jianChuResult = calcJianChuPts(todayStr);
+  const jianchuPts = jianChuResult.pts;
+  const jianchuOfficer = jianChuResult.officer;
+  if (jianchuOfficer) {
     const officerLabel  = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
-    if (jianchuRaw > 0) signals.push(`${officerLabel} — officier favorable`);
-    else if (jianchuRaw < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
+    if (jianchuOfficer.pts > 0) signals.push(`${officerLabel} — officier favorable`);
+    else if (jianchuOfficer.pts < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
     breakdown.push({
       system: 'Jian Chu', icon: '建',
       value:  officerLabel,
-      points: jianchuRaw, // valeur brute affichée (débias appliqué au delta, pas à l'affichage)
-      detail: `Officer ${officerIdx + 1}/12 · branche jour ${dayBranchIdx} / mois ${monthBranchIdx}`,
-      signals: jianchuRaw > 0 ? [`${officerLabel} → timing favorable`] : [],
-      alerts:  jianchuRaw < 0 ? [`${officerLabel} → timing difficile`]  : [],
+      points: jianchuOfficer.pts, // valeur brute affichée (débias appliqué au delta, pas à l'affichage)
+      detail: `Officer Jian Chu`,
+      signals: jianchuOfficer.pts > 0 ? [`${officerLabel} → timing favorable`] : [],
+      alerts:  jianchuOfficer.pts < 0 ? [`${officerLabel} → timing difficile`]  : [],
     });
-  } catch { /* Jian Chu fail silently */ }
+  }
 
   // ═══════════════════════════════════
   // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4

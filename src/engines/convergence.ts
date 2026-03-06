@@ -37,6 +37,7 @@ export type { ScoreLevel, DayType, DayTypeInfo, ActionVerb, ActionReco, ClimateS
 export type { VoidOfCourseMoon } from './moon';
 import {
   calcDailyModules, calcDayType, ichingScoreV4, calcMoonScore, // getNaYinAffinityFactor retiré Sprint AP
+  calcJianChuPts, // Sprint AT — Ronde 13 consensus 3/3 : Jian Chu partagé L1↔L3
   type DailyModuleResult,
 } from './convergence-daily';
 import { calcSlowModules } from './convergence-slow';
@@ -773,9 +774,14 @@ export function calcDayPreview(
     if (ssResult.active.length > 0) reasons.push(`⭐ ${ssResult.active.map((s: { chinese: string }) => s.chinese).join(' ')} (narratif BaZi)`);
   } catch { /* silent */ }
 
-  // Sprint AS P2 : naYinPts (=0) supprimé — NaYin retiré V6.2
-  // Sprint AS P2 : csPts (=0) retiré de la somme — Changsheng mort depuis Sprint AP
-  const baziFamilyPrev = Math.max(-22, Math.min(22, baziDMPts + tenGodsPts + ssPts));
+  // Sprint AT — Ronde 13 consensus 3/3 Option A : alignement complet avec calcDailyModules
+  // Sub-cap ±8 sur DM+10Gods (Ronde 6 P3 — colinéarité), Jian Chu inclus, cap C_BAZI ±15 (αG Monte Carlo)
+  const baziCorePtsPrev = Math.max(-8, Math.min(8, baziDMPts + tenGodsPts)); // sub-cap ±8
+  const jianChu = calcJianChuPts(targetDate);
+  const jianchuPtsPrev = jianChu.pts;
+  if (jianChu.officer && jianChu.officer.pts > 0) reasons.push(`建除 ${jianChu.officer.zh} ${jianChu.officer.fr} — timing favorable`);
+  else if (jianChu.officer && jianChu.officer.pts < 0) reasons.push(`建除 ${jianChu.officer.zh} ${jianChu.officer.fr} — timing difficile`);
+  const baziFamilyPrev = Math.max(-15, Math.min(15, baziCorePtsPrev + jianchuPtsPrev + ssPts)); // C_BAZI ±15
   delta += baziFamilyPrev;
 
   // 7. Lune — V8: narratif visible (R25 : absorbée par Nakshatra, valeur contextuelle)
