@@ -6,7 +6,7 @@
 //
 // ARCHITECTURE :
 //   AlphaGState         → JSON persisté dans localStorage 'kairo_alphag_v1'
-//   getAdaptedAlphaG()  → singleton cached, lu par calcShadowScore()
+//   getAdaptedAlphaG()  → singleton cached, lu par calcMainScore()
 //   runWeeklyAlphaGUpdate() → moteur principal, appelé 1×/semaine via useEffect
 
 import { computeKendallTauB, getFeedbackHistory } from './validation-tracker';

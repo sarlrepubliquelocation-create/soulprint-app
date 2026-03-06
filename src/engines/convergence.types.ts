@@ -219,9 +219,9 @@ export interface ConvergenceResult {
   // AA-5 — Journée Paradoxe : tension inter-groupes (GPT G3 + Gemini M1 — Ronde 2)
   paradoxTension?: number;   // range inter-groupes = max(deltas) - min(deltas)
   isParadox?: boolean;       // true si tension ≥ 20 ET garde signe (max ≥ +8 AND min ≤ -8)
-  // Sprint AW — C4 shadow + SHAP explicabilité (Ronde 17-18 consensus)
-  c4Shadow?: number;         // C4 shadow mode (calculé mais non injecté — CIS actif)
-  cisCurrent?: number;       // CIS actuel (injecté dans le score)
+  // Sprint AY — C4 live + SHAP explicabilité (ex-shadow, promu production)
+  c4Shadow?: number;         // Sprint AY : C4 live (injecté dans le score — ex-shadow)
+  cisCurrent?: number;       // CIS historique (gardé pour observabilité — remplacé par C4)
   shapley?: {                // Shapley exact 16 coalitions — contributions additives
     lune: number;            // φ_lune en points de score
     ephem: number;           // φ_ephem en points de score

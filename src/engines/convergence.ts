@@ -63,20 +63,17 @@ function getTodayStr(): string {
 // ═══ COMPRESSION — tanh sigmoïdale V9 ═══
 // ══════════════════════════════════════
 
-function compress(delta: number): number {
-  // compress V8 — loi de puissance calibrée (p=1.05, quasi-linéaire)
-  // REVERT Sprint 1 V9 : compress_v2 tanh(2.2 * x^0.7) était concave (p<1)
-  //   → boostait les deltas modérés vers Cosmique (202 Cosmique/an observés !)
-  //   → paramètres k=2.2, p=0.7 faisaient l'inverse de l'intention
-  // Conservée pour CI, yearly scores, baseline L1 — moteur Y5 utilise calcShadowScore()
-  // compress(0)=50, output∈[5,97]
-  const maxDelta = 22; // V8.9 GPT Q5 : 18→22 pour calibrer distribution (cible ≥88 ~1.5%, <25 ~6%)
+// Sprint AY P1 — compressL1Legacy : formule L1-only pour fonctions sans décomposition 4 groupes
+// Utilisée par : getYearScores, buildCorrectedBaseline, computeScoreRange, calcDayPreview, debugDistribution
+// Le moteur principal utilise désormais calcMainScore() (ex-calcShadowScore) avec tanh + C4
+function compressL1Legacy(delta: number): number {
+  const maxDelta = 22;
   const sign = Math.sign(delta);
   const normalized = Math.min(Math.abs(delta) / maxDelta, 1);
   return Math.round(50 + 45 * sign * Math.pow(normalized, 1.05));
 }
 
-/** Inverse approx de compress() — retourne le delta correspondant à un score donné.
+/** Inverse approx de compressL1Legacy() — retourne le delta correspondant à un score donné.
  *  V8.9 GPT Q4 : utilisé pour computeScoreRange (calcul en delta-space, pas score-space). */
 function decompressApprox(score: number, maxDelta = 22, p = 1.05): number {
   const d = score - 50;
@@ -461,7 +458,7 @@ function getYearScores(bd: string, num: NumerologyProfile, cz: ChineseZodiac, tr
         delta += Math.max(-7, Math.min(7, r25mc + r27mc));
       } catch { /* silent */ }
 
-      scores.push(Math.max(5, Math.min(97, compress(Math.max(-22, Math.min(22, delta))))));
+      scores.push(Math.max(5, Math.min(97, compressL1Legacy(Math.max(-22, Math.min(22, delta))))));
     }
   }
 
@@ -487,7 +484,7 @@ function buildCorrectedBaseline(
       const dashaVar  = (Math.random() - 0.5) * 0.20; // ±10% variation dasha [0.80–1.25]
       const ctxSim    = Math.max(0.85, Math.min(1.15, ctxMultCenter  * (1 + ctxVar)));
       const dashaSim  = Math.max(0.60, Math.min(1.30, dashaMultCenter * (1 + dashaVar)));
-      corrected.push(compress((d1 + offsetPts) * ctxSim * dashaSim));
+      corrected.push(compressL1Legacy((d1 + offsetPts) * ctxSim * dashaSim));
     }
   }
   return corrected;
@@ -634,7 +631,7 @@ function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): Confi
   const variance = groupMeans.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
   const se = Math.sqrt(variance / n);
 
-  // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compress()
+  // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compressL1Legacy()
   // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
   // Sprint D1 : remplacement 1.96×1.10 → t(0.975, df=n-1) table Student exacte
   // n=4 groupes ESS → df=3 → t=3.182 (correction bootstrap 1.10 obsolète)
@@ -647,8 +644,8 @@ function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): Confi
   const t975 = tCritical975(df);
   const ciMarginDelta = Math.max(t975 * se, floorDelta);
 
-  const lower = Math.max(5, compress(delta0 - ciMarginDelta));
-  const upper = Math.min(97, compress(delta0 + ciMarginDelta));
+  const lower = Math.max(5, compressL1Legacy(delta0 - ciMarginDelta));
+  const upper = Math.min(97, compressL1Legacy(delta0 + ciMarginDelta));
   const margin = Math.round((upper - lower) / 2);
 
   let label: string;
@@ -892,7 +889,7 @@ export function calcDayPreview(
   // 14. Cap global (biais conditionnel supprimé V6.2 — patch non symbolique)
   delta = Math.max(-60, Math.min(60, delta));
 
-  const score = Math.max(5, Math.min(97, compress(delta)));
+  const score = Math.max(5, Math.min(97, compressL1Legacy(delta)));
   const lCol = scoreLevelColor(score);
   const conseil = buildConseil(dayType, score, iching.name, iching.keyword);
 
@@ -963,13 +960,10 @@ export function calcConvergence(
 
   // ── L3 : Assemblage final ──
   // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
-  // Fallback silencieux vers compress() si calcShadowScore() échoue (guard zéro-régression)
-  // Sprint AW — calcShadowScore retourne un objet enrichi (score + c4Shadow + cis + shapley)
-  const _shadowResult = calcShadowScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta); // AB-G1 + AO-P2
-  const _scoreY5 = _shadowResult?.score;
-  const score = _scoreY5 !== undefined
-    ? Math.max(5, Math.min(97, _scoreY5))
-    : Math.max(5, Math.min(97, compress(finalDelta)));  // fallback Y5
+  // Sprint AY P1 — Moteur principal (ex-shadow, désormais unique) — fallback compressL1Legacy supprimé
+  // calcMainScore retourne score + c4 + shapley — aucun fallback, crash si erreur = détectable
+  const _mainResult = calcMainScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta);
+  const score = Math.max(5, Math.min(97, _mainResult.score));
   const mercPts = daily.mercPts;
 
   const scoreLevel = getScoreLevel(score, mercPts);
@@ -1068,11 +1062,11 @@ export function calcConvergence(
     nuclearHex: nuclearHexResult,
     dashaCertainty,
     shadowBaseSignal,  // Y1 — noyau védique pur ∈ [-1, +1]
-    shadowScore: _scoreY5, // Sprint AS P5 : réutilise _scoreY5 (était double appel calcShadowScore — même args)
-    // Sprint AW — C4 shadow + SHAP explicabilité (Ronde 17-18 consensus)
-    c4Shadow: _shadowResult?.c4Shadow,     // C4 shadow mode (non injecté dans le score — CIS actif)
-    cisCurrent: _shadowResult?.cis,         // CIS actuel (actif dans le score)
-    shapley: _shadowResult?.shapley,        // Shapley exact 4 contributions + baseline
+    shadowScore: score, // Sprint AY — score unique, plus de dual path
+    // Sprint AY — C4 live + SHAP explicabilité (ex-shadow, désormais actif)
+    c4Shadow: _mainResult.c4,              // Sprint AY : C4 live (était shadow)
+    cisCurrent: _mainResult.cis,           // CIS historique (gardé pour observabilité)
+    shapley: _mainResult.shapley,          // Shapley exact 4 contributions + baseline
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,
@@ -1097,7 +1091,7 @@ export function calcConvergence(
 // Ronde 18 consensus 2/3 (GPT v2 + Grok concède) — formule Elena Vasquez révisée
 // Remplace le CIS binaire par une mesure Purity × Intensity × Coverage avec soft gates
 // Range : ±0.35 — actif ~15-40 jours/an (sélectif, anti-bruit)
-// Shadow mode Sprint AW : CIS reste actif, C4 logué en parallèle
+// Sprint AY : C4 promu LIVE (injecté dans calcMainScore), CIS gardé pour observabilité
 // ══════════════════════════════════════════════════════════════════════
 function calcC4(XL: number, XE: number, XB: number, XI: number): number {
   const _clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -1181,7 +1175,7 @@ function computeShapley4(
       (mask & 4) ? features[2] : 0,
       (mask & 8) ? features[3] : 0,
     ];
-    // Pipeline identique à calcShadowScore : X_core → C4 → X → tanh → score
+    // Pipeline identique à calcMainScore : X_core → C4 → X → tanh → score
     const X_core = _clampG(xs[0] + xs[1] + xs[2] + xs[3], -1.6, +1.6);
     const c4 = calcC4(xs[0], xs[1], xs[2], xs[3]);
     const X = _clampG(X_core + c4, -2, +2);
@@ -1223,30 +1217,27 @@ function computeShapley4(
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// Y2 SHADOW — Formule tanh unifiée (MEMO-Y0)
-// Calcule le score qu'aurait donné le Cœur Unifié, sans toucher au score réel.
-// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=0 (Sprint AM — était +5)
-// X = finalDelta / MAX_DELTA (MAX_DELTA=22 = point de saturation de compress())
-// terrain_brut = ctxMult × dashaMult (terrain combiné en [0.75, 1.25])
-// terrain_squashé = 1 + 0.25 × tanh((terrain_brut − 1) / 0.35)
-// X_total = X + 0.8 × base_signal
 // ══════════════════════════════════════════════════════════════════════
-function calcShadowScore(
+// Sprint AY — MOTEUR PRINCIPAL (ex-shadow Y2, promu production Sprint AY)
+// Formule tanh unifiée : Score = 50 + 36 × tanh(0.840 × X_total) × terrain_sq
+// X_total = X_core + C4 + β_eff × base_signal
+// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=0
+// ══════════════════════════════════════════════════════════════════════
+function calcMainScore(
   finalDelta: number,
   ctxMult: number,
   dashaMult: number,
-  shadowBaseSignal: number | undefined,
-  // AB-G1 — αG hiérarchisés (GPT G1 Ronde 3) : groupDeltas pour X_hier
+  baseSignal: number | undefined,
   luneGroupDelta: number,
   ephemGroupDelta: number,
   baziGroupDelta: number,
-  indivGroupDelta: number = 0, // Sprint AO — 4e groupe (Ronde 7 consensus 3/3)
-): { score: number; c4Shadow: number; cis: number; shapley: ShapleyContributions } | undefined {
+  indivGroupDelta: number = 0,
+): { score: number; c4: number; cis: number; shapley: ShapleyContributions } {
   try {
     const A    = 36.0;
     const k    = 0.840;
     const bias = 0; // Sprint AM — biais +5 supprimé (Ronde 5 : asymétrie statistique, compresse le plafond)
-    const MAX_DELTA = 22;  // point de saturation de compress() — même référence
+    const MAX_DELTA = 22;  // point de saturation de compressL1Legacy() — même référence
 
     // AB-G1 — X_hier avec αG hiérarchisés (GPT G1 Ronde 3 + Ronde 4 T1)
     // Sprint AO — 4 groupes : lune, ephem, bazi, indiv (Ronde 7 consensus 3/3)
@@ -1276,14 +1267,14 @@ function calcShadowScore(
     const _neg = _signs.filter(s => s < 0).length;
     const _countAlign = Math.max(_pos, _neg);
     const _alignSign = _pos >= _neg ? 1 : -1;
-    const cis = (_countAlign - 1) * 0.09 * _alignSign; // [-0.27, +0.27]
+    const cis = (_countAlign - 1) * 0.09 * _alignSign; // [-0.27, +0.27] — gardé pour observabilité
 
-    // Sprint AW — C4 shadow mode (Ronde 18 consensus 2/3 GPT+Grok)
-    // C4 calculé en parallèle mais NON injecté dans le score — CIS reste actif
-    // Activation définitive quand critères James Chen validés sur 90 jours
-    const c4_shadow = calcC4(XL, XE, XB, XI);
+    // Sprint AY P2 — C4 LIVE (ex-shadow, désormais injecté dans le score)
+    // C4 remplace CIS comme bonus de cohérence inter-systèmes
+    // CIS gardé en retour pour comparaison/observabilité
+    const c4 = calcC4(XL, XE, XB, XI);
 
-    const X = _clampG(X_core + cis, -2, +2);
+    const X = _clampG(X_core + c4, -2, +2); // Sprint AY : CIS → C4
 
     // Terrain combiné (ctxMult × dashaMult)
     const terrain_brut = ctxMult * dashaMult;
@@ -1296,21 +1287,21 @@ function calcShadowScore(
     // P95 (terrain=1.15, base_signal=0.8) : score 83.02 vs 84.40 — atténuation raisonnable
     // Sprint AR P6 : garde défensive Math.max(0.0) — Ronde 11 consensus 2/3 (GPT+Grok)
     const beta    = Math.max(0.0, 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15));
-    const X_total = X + beta * (shadowBaseSignal ?? 0);
+    const X_total = X + beta * (baseSignal ?? 0);
 
     // Formule tanh unifiée
     const delta_sh = A * Math.tanh(k * X_total);
     const raw      = 50 + delta_sh * terrain_sq + bias;
-    const shadowScore = Math.max(0, Math.min(100, Math.round(raw)));
+    const mainScore = Math.max(0, Math.min(100, Math.round(raw)));
 
     // Sprint AW — Shapley exact 16 coalitions (Ronde 17-18 consensus 3/3)
     // terrain_sq et betaEff gelés (Ronde 17 Takeshi/Aarav : baseline du jour)
-    const shapley = computeShapley4(XL, XE, XB, XI, terrain_sq, beta, shadowBaseSignal ?? 0);
+    const shapley = computeShapley4(XL, XE, XB, XI, terrain_sq, beta, baseSignal ?? 0);
 
-    return { score: shadowScore, c4Shadow: c4_shadow, cis, shapley };
+    return { score: mainScore, c4, cis, shapley };
   } catch (e) {
-    console.warn('[Y2 shadow] calcShadowScore échec silencieux:', e);
-    return undefined;
+    // Sprint AY : plus de fallback silencieux — crash = détectable
+    throw new Error(`[calcMainScore] échec: ${e instanceof Error ? e.message : e}`);
   }
 }
 
@@ -1633,10 +1624,10 @@ export function debugScoreDistribution(
       // ── Delta V8 (sans ctxMult/dashaMult — approximés à 1.0) ──
       const rawDelta = Math.max(-22, Math.min(22, baziDMPts + tgPts + nakPts + interPts)); // V8.9: maxDelta→22
       rawDeltas.push(rawDelta);
-      scores.push(Math.max(5, Math.min(97, compress(rawDelta))));
+      scores.push(Math.max(5, Math.min(97, compressL1Legacy(rawDelta))));
 
       if (logDetails) {
-        console.log(`${ds} | raw=${rawDelta} | score=${compress(rawDelta)} | BaZi=${baziDMPts} | 10G=${tgPts} | Nak=${nakPts}`);
+        console.log(`${ds} | raw=${rawDelta} | score=${compressL1Legacy(rawDelta)} | BaZi=${baziDMPts} | 10G=${tgPts} | Nak=${nakPts}`);
       }
     } catch { /* skip */ }
   }
@@ -1654,7 +1645,7 @@ export function debugScoreDistribution(
   const tempeteRate  = stat(25, 'lte');
 
   console.log(`\n=== DEBUG DISTRIBUTION V8 — ${days} jours autour d'aujourd'hui ===`);
-  console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compress(maxDelta=22, exp=1.05)');
+  console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compressL1Legacy(maxDelta=22, exp=1.05)');
   console.table([{
     jours: scores.length,
     'Cosmique ≥88': cosmiqueRate.toFixed(1) + '%',
@@ -1678,8 +1669,8 @@ export function debugAnalyzeCapture(): void {
     console.log('Aucun delta capturé. Active la capture avec : window.__kDebug = true');
     return;
   }
-  // Sprint AU P2 : aligné sur compress() réel (maxDelta=22, exp=1.05) — était compress47(47, 1.4) obsolète
-  const scores = buf.map(d => Math.max(5, Math.min(97, compress(d))));
+  // Sprint AU P2 : aligné sur compressL1Legacy() réel (maxDelta=22, exp=1.05) — était compress47(47, 1.4) obsolète
+  const scores = buf.map(d => Math.max(5, Math.min(97, compressL1Legacy(d))));
   const n = scores.length;
   console.log(`\n=== CAPTURE PASSIVE — ${n} appels réels ===`);
   console.table([{
