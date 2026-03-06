@@ -210,7 +210,7 @@ export function calcSlowModules(
   let progressionsScore = 0;
   if (astro) {
     const progResult = calcProgressions(bd, params.evalDate ?? new Date(), astro);
-    progressionsScore = Math.max(-3, Math.min(3, progResult.totalScore)); // V6.2: cap ±3 (signal mensuel, pas quotidien — R17)
+    progressionsScore = Math.max(-1.5, Math.min(1.5, progResult.totalScore)); // Sprint AM: cap ±1.5 (Ronde 5 : trop lent pour daily, était ±3)
     if (progResult.breakdown.length > 0) {
       breakdown.push({
         system: 'Progressions', icon: '🌱',
@@ -764,8 +764,8 @@ export function calcSlowModules(
     const scisActive    = isAllAligned && strongGroups >= 3;
 
     if (scisActive) {
-      const scisDelta = sumSigns > 0 ? 2 : -2;
-      delta += scisDelta;
+      const scisDelta = 0; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : variable poubelle)
+      // delta += scisDelta; // SUPPRIMÉ Sprint AM
       const sLabel = sumSigns > 0
         ? `🌟 Convergence Inter-Systèmes (+2) — 4/4 alignés · ${strongGroups} forts`
         : `⚠️ Convergence Critique (-2) — 4/4 alignés · ${strongGroups} forts`;

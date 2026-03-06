@@ -584,8 +584,8 @@ export function calcDailyModules(
     const officerIdx    = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
     jianchuOfficer      = JIAN_CHU_OFFICERS[officerIdx];
     const jianchuRaw    = jianchuOfficer.pts;
-    // V8.9 GPT Q1 : debias espérance +5/12 (ratio 6pos/3neu/3neg → E=+0.42) → centrage à 0
-    jianchuPts          = jianchuRaw - (5 / 12);
+    // V8.9 GPT Q1 : debias espérance +5/12 · Sprint AM — ×0.5 (Ronde 5 : ±2→±1, signal cyclique)
+    jianchuPts          = (jianchuRaw - (5 / 12)) * 0.5;
     const officerLabel  = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
     if (jianchuRaw > 0) signals.push(`${officerLabel} — officier favorable`);
     else if (jianchuRaw < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
@@ -676,7 +676,7 @@ export function calcDailyModules(
   // ═══════════════════════════════════
 
   const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
-  const ichingCapped = Math.round(6 * Math.tanh(ichRes.pts / 6)); // Sprint U2 — tanh ±6 (soft-clamp)
+  const ichingCapped = Math.round(3 * Math.tanh(ichRes.pts / 6)); // Sprint AM — tanh ±3 (Ronde 5 : compromis orthogonalité vs tradition, était ±6)
   if (ichingCapped !== 0) delta += ichingCapped;
 
   const ichingSignals: string[] = [];
@@ -761,8 +761,8 @@ export function calcDailyModules(
         tarabalaPts = tarabalaRes.delta; // hissé pour R32
         const chandrabalaRes = calcChandrabala(moonLongSidereal, natalMoonSidForNak);
 
-        // Sprint P — combinedBala remplace addition pure (double-comptage géométrique base27 vs base12)
-        const combinedBalaVal = combinedBala(tarabalaRes.delta, chandrabalaRes.delta);
+        // Sprint P — combinedBala · Sprint AM — cap ±2 combiné (Ronde 5 : réduction double-comptage Nak, était ±6)
+        const combinedBalaVal = Math.max(-2, Math.min(2, combinedBala(tarabalaRes.delta, chandrabalaRes.delta)));
         luneGroupPts += combinedBalaVal;
 
         if (tarabalaRes.delta > 0)    signals.push(tarabalaRes.label);
@@ -843,7 +843,7 @@ export function calcDailyModules(
         r31Pts = 1;
         signals.push(`🌒 R31 Cohérence lunaire — Lune croissante contrebalance Nakshatra maléfique (+1)`);
       }
-      if (r31Pts !== 0) luneGroupPts += r31Pts; // Sprint A2: groupe LUNE
+      // if (r31Pts !== 0) luneGroupPts += r31Pts; // Sprint AM — neutralisé (Ronde 5 : delta < 2, bruit d'arrondi)
     } catch { /* R31 fail silently */ }
 
     // ── Sprint K : Nakshatra Pada (groupe LUNE) ──
@@ -858,7 +858,7 @@ export function calcDailyModules(
         const rawDelta  = nakshatraData.globalBaseScore * (padaMult - 1.0);
         const padaDelta = Math.max(-1, Math.min(1, rawDelta));
         if (padaDelta !== 0) {
-          luneGroupPts += padaDelta;
+          // luneGroupPts += padaDelta; // Sprint AM — neutralisé (Ronde 5 : delta < 2, noyé dans cap)
           const sign  = padaDelta > 0 ? '+' : '';
           const label = `🌟 Pada ${padaIdx + 1} ${padaName} — ${nakshatraData.name} (${sign}${padaDelta.toFixed(2)})`;
           if (padaDelta > 0) signals.push(label);
@@ -917,8 +917,8 @@ export function calcDailyModules(
         const r33Nuance = (dmTattwa === nakTattwa && dmTattwa === 'Vayu')
           ? (dmElement === 'Bois' ? -0.5 : dmElement === 'Métal' ? +0.3 : 0)
           : 0;
-        const r33Pts = dmTattwa === nakTattwa ? (1.5 + r33Nuance) : -1.0;
-        delta += r33Pts;
+        const r33Pts = 0; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : syncrétisme arbitraire)
+        // delta += r33Pts; // SUPPRIMÉ Sprint AM
         const label = r33Pts > 0
           ? `⚡ R33 BaZi×Védique — ${dmElement} (${dmTattwa}) s'accorde avec ${nakLord} (${nakTattwa}) (+${r33Pts})`
           : `🔻 R33 BaZi×Védique — ${dmElement} (${dmTattwa}) en friction avec ${nakLord} (${nakTattwa}) (${r33Pts})`;
@@ -1330,14 +1330,12 @@ export function calcDailyModules(
   // 10. DAY TYPE MODIFIER
   // ═══════════════════════════════════
 
-  const DAY_TYPE_MOD: Record<DayType, number> = {
-    expansion: 2, decision: 1, communication: 1, observation: -1, retrait: -2
-  };
-  const dtPts = DAY_TYPE_MOD[dayType.type] || 0;
+  // Sprint AM — Day Type Modifier neutralisé (Ronde 5 consensus 3/3 : tradition trop floue, signal ≈ bruit)
+  const dtPts = 0;
   breakdown.push({
     system: 'Type de Jour', icon: dayType.icon,
     value: dayType.label,
-    points: dtPts,
+    points: 0, // Sprint AM : narratif uniquement
     detail: dayType.desc,
     signals: [], alerts: [],
   });
@@ -1381,7 +1379,7 @@ export function calcDailyModules(
   const interactionResult = calcInteractions(interactionCtx);
   if (interactionResult.totalBonus !== 0) {
     const clampedBonus = Math.max(-6, Math.min(6, interactionResult.totalBonus)); // V7→V8: cap ±6
-    ephemGroupPts += clampedBonus; // Sprint A2: groupe EPHEM
+    // ephemGroupPts += clampedBonus; // Sprint AM — neutralisé (Ronde 5 consensus 3/3 : règles opaques, signal hétérogène)
     console.assert(Math.abs(clampedBonus) <= 6.1, '[Interactions] Cap ±6 percé:', clampedBonus);
     for (const ia of interactionResult.active) {
       const sign = ia.bonus > 0 ? '+' : '';
@@ -1428,7 +1426,7 @@ export function calcDailyModules(
   try {
     fixedStarResult = calcFixedStarScore(new Date(todayStr + 'T12:00:00'));
     if (fixedStarResult.total !== 0) {
-      ephemGroupPts += Math.max(-5, Math.min(5, fixedStarResult.total)); // Sprint U1 — cap ±5
+      ephemGroupPts += Math.max(-4, Math.min(4, fixedStarResult.total)); // Sprint AM — cap ±4 (Ronde 5, était ±5)
       signals.push(...fixedStarResult.signals);
       alerts.push(...fixedStarResult.alerts);
       if (fixedStarResult.hits.length > 0) {
@@ -1453,10 +1451,11 @@ export function calcDailyModules(
   // Consensus 3/3 IAs Ronde 4 confrontation
   // ═══════════════════════════════════
 
+  let kineticShockDelta = 0; // Sprint AM — isolé hors cap C_EPHEM (Ronde 5 : dirac capé = dirac invisible)
   try {
     const ksResult = calcKineticShocks(todayStr);
     if (ksResult.totalDelta !== 0) {
-      ephemGroupPts += ksResult.totalDelta; // Sprint AL : dans C_EPHEM
+      kineticShockDelta = Math.max(-3, Math.min(3, ksResult.totalDelta)); // Sprint AM — cap individuel ±3, appliqué au delta global
       for (const shock of ksResult.shocks) {
         if (shock.delta < 0) alerts.push(`⚡ ${shock.detail}`);
         else signals.push(`⚡ ${shock.detail}`);
@@ -1481,6 +1480,9 @@ export function calcDailyModules(
   ephemGroupPts = Math.round(ephemGroupPts * luneGate);
   const ephemGroupCapped = Math.max(-14, Math.min(14, ephemGroupPts)); // Z2-B
   delta += ephemGroupCapped;
+
+  // Sprint AM — Kinetic Shocks isolés (hors cap C_EPHEM, appliqués directement au delta global)
+  delta += kineticShockDelta;
 
   // ═══════════════════════════════════
   // 13. BIAIS CONDITIONNEL — V4.4

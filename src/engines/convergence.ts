@@ -1155,7 +1155,7 @@ export function calcConvergence(
 // ══════════════════════════════════════════════════════════════════════
 // Y2 SHADOW — Formule tanh unifiée (MEMO-Y0)
 // Calcule le score qu'aurait donné le Cœur Unifié, sans toucher au score réel.
-// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=+5
+// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=0 (Sprint AM — était +5)
 // X = finalDelta / MAX_DELTA (MAX_DELTA=22 = point de saturation de compress())
 // terrain_brut = ctxMult × dashaMult (terrain combiné en [0.75, 1.25])
 // terrain_squashé = 1 + 0.25 × tanh((terrain_brut − 1) / 0.35)
@@ -1174,7 +1174,7 @@ function calcShadowScore(
   try {
     const A    = 36.0;
     const k    = 0.840;
-    const bias = 5;
+    const bias = 0; // Sprint AM — biais +5 supprimé (Ronde 5 : asymétrie statistique, compresse le plafond)
     const MAX_DELTA = 22;  // point de saturation de compress() — même référence
 
     // AB-G1 — X_hier avec αG hiérarchisés (GPT G1 Ronde 3 + Ronde 4 T1)
