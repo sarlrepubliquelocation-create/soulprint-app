@@ -152,6 +152,7 @@ delta_final += harmony;
 | AI ✅ | Sprint AI — DM Strength / Force du Maître du Jour (Chantier 5 · consensus 3/3 IAs GPT+Grok+Gemini R2 · 5 facteurs : YueLing(30)+Tonggen(20)+SupportRatio(30)+Changsheng(10)+Debuffs(10) · indice 0-100 · classes Faible/Moyen/Fort · modulation ±20% 10 Gods via s=clamp((DM-50)/20,-1,+1) · sans heure 0.65×DM_3p+0.35×50) | `dm-strength.ts` (nouveau), `convergence-daily.ts` |
 | AJ ✅ | Sprint AJ — Shen Sha complets + scoring actif (Chantier 5 · 10 nouvelles étoiles : YangRen KongWang TaoHua TianXi JieSha ZaiSha GuChen GuaSu XueRen FuXing · anti-stack poids [1,0.6,0.4,0.3,0.25,0.2] cap ±4 · interaction DM×ShenSha : négatives ×(1+0.25×(-s)), protectrices ×(1+0.20×(-s)) · intégré dans C_BAZI ±15) | `bazi.ts`, `convergence-daily.ts` |
 | AK ✅ | Sprint AK — SAV Ashtakavarga hybride (Chantier 5 · buildSAV somme 7 BAV par signe · deltaSAV=clamp((SAV-28)×0.22,-2.8,+2.8) · hybride Moon BAV+SAV : clamp(Lune_BAV×0.75 + SAV_delta, -5, +5) · remplace ancien Moon BAV pur ±2) | `ashtakavarga.ts`, `convergence-daily.ts` |
+| AL ✅ | Sprint AL — Kinetic Shocks (Chantier 5 Sprint 2 · consensus 3/3 IAs R4 confrontation · Ingress Soleil -1 jour J · Ingress Mars -2 jour J · Station D↔R Mercure/Vénus/Mars -2 additif + BAV×1.40 jour J seul · pas de rétro continu ni shadow · dans C_EPHEM ±14) | `kinetic-shocks.ts` (nouveau), `convergence-daily.ts` |
 
 ---
 

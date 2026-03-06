@@ -21,6 +21,7 @@ import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, 
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga, buildSAV, calcMoonBAVSAV, extractNatalSiderealSignIdx } from './ashtakavarga'; // V9.6 Sprint C + Sprint AK SAV
+import { calcKineticShocks } from './kinetic-shocks'; // Sprint AL — Chantier 5 Sprint 2
 import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, type TarabalaResult, type ChandrabalaResult, getTithiLord, calcTithiLordGochara, type TithiLordGocharaResult, calcGrahaDrishti, type GrahaDrishtiResult, calcYogaKartari, type KartariResult, combinedBala } from './panchanga'; // Sprint D3 + Sprint G + Sprint J + Sprint L + Sprint M + Sprint P
 
 // ══════════════════════════════════════
@@ -1445,9 +1446,34 @@ export function calcDailyModules(
 
   // Sprint D4 : ASV ☉♂ retirés de L1 → migrés vers L2 (convergence-slow.ts)
   // Rythme Soleil ~30j/signe, Mars ~45j/signe → signal lent ≠ signal quotidien
-  // Le cap ephemGroupPts ±14 reste inchangé (étoiles fixes + heure planétaire UI)
 
-  // Sprint D4 : Application cap groupe EPHEM ±14 (sans ASV ☉♂)
+  // ═══════════════════════════════════
+  // 7bis. KINETIC SHOCKS — Sprint AL (Chantier 5, Sprint 2)
+  // Ingress Soleil (-1) + Mars (-2) jour J + Station D↔R Mercure/Vénus/Mars (-2 + BAV×1.40)
+  // Consensus 3/3 IAs Ronde 4 confrontation
+  // ═══════════════════════════════════
+
+  try {
+    const ksResult = calcKineticShocks(todayStr);
+    if (ksResult.totalDelta !== 0) {
+      ephemGroupPts += ksResult.totalDelta; // Sprint AL : dans C_EPHEM
+      for (const shock of ksResult.shocks) {
+        if (shock.delta < 0) alerts.push(`⚡ ${shock.detail}`);
+        else signals.push(`⚡ ${shock.detail}`);
+        breakdown.push({
+          system: shock.type === 'ingress' ? `Ingress ${shock.planetFR}` : `Station ${shock.planetFR}`,
+          icon: '⚡',
+          value: shock.type === 'ingress' ? 'Changement de signe' : 'Station D↔R',
+          points: shock.delta,
+          detail: shock.detail,
+          signals: shock.delta > 0 ? [shock.detail] : [],
+          alerts: shock.delta < 0 ? [shock.detail] : [],
+        });
+      }
+    }
+  } catch { /* kinetic shocks fail silently */ }
+
+  // Sprint D4 : Application cap groupe EPHEM ±14
   // Sprint P — LuneGate × Ephem (seuil ±7, consensus GPT/Gemini Ronde 14)
   // ΔLUNE fort positif → légère amplification Ephem (+6%) : signal favorable = transit plus exploitable
   // ΔLUNE fort négatif → légère atténuation Ephem (-8%) : signal lunaire mauvais = transit moins porteur
