@@ -85,7 +85,7 @@ export function calcJianChuPts(dateStr: string): { pts: number; officer: { zh: s
     const monthBranchIdx = getMonthPillar(jcDate).branchIdx;
     const officerIdx    = ((dayBranchIdx - monthBranchIdx) % 12 + 12) % 12;
     const officer       = JIAN_CHU_OFFICERS[officerIdx];
-    const pts           = (officer.pts - (5 / 12)) * 0.5; // V8.9 debias + ×0.5 (Ronde 5)
+    const pts           = (officer.pts - (5 / 12)) * 0.85; // V8.9 debias + ×0.85 (Sprint AV P1 — Ronde 16 vote 1, consensus 3/3)
     return { pts, officer };
   } catch {
     return { pts: 0, officer: null };
@@ -559,7 +559,9 @@ export function calcDailyModules(
   // ═══════════════════════════════════
 
   // Sprint AR P3 : changshengPts (=0) retiré de la somme (Ronde 11 consensus 3/3)
-  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts + shenShaPts)); // V9.6 Sprint A2: C_BAZI ±15 + Sprint AJ: Shen Sha ±4
+  // Sprint AV P4 : shenShaPts sorti du scoring → narratif UI uniquement (Ronde 16 vote 4, consensus 3/3)
+  // Shen Sha conservé dans breakdown/signals/alerts pour enrichissement narratif
+  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts)); // C_BAZI ±15 — shenShaPts retiré Sprint AV
   delta += baziFamilyTotal;
 
   // Direct domain bonuses (Shen Sha per-domain — Changsheng retiré Sprint AP P5)
@@ -1192,17 +1194,13 @@ export function calcDailyModules(
   // Consensus 3/3 IAs Ronde 4 confrontation
   // ═══════════════════════════════════
 
-  // ⚡ WILD CARD ARCHITECTURAL — KineticShocks ±3 (Sprint AP P6, Ronde 8 Gemini)
-  // Intentionnellement HORS groupes αG et hors cap global L1 (±30).
-  // Justification : impulsion de Dirac (ingress/station) qui doit contourner les caps
-  // pour capturer le choc événementiel pur. Si capé dans C_EPHEM, le signal s'écrase
-  // contre le plafond d'un jour saturé et disparaît. Le shadow score ne le voit pas — assumé.
-  // Impact max : delta global peut atteindre ±33 (30 + 3). Le tanh(0.840×X/12) absorbe.
+  // Sprint AV P3 — Kinetic Shocks réintégrés dans E_fast (Ronde 16 vote 3, consensus 2/3 GPT+Grok)
+  // Plus de wild card hors cap — intégrés dans le sub-cap E_fast ±7
   let kineticShockDelta = 0;
   try {
     const ksResult = calcKineticShocks(todayStr);
     if (ksResult.totalDelta !== 0) {
-      kineticShockDelta = Math.max(-3, Math.min(3, ksResult.totalDelta)); // Sprint AM — cap individuel ±3, appliqué au delta global
+      kineticShockDelta = Math.max(-3, Math.min(3, ksResult.totalDelta)); // cap individuel ±3
       for (const shock of ksResult.shocks) {
         if (shock.delta < 0) alerts.push(`⚡ ${shock.detail}`);
         else signals.push(`⚡ ${shock.detail}`);
@@ -1219,13 +1217,19 @@ export function calcDailyModules(
     }
   } catch { /* kinetic shocks fail silently */ }
 
-  // Sprint AO — LuneGate supprimée (Ronde 7 consensus 2/3 Grok+Gemini)
-  // Multiplier EPHEM par LUNE détruit l'orthogonalité L1, double-comptage punitif
-  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemGroupPts));
+  // Sprint AV P2 — Sub-caps Éphéméride (Ronde 16 vote 2, consensus 3/3)
+  // E_fast = Transits personnels (astroPts ±6) + Kinetic Shocks (±3) → sub-cap ±7
+  // E_slow = Étoiles fixes (±4) → sub-cap ±5
+  // Stellium attenuation : réduit endogénéité transit↔stellium (Ronde 16 formule consensuelle)
+  // Stellium_eff = astroPts × (1 − 0.35 × min(1, |astroPts| / 6))
+  const stelliumAttenuation = 1 - 0.35 * Math.min(1, Math.abs(astroPts) / 6);
+  const astroPtsAttenuated = Math.round(astroPts * stelliumAttenuation * 10) / 10;
+  const ephemFastRaw = astroPtsAttenuated + kineticShockDelta;
+  const ephemFastPts = Math.max(-7, Math.min(7, ephemFastRaw)); // E_fast sub-cap ±7
+  // ephemGroupPts contient astroPts + fixedStarsPts — on le reconstruit avec sub-caps
+  const ephemSlowPts = Math.max(-5, Math.min(5, ephemGroupPts - astroPts)); // E_slow = fixedStars, sub-cap ±5
+  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemFastPts + ephemSlowPts)); // C_EPHEM ±10 inchangé
   delta += ephemGroupCapped;
-
-  // Sprint AM — Kinetic Shocks isolés (hors cap C_EPHEM, appliqués directement au delta global)
-  delta += kineticShockDelta;
 
   // Sprint AN — C_INDIV cap ±8 (Ronde 6 P2 : individuels groupés)
   // I Ching ±3 + Tithi Lord ±1 + Graha Drishti ±3 + Yoga Kartari ±2 = ±9 théorique → cap ±8

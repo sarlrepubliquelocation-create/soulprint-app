@@ -1133,7 +1133,19 @@ function calcShadowScore(
 
     // X_core ±1.6 : réserve headroom pour beta_eff × base_signal (BPHS : noyau védique prioritaire)
     const X_core = _clampG(XL + XE + XB + XI, -1.6, +1.6);
-    const X      = _clampG(X_core, -2, +2);
+
+    // Sprint AV P5 — SynergyV9 CIS : Concordance Inter-Systèmes (Ronde 16 vote 5, consensus 2/3 Grok+Gemini)
+    // Mesure l'alignement directionnel des 4 groupes : bonus si concordants, malus si discordants
+    // cis = (countAlign − 1) × 0.09 — range [-0.27, +0.27], neutre si mixte
+    // countAlign = max(positifs, négatifs) parmi les groupes non-nuls
+    const _signs = [XL, XE, XB, XI];
+    const _pos = _signs.filter(s => s > 0).length;
+    const _neg = _signs.filter(s => s < 0).length;
+    const _countAlign = Math.max(_pos, _neg);
+    const _alignSign = _pos >= _neg ? 1 : -1; // direction majoritaire
+    const cis = (_countAlign - 1) * 0.09 * _alignSign; // [-0.27, +0.27]
+
+    const X = _clampG(X_core + cis, -2, +2);
 
     // Terrain combiné (ctxMult × dashaMult)
     const terrain_brut = ctxMult * dashaMult;
