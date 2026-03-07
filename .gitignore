@@ -2,3 +2,10 @@ node_modules
 dist
 .DS_Store
 *.local
+
+# Local Netlify folder
+.netlify
+
+# Fichiers de rondes IA (prompts + réponses) — gardés localement, ignorés dans git
+RONDE*.txt
+PROMPT-RONDE*.md
