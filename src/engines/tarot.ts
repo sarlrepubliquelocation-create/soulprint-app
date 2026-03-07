@@ -25,6 +25,38 @@ export interface MajorArcana {
   light: string;        // aspect lumineux
   shadow: string;       // aspect ombragé
   narrative: string;    // texte Grok format : "Tu [verbe]. La question n'est pas [X], mais [Y]."
+  image?: string;       // Sprint AX-UX — URL image Wikimedia Commons (RWS 1909, domaine public)
+}
+
+// Sprint AX-UX — Images Rider-Waite-Smith (1909, domaine public) via Wikimedia Commons
+// Mapping Marseille → RWS : VIII et XI inversés (Marseille VIII=Justice=RWS 11, Marseille XI=Force=RWS 08)
+const RWS_IMG: Record<number, string> = {
+  0:  'RWS_Tarot_00_Fool.jpg',
+  1:  'RWS_Tarot_01_Magician.jpg',
+  2:  'RWS_Tarot_02_High_Priestess.jpg',
+  3:  'RWS_Tarot_03_Empress.jpg',
+  4:  'RWS_Tarot_04_Emperor.jpg',
+  5:  'RWS_Tarot_05_Hierophant.jpg',
+  6:  'RWS_Tarot_06_Lovers.jpg',
+  7:  'RWS_Tarot_07_Chariot.jpg',
+  8:  'RWS_Tarot_11_Justice.jpg',    // Marseille VIII = Justice → RWS XI
+  9:  'RWS_Tarot_09_Hermit.jpg',
+  10: 'RWS_Tarot_10_Wheel_of_Fortune.jpg',
+  11: 'RWS_Tarot_08_Strength.jpg',   // Marseille XI = Force → RWS VIII
+  12: 'RWS_Tarot_12_Hanged_Man.jpg',
+  13: 'RWS_Tarot_13_Death.jpg',
+  14: 'RWS_Tarot_14_Temperance.jpg',
+  15: 'RWS_Tarot_15_Devil.jpg',
+  16: 'RWS_Tarot_16_Tower.jpg',
+  17: 'RWS_Tarot_17_Star.jpg',
+  18: 'RWS_Tarot_18_Moon.jpg',
+  19: 'RWS_Tarot_19_Sun.jpg',
+  20: 'RWS_Tarot_20_Judgement.jpg',
+  21: 'RWS_Tarot_21_World.jpg',
+};
+function getRWSImageUrl(num: number): string {
+  const file = RWS_IMG[num] ?? RWS_IMG[0];
+  return `https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/${file}&width=120`;
 }
 
 export interface TarotDraw {
@@ -295,7 +327,9 @@ export function calcTarotDayNumber(dateStr: string): number {
  * Récupère un arcane par son numéro [0–21].
  */
 export function getArcana(num: number): MajorArcana {
-  return MARSEILLE_MAJOR_ARCANA.find(a => a.num === num) ?? MARSEILLE_MAJOR_ARCANA[0];
+  const arcana = MARSEILLE_MAJOR_ARCANA.find(a => a.num === num) ?? MARSEILLE_MAJOR_ARCANA[0];
+  // Sprint AX-UX — Injection image RWS automatique (pas besoin de modifier les 22 entrées)
+  return { ...arcana, image: getRWSImageUrl(arcana.num) };
 }
 
 // ─────────────────────────────────────────────

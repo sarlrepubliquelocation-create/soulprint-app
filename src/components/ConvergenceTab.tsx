@@ -1503,10 +1503,23 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   Tirée des 22 Arcanes Majeurs du Tarot de Marseille. Le calcul combine votre date de naissance et la date du jour pour déterminer l'énergie symbolique dominante — elle change quotidiennement.
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 40, height: 64, background: `${P.gold}12`, borderRadius: 6, border: `1px solid ${P.gold}33`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 20 }}>🃏</span>
-                    <span style={{ fontSize: 8, color: P.gold, fontWeight: 700, marginTop: 2 }}>{arcane.num}</span>
-                  </div>
+                  {arcane.image ? (
+                    <img
+                      src={arcane.image}
+                      alt={arcane.name_fr}
+                      style={{
+                        width: 56, height: 90, objectFit: 'cover',
+                        borderRadius: 6, border: `1px solid ${P.gold}44`,
+                        flexShrink: 0, background: '#1a1a2e',
+                      }}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div style={{ width: 56, height: 90, background: `${P.gold}12`, borderRadius: 6, border: `1px solid ${P.gold}33`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 24 }}>🃏</span>
+                      <span style={{ fontSize: 8, color: P.gold, fontWeight: 700, marginTop: 2 }}>{arcane.num}</span>
+                    </div>
+                  )}
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{arcane.name_fr}</div>
                     <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginTop: 2 }}>{arcane.theme}</div>
@@ -1846,16 +1859,28 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                       border: `1px solid ${color}20`,
                       display: 'flex', alignItems: 'center', gap: 10,
                     }}>
-                      {/* Badge chiffre romain */}
-                      <div style={{
-                        width: 34, height: 34, borderRadius: 6, flexShrink: 0,
-                        background: `${color}15`, border: `1px solid ${color}35`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 800, color, fontFamily: 'serif',
-                        letterSpacing: -0.5,
-                      }}>
-                        {ROMAN_ARCANA[arcana.num] ?? arcana.num}
-                      </div>
+                      {/* Image Arcane de Saison */}
+                      {arcana.image ? (
+                        <img
+                          src={arcana.image}
+                          alt={arcana.name_fr}
+                          style={{
+                            width: 34, height: 54, objectFit: 'cover',
+                            borderRadius: 4, border: `1px solid ${color}35`,
+                            flexShrink: 0, background: '#1a1a2e',
+                          }}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div style={{
+                          width: 34, height: 34, borderRadius: 6, flexShrink: 0,
+                          background: `${color}15`, border: `1px solid ${color}35`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 800, color, fontFamily: 'serif',
+                        }}>
+                          {ROMAN_ARCANA[arcana.num] ?? arcana.num}
+                        </div>
+                      )}
                       {/* Texte */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
