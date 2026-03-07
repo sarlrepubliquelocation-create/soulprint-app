@@ -52,7 +52,7 @@ const STEPS = [
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {[
-          { icon: '⭐', label: 'Astrologie occidentale', detail: 'Transits, Dasha védique, Retours solaires' },
+          { icon: '⭐', label: 'Astrologie occidentale', detail: 'Transits, Dasha (astrologie indienne), Retours solaires' },
           { icon: '🀄', label: 'BaZi & Zodiaque chinois', detail: '4 Piliers du Destin, 12 Officers, NaYin' },
           { icon: '☯️', label: 'Yi King', detail: '64 hexagrammes, Mei Hua, Tirage conscient' },
           { icon: '🔢', label: 'Numérologie Pythagoricienne', detail: 'Chemin de vie, Pinnacles, Inclusion' },

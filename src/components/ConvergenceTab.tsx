@@ -97,7 +97,7 @@ function getPosture(score: number, verb: string): PostureResult {
   return                                      { label: 'DÉFENSIVE',     icon: '🛡', color: '#ef4444', tagline: 'Protégez vos acquis' };
 }
 
-// AA-4 — "Courant de Fond" : 3 états sémantiques sans jargon védique (Gemini M3 Ronde 2)
+// AA-4 — "Courant de Fond" : 3 états sémantiques sans jargon indien (Gemini M3 Ronde 2)
 // Seuils : [-1, -0.30[ = Vent de face / [-0.30, +0.30] = Mer d'huile / ]+0.30, +1] = Vent dans le dos
 // Zéro mot technique : utilisateur comprend en 2 secondes si c'est bon ou mauvais pour lui aujourd'hui.
 function getVedicReadout(sig: number | undefined): { label: string; icon: string; color: string } {
@@ -905,7 +905,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     <div style={{ fontSize: 20, fontWeight: 800, color: signalScore >= 65 ? P.gold : signalScore >= 45 ? P.textMid : '#ef4444' }}>
                       {signalScore}
                     </div>
-                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>BaZi (astrologie chinoise) · Nakshatra (astrologie védique)</div>
+                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>BaZi (astrologie chinoise) · Nakshatra (astrologie indienne)</div>
                   </div>
                   {/* Séparateur */}
                   <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>·</div>
@@ -1021,7 +1021,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   <div style={{ fontSize: 9, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
                     RÉSONANCE
                   </div>
-                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Alignement de vos cycles védiques profonds</div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Alignement de vos cycles astrologiques indiens</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: vedic.color }}>
                     {vedic.icon} {cv.shadowBaseSignal !== undefined ? `${(cv.shadowBaseSignal * 100).toFixed(0)}%` : '—'}
                   </div>
@@ -1767,7 +1767,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                       🕉 Saison de Vie
                     </div>
                     <div style={{ fontSize: 10, color: P.textDim, marginTop: 2, lineHeight: 1.4 }}>
-                      Cycle long terme de l'astrologie védique (Vimshottari Dasha). Chaque personne traverse des "saisons" de 6 à 20 ans, gouvernées par une planète, qui colorent les grandes tendances de votre vie.
+                      Cycle long terme de l'astrologie indienne (système Vimshottari Dasha, issu de la tradition Jyotish). Chaque personne traverse des "saisons" de 6 à 20 ans, gouvernées par une planète, qui colorent les grandes tendances de votre vie.
                     </div>
                     <div style={{ fontSize: 16, fontWeight: 800, color, marginTop: 6 }}>
                       {saison}
