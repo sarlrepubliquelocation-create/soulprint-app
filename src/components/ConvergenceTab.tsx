@@ -535,6 +535,9 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   Jour Personnel {activeLack} · Leçon karmique en lumière
                 </span>
               </div>
+              <div style={{ fontSize: 10, color: P.textDim, marginBottom: 3 }}>
+                Votre Jour Personnel change chaque jour — c'est le chiffre du jour selon votre numérologie (date de naissance + date du jour). Quand il tombe sur un nombre manquant dans votre thème, il active une leçon d'apprentissage.
+              </div>
               <div style={{ fontSize: 11, color: P.textMid, lineHeight: 1.5 }}>{info.activationText}</div>
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 4 }}>
                 Axe {info.icon} {info.domain} · {info.lesson}
@@ -889,8 +892,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 marginTop: 12, padding: '10px 16px',
                 background: P.surface, border: `1px solid ${P.cardBdr}`, borderRadius: 10,
               }}>
-                <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600, marginBottom: 8 }}>
+                <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600, marginBottom: 4 }}>
                   Décomposition du score
+                </div>
+                <div style={{ fontSize: 10, color: P.textDim, marginBottom: 8, lineHeight: 1.4 }}>
+                  Signal = potentiel brut du jour (astrologie + BaZi). Terrain = amplificateur lié à votre cycle de vie long terme. Score = Signal × Terrain.
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
                   {/* Signal */}
@@ -899,7 +905,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     <div style={{ fontSize: 20, fontWeight: 800, color: signalScore >= 65 ? P.gold : signalScore >= 45 ? P.textMid : '#ef4444' }}>
                       {signalScore}
                     </div>
-                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>BaZi · Nak</div>
+                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>BaZi (astrologie chinoise) · Nakshatra (astrologie védique)</div>
                   </div>
                   {/* Séparateur */}
                   <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>·</div>
@@ -990,6 +996,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   <div style={{ fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
                     IMPACT
                   </div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Votre domaine le plus porteur aujourd'hui</div>
                   {best && (
                     <>
                       <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[best.domain] ?? '#4ade80' }}>
@@ -1014,6 +1021,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   <div style={{ fontSize: 9, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
                     RÉSONANCE
                   </div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Alignement de vos cycles védiques profonds</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: vedic.color }}>
                     {vedic.icon} {cv.shadowBaseSignal !== undefined ? `${(cv.shadowBaseSignal * 100).toFixed(0)}%` : '—'}
                   </div>
@@ -1037,6 +1045,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
                     ANCRAGE
                   </div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Domaine à surveiller — énergie plus faible ici</div>
                   {worst && (
                     <>
                       <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[worst.domain] ?? '#ef4444' }}>
@@ -1159,7 +1168,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     Pic d'intensité personnelle
                   </div>
                   <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.4 }}>
-                    Plusieurs de vos forces innées agissent en synergie aujourd'hui — une concentration rare de vos potentiels est stimulée.
+                    Plusieurs de vos systèmes (astrologie, BaZi, numérologie) pointent dans la même direction aujourd'hui — c'est rare. Quand Lune, Astro et BaZi s'alignent positivement, votre potentiel est amplifié.
                   </div>
                 </div>
               </div>
@@ -1487,8 +1496,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const arcane = getArcana(calcTarotDayNumber(todayStr2));
             return (
               <div style={{ marginBottom: 20, padding: 14, background: P.bg, borderRadius: 10, border: `1px solid ${P.cardBdr}` }}>
-                <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 4 }}>
                   🃏 Arcane du Jour
+                </div>
+                <div style={{ fontSize: 10, color: P.textDim, marginBottom: 8, lineHeight: 1.4 }}>
+                  Tirée des 22 Arcanes Majeurs du Tarot de Marseille. Le calcul combine votre date de naissance et la date du jour pour déterminer l'énergie symbolique dominante — elle change quotidiennement.
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{ width: 40, height: 64, background: `${P.gold}12`, borderRadius: 6, border: `1px solid ${P.gold}33`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1584,7 +1596,10 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
 
           {/* ═══ 7. CLIMAT STRATÉGIQUE ═══ */}
           <div style={{ marginBottom: 20, padding: 14, background: P.bg, borderRadius: 10, border: `1px solid ${P.cardBdr}` }}>
-            <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 12 }}>✦ Climat Stratégique</div>
+            <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 4 }}>✦ Climat Stratégique</div>
+            <div style={{ fontSize: 10, color: P.textDim, marginBottom: 10, lineHeight: 1.4 }}>
+              L'ambiance générale à 3 échelles de temps, basée sur vos cycles numériques personnels (chemin de vie + année/mois/semaine universels). Chaque période a sa propre dynamique.
+            </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {([
                 ['Semaine', cl.week],
@@ -1687,11 +1702,14 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   {moon.name}
                 </div>
                 <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · Illumination {moon.illumination}%
+                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {moon.illumination}% de la surface éclairée{moon.illumination >= 97 ? ' (pleine)' : moon.illumination <= 3 ? ' (nouvelle)' : ''}
                 </div>
               </div>
             </div>
-            <div style={{ fontSize: 12, color: P.textMid, marginTop: 10, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, lineHeight: 1.4 }}>
+              La Lune influence l'énergie émotionnelle et l'intuition. Chaque phase favorise un type d'action différent — la pleine lune amplifie les résultats, la nouvelle lune invite au recul.
+            </div>
+            <div style={{ fontSize: 12, color: P.textMid, marginTop: 6, lineHeight: 1.6 }}>
               {moon.tactical}
             </div>
           </div>
@@ -1735,7 +1753,10 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     <div style={{ fontSize: 11, color, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
                       🕉 Saison de Vie
                     </div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color, marginTop: 2 }}>
+                    <div style={{ fontSize: 10, color: P.textDim, marginTop: 2, lineHeight: 1.4 }}>
+                      Cycle long terme de l'astrologie védique (Vimshottari Dasha). Chaque personne traverse des "saisons" de 6 à 20 ans, gouvernées par une planète, qui colorent les grandes tendances de votre vie.
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color, marginTop: 6 }}>
                       {saison}
                       {isSandhi && <span style={{ fontSize: 11, color: '#fbbf24', marginLeft: 8, fontWeight: 600 }}>⚠ Transition</span>}
                     </div>
@@ -1760,7 +1781,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 {/* Barre temporelle */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: P.textDim, marginBottom: 4 }}>
-                    <span>MAHADASHA {mahaLord.toUpperCase()}</span>
+                    <span>PÉRIODE MAJEURE {mahaLord.toUpperCase()}</span>
                     <span>{mahaPct}% écoulé</span>
                   </div>
                   {/* Barre Maha */}
@@ -1791,7 +1812,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {/* Antardasha */}
                   <div style={{ padding: '8px 10px', borderRadius: 8, background: `${color}0c`, border: `1px solid ${color}20` }}>
-                    <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Période</div>
+                    <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Sous-période en cours</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color, marginTop: 2 }}>{antarLord}</div>
                     <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>encore {antarRemain}</div>
                   </div>
@@ -1800,7 +1821,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     title={pratNarr}
                     style={{ padding: '8px 10px', borderRadius: 8, background: `${color}06`, border: `1px solid ${color}14`, cursor: 'help' }}
                   >
-                    <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Cette semaine</div>
+                    <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Micro-cycle actuel</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: P.textMid, marginTop: 2 }}>{pratLord}</div>
                     <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>encore {pratRemain}</div>
                   </div>
