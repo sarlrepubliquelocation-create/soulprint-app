@@ -163,52 +163,54 @@ function scoreLevelColor(score: number): string {
 // ═══ ACTION RECOMMANDÉE ═══
 // ══════════════════════════════════════
 
+// Ronde 20 : 3 postures (AGIR / AJUSTER / RALENTIR) — le score décide, le dayType nuance
 const ACTION_DEFS: Record<ActionVerb, Omit<ActionReco, 'conseil'>> = {
-  lance:   { verb: 'lance',   icon: '🚀', label: 'LANCE',   color: '#4ade80' },
-  prepare: { verb: 'prepare', icon: '🔧', label: 'PRÉPARE', color: '#60a5fa' },
-  observe: { verb: 'observe', icon: '👁',  label: 'OBSERVE', color: '#D4AF37' },
-  protege: { verb: 'protege', icon: '🛡',  label: 'PROTÈGE', color: '#9370DB' },
+  agir:     { verb: 'agir',     icon: '🚀', label: 'AGIR',     color: '#4ade80' },
+  ajuster:  { verb: 'ajuster',  icon: '⚡', label: 'AJUSTER',  color: '#f59e0b' },
+  ralentir: { verb: 'ralentir', icon: '🛡', label: 'RALENTIR', color: '#ef4444' },
 };
 
 function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string): ActionReco {
+  // Ronde 20 : le SCORE est le verdict, le dayType ne peut jamais le contredire
   let verb: ActionVerb;
-  if (score >= 75 && (dayType.type === 'decision' || dayType.type === 'expansion' || dayType.type === 'communication')) {
-    verb = 'lance';
-  } else if (score >= 55 && (dayType.type === 'decision' || dayType.type === 'expansion' || dayType.type === 'communication')) {
-    verb = 'prepare';
-  } else if (score >= 40) {
-    verb = 'observe';
-  } else {
-    verb = 'protege';
-  }
-  if (dayType.type === 'retrait') verb = score >= 55 ? 'observe' : 'protege';
+  if (score >= 65)      verb = 'agir';
+  else if (score >= 40) verb = 'ajuster';
+  else                  verb = 'ralentir';
 
-  const def = ACTION_DEFS[verb];
+  // Textes conditionnels Score × DayType (Magnitude/Vecteur — Gemini R20)
+  // Règle : si score ≥65, AUCUN texte ne décourage l'action
+  const isRetrait = dayType.type === 'retrait' || dayType.type === 'observation';
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+
   const conseils: Record<ActionVerb, string[]> = {
-    lance: [
+    agir: isRetrait ? [
+      `Bonne énergie — canalisez-la dans la réflexion et les décisions mûries. ${hexKeyword}.`,
+      `Le potentiel est là. Avancez sur l'essentiel, gardez le reste pour demain. ${hexKeyword}.`,
+      `Journée riche en énergie. Prenez du recul stratégique pour mieux viser. ${hexKeyword}.`,
+    ] : [
       `Feu vert — agissez sur vos décisions clés. ${hexKeyword}.`,
       `Conditions optimales pour lancer, signer, avancer. ${hexKeyword}.`,
       `L'alignement est fort — c'est le moment d'agir avec conviction. ${hexKeyword}.`,
     ],
-    prepare: [
-      `Bon timing pour structurer et planifier vos prochaines actions. ${hexKeyword}.`,
-      `Préparez le terrain — les conditions mûrissent en votre faveur. ${hexKeyword}.`,
-      `Organisez, testez, validez — le lancement viendra bientôt. ${hexKeyword}.`,
+    ajuster: isRetrait ? [
+      `Énergie modérée + journée calme : idéal pour organiser et préparer. ${hexKeyword}.`,
+      `Pas de précipitation — structurez vos prochaines actions. ${hexKeyword}.`,
+      `Posez-vous, faites le tri, préparez le terrain pour la prochaine fenêtre. ${hexKeyword}.`,
+    ] : [
+      `Avancez avec méthode — priorisez et ajustez au fil de la journée. ${hexKeyword}.`,
+      `Le contexte est mitigé : sélectionnez vos batailles. ${hexKeyword}.`,
+      `Bon timing pour tester, valider et affiner avant de lancer. ${hexKeyword}.`,
     ],
-    observe: [
-      `Journée d'écoute et d'analyse. Collectez l'information avant d'agir. ${hexKeyword}.`,
-      `Pas de précipitation — observez les signaux et ajustez votre stratégie. ${hexKeyword}.`,
-      `Le moment n'est pas à l'action mais à la compréhension. ${hexKeyword}.`,
-    ],
-    protege: [
-      `Journée défensive — consolidez vos acquis et évitez les risques inutiles. ${hexKeyword}.`,
-      `Protégez votre énergie et vos positions. Reportez les décisions majeures. ${hexKeyword}.`,
+    ralentir: [
+      `Journée de pause stratégique — consolidez vos acquis. ${hexKeyword}.`,
+      `Protégez votre énergie, reportez les décisions importantes. ${hexKeyword}.`,
       `Repli stratégique — ce n'est pas une faiblesse, c'est de l'intelligence. ${hexKeyword}.`,
     ],
   };
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  const conseil = conseils[verb][dayOfYear % conseils[verb].length];
-  return { ...def, conseil };
+
+  const pool = conseils[verb];
+  const conseil = pool[dayOfYear % pool.length];
+  return { ...ACTION_DEFS[verb], conseil };
 }
 
 // ══════════════════════════════════════
@@ -972,8 +974,8 @@ export function calcConvergence(
   const climate = calcClimate(num);
 
   let actionReco = calcActionReco(daily.dayType, score, iching.keyword);
-  if (actionReco.verb === 'lance' && mercPts <= -3) {
-    actionReco = { ...ACTION_DEFS.prepare, conseil: `Mercure rétrograde — préparez sans lancer. ${iching.keyword}.` };
+  if (actionReco.verb === 'agir' && mercPts <= -3) {
+    actionReco = { ...ACTION_DEFS.ajuster, conseil: `Mercure rétrograde — avancez avec prudence, évitez les lancements. ${iching.keyword}.` };
   }
 
   const transitBonusForRarity = astro?.tr.length ? Math.round(calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl).total) : 0;

@@ -53,7 +53,8 @@ export interface DayTypeInfo {
 // ═══ ACTION RECOMMANDÉE ═══
 // ══════════════════════════════════════
 
-export type ActionVerb = 'lance' | 'prepare' | 'observe' | 'protege';
+// Ronde 20 : 4 verbes → 3 (AGIR / AJUSTER / RALENTIR)
+export type ActionVerb = 'agir' | 'ajuster' | 'ralentir';
 
 export interface ActionReco {
   verb: ActionVerb;

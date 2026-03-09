@@ -42,7 +42,7 @@ function buildBrief(data: SoulData): string {
   const cl = conv.climate;
   const ar = conv.actionReco;
   const moon = getMoonPhase();
-  const line1 = `📊 Potentiel Stratégique : ${conv.score}% — ${conv.level.replace(/^[^\s]+ /, '')}`;
+  const line1 = `📊 Potentiel Stratégique : ${conv.score}/100 — ${conv.level.replace(/^[^\s]+ /, '')}`;
   const lineNarr = conv.scoreLevel?.narrative ? `💬 ${conv.scoreLevel.narrative}` : '';
   const line2 = `${dt.icon} Journée ${dt.label} · ${dt.desc}`;
   const lineAR = ar ? `${ar.icon} Action : ${ar.label} — ${ar.conseil}` : '';
@@ -52,7 +52,7 @@ function buildBrief(data: SoulData): string {
   const lineRarity = conv.rarityIndex?.rank ? `${conv.rarityIndex.icon} ${conv.rarityIndex.label} — ${conv.rarityIndex.rank}${conv.rarityIndex.rank === 1 ? 'er' : 'ème'} meilleur jour / 365` : '';
   const lineBaZi = conv.baziDaily ? `☯ ${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.pinyin} (${conv.baziDaily.dailyStem.element}) → ${conv.baziDaily.interaction.dynamique.split('.')[0]}` : '';
   // Sprint AS P3 : lineTrinity supprimé (toujours '', zéro effet — Trinity morte depuis Sprint AR)
-  const lineCtx = conv.contextualScores ? conv.contextualScores.domains.map(d => `  ${d.icon} ${d.label} ${d.score}% — ${d.directive || ''}`).join('\n') : '';
+  const lineCtx = conv.contextualScores ? conv.contextualScores.domains.map(d => `  ${d.icon} ${d.label} ${d.score}/100 — ${d.directive || ''}`).join('\n') : '';
   const line10Gods = conv.tenGods?.dominant ? `✦ ${conv.tenGods.dominant.label} (${conv.tenGods.dominant.isZheng ? 'stable' : 'intense'})` : '';
   return [
     `🔮 SoulPrint Oracle — Brief du ${new Date().toLocaleDateString('fr-FR')}`,
@@ -82,19 +82,17 @@ const DASHA_COLOR: Record<string, string> = {
   Jupiter: '#4ade80', Saturne: '#94a3b8', Mercure: '#38bdf8',
 };
 
-// Y4 — Posture du Jour (5 postures décisionnelles)
+// Ronde 20 — Posture du Jour (3 postures claires : AGIR / AJUSTER / RALENTIR)
 interface PostureResult {
   label: string;
   icon: string;
   color: string;
   tagline: string;
 }
-function getPosture(score: number, verb: string): PostureResult {
-  if (verb === 'lance' && score >= 75) return { label: 'OFFENSIVE',    icon: '🚀', color: '#4ade80', tagline: 'Foncez — le terrain est ouvert' };
-  if (verb === 'lance')                return { label: 'ACTIVE',        icon: '⚡', color: '#f59e0b', tagline: 'Avancez avec méthode' };
-  if (verb === 'prepare')              return { label: 'TACTIQUE',      icon: '🎯', color: '#60a5fa', tagline: 'Préparez sans lancer' };
-  if (verb === 'observe')              return { label: 'OBSERVATION',   icon: '👁', color: '#94a3b8', tagline: "Lisez l'environnement" };
-  return                                      { label: 'DÉFENSIVE',     icon: '🛡', color: '#ef4444', tagline: 'Protégez vos acquis' };
+function getPosture(_score: number, verb: string): PostureResult {
+  if (verb === 'agir')     return { label: 'AGIR',     icon: '🚀', color: '#4ade80', tagline: 'Le contexte est favorable — avancez' };
+  if (verb === 'ajuster')  return { label: 'AJUSTER',  icon: '⚡', color: '#f59e0b', tagline: 'Avancez avec discernement' };
+  return                          { label: 'RALENTIR', icon: '🛡', color: '#ef4444', tagline: 'Protégez vos acquis' };
 }
 
 // AA-4 — "Courant de Fond" : 3 états sémantiques sans jargon indien (Gemini M3 Ronde 2)
@@ -137,6 +135,11 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
   const cl = cv.climate;
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Ronde 20 — Accordéon helper (Progressive Disclosure)
+  const toggleSection = useCallback((key: string) => {
+    setExpanded(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  }, []);
+  const isOpen = useCallback((key: string) => expanded.has(key), [expanded]);
   const [expertMode, setExpertMode] = useState(false);
   const [paradoxSlider, setParadoxSlider] = useState(50); // AB-M1 — Slider Logique↔Instinct (Sprint AC connectera au calibration offset)
   // Sprint AC — Overlay calibration matin (Fluide / Équilibré / Exigeant)
@@ -615,7 +618,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
               </svg>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: 46, fontWeight: 700, color: cv.lCol }}>{displayScore}</span>{/* AC-2 — displayScore = cv.score + calibOffset */}
-                <span style={{ fontSize: 14, color: cv.lCol + 'aa' }}>%</span>
+                <span style={{ fontSize: 12, color: cv.lCol + '88' }}>/ 100</span>
                 {/* V8.9 — Plage [low–high] (Grok Q1 + GPT Q4) — affichée si margin >= 4 */}
                 {cv.ci && cv.ci.margin >= 4 && cv.ci.lower !== cv.ci.upper && (
                   <span style={{ fontSize: 10, color: P.textDim, opacity: 0.7, marginTop: 2, letterSpacing: 0.5 }}>
@@ -668,12 +671,12 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                         }} />
                       </div>
                       <span style={{ fontSize: 11, width: 36, textAlign: 'left', fontWeight: 600, color: v.val >= 0 ? v.color : '#ef4444' }}>
-                        {v.val > 0 ? '+' : ''}{v.val.toFixed(1)}
+                        {v.val > 0 ? '+' : ''}{Math.round(v.val)} pts
                       </span>
                     </div>
                   ))}
                   <div style={{ fontSize: 9, color: P.textDim, textAlign: 'center', marginTop: 6, opacity: 0.7 }}>
-                    Points de contribution (base : {cv.shapley.baseline}%)
+                    Points de contribution (base : {cv.shapley.baseline})
                   </div>
                 </div>
               );
@@ -793,7 +796,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                     fontSize: 20, fontWeight: 800,
                     color: tomorrowPreview.score >= 85 ? '#E0B0FF' : tomorrowPreview.score >= 70 ? P.gold : tomorrowPreview.score >= 50 ? P.textMid : '#ef4444',
                   }}>
-                    {tomorrowPreview.score}<span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>%</span>
+                    {tomorrowPreview.score}<span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>/100</span>
                   </span>
                   <span style={{ fontSize: 11, color: P.textDim }}>{tomorrowPreview.dayType.icon} {tomorrowPreview.dayType.label}</span>
                   {cv.score !== 0 && (
@@ -877,7 +880,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             })()}
           </div>
 
-          {/* ═══ V8 — Décomposition Signal · Terrain · Élan ═══ */}
+          {/* ═══ Ronde 20 — Décomposition (accordéon) ═══ */}
           {cv.rawFinal !== undefined && cv.ctxMult !== undefined && cv.dashaMult !== undefined && (() => {
             // Signal = score sans les multiplicateurs de terrain
             const terrainMult = cv.ctxMult * cv.dashaMult;
@@ -889,46 +892,41 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const terrainPos  = terrainPts >= 0;
             return (
               <div style={{
-                marginTop: 12, padding: '10px 16px',
-                background: P.surface, border: `1px solid ${P.cardBdr}`, borderRadius: 10,
+                marginTop: 12, background: P.surface, border: `1px solid ${P.cardBdr}`, borderRadius: 10, overflow: 'hidden',
               }}>
-                <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600, marginBottom: 4 }}>
-                  Décomposition du score
+                <div onClick={() => toggleSection('decomp')} style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
+                    Comment est calculé ce score
+                  </span>
+                  <span style={{ fontSize: 11, color: P.textDim }}>{isOpen('decomp') ? '▼' : '▶'}</span>
                 </div>
-                <div style={{ fontSize: 10, color: P.textDim, marginBottom: 8, lineHeight: 1.4 }}>
-                  Signal = potentiel brut du jour (astrologie + BaZi). Terrain = amplificateur lié à votre cycle de vie long terme. Score = Signal × Terrain.
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
-                  {/* Signal */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 70 }}>
-                    <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Signal</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: signalScore >= 65 ? P.gold : signalScore >= 45 ? P.textMid : '#ef4444' }}>
-                      {signalScore}
+                {isOpen('decomp') && (
+                  <div style={{ padding: '0 16px 10px' }}>
+                    <div style={{ fontSize: 10, color: P.textDim, marginBottom: 8, lineHeight: 1.4 }}>
+                      Signal = potentiel brut du jour. Contexte de fond = amplificateur lié à votre cycle de vie. Score = Signal × Contexte.
                     </div>
-                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>BaZi (astrologie chinoise) · Nakshatra (astrologie indienne)</div>
-                  </div>
-                  {/* Séparateur */}
-                  <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>·</div>
-                  {/* Terrain */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 80 }}>
-                    <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Terrain</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: terrainPos ? '#4ade80' : '#ef4444' }}>
-                      ×{terrainPct.toFixed(2)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 70 }}>
+                        <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Signal</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: signalScore >= 65 ? P.gold : signalScore >= 45 ? P.textMid : '#ef4444' }}>
+                          {signalScore}
+                        </div>
+                      </div>
+                      <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>×</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 80 }}>
+                        <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Contexte</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: terrainPos ? '#4ade80' : '#ef4444' }}>
+                          {terrainPts >= 0 ? `+${terrainPts}` : terrainPts} pts
+                        </div>
+                      </div>
+                      <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>=</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 60 }}>
+                        <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Score</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: cv.lCol }}>{displayScore}</div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: terrainPos ? '#4ade80' : '#ef4444', marginTop: 1 }}>
-                      {terrainPts >= 0 ? `+${terrainPts}` : terrainPts} pts
-                    </div>
                   </div>
-                  {/* Sprint AS P4 : widget Élan supprimé (elanBonus toujours 0 — Ronde 11) */}
-                  {/* Séparateur */}
-                  <div style={{ color: P.textDim, fontSize: 16, opacity: 0.3, padding: '0 4px' }}>=</div>
-                  {/* Score final */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 60 }}>
-                    <div style={{ fontSize: 9, color: P.textDim, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 }}>Score</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: cv.lCol }}>{displayScore}</div>{/* AC-2 */}
-                    <div style={{ fontSize: 9, color: P.textDim, marginTop: 1 }}>Total</div>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })()}
@@ -987,20 +985,20 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
                 gap: 8, marginBottom: 20,
               }}>
-                {/* IMPACT */}
+                {/* Ronde 20 : IMPACT → FORCE DU JOUR */}
                 <div style={{
                   padding: '12px 10px', borderRadius: 10,
                   background: '#4ade8010', border: '1px solid #4ade8028',
                   display: 'flex', flexDirection: 'column', gap: 4,
                 }}>
                   <div style={{ fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
-                    IMPACT
+                    FORCE DU JOUR
                   </div>
-                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Votre domaine le plus porteur aujourd'hui</div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Votre domaine le plus porteur</div>
                   {best && (
                     <>
                       <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[best.domain] ?? '#4ade80' }}>
-                        {best.icon} {best.score}%
+                        {best.icon} {best.score}/100
                       </div>
                       <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{best.label}</div>
                     </>
@@ -1012,44 +1010,39 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                   )}
                 </div>
 
-                {/* RÉSONANCE */}
+                {/* Ronde 20 : RÉSONANCE → ALIGNEMENT */}
                 <div style={{
                   padding: '12px 10px', borderRadius: 10,
                   background: '#a78bfa10', border: '1px solid #a78bfa28',
                   display: 'flex', flexDirection: 'column', gap: 4,
                 }}>
                   <div style={{ fontSize: 9, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
-                    RÉSONANCE
+                    ALIGNEMENT
                   </div>
-                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Alignement de vos cycles astrologiques indiens</div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Cohérence de vos cycles profonds</div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: vedic.color }}>
-                    {vedic.icon} {cv.shadowBaseSignal !== undefined ? `${(cv.shadowBaseSignal * 100).toFixed(0)}%` : '—'}
+                    {vedic.icon} {cv.shadowBaseSignal !== undefined ? `${Math.round(50 + cv.shadowBaseSignal * 50)}/100` : '—'}
                   </div>
                   {/* AB-M2 — masquer label "Mer d'huile" (état neutre trop banal) */}
                   {cv.shadowBaseSignal !== undefined && Math.abs(cv.shadowBaseSignal) >= 0.30 && (
                     <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{vedic.label}</div>
                   )}
-                  {cv.shadowScore !== undefined && (
-                    <div style={{ fontSize: 9, color: '#a78bfaaa', lineHeight: 1.3, marginTop: 2, fontStyle: 'italic' }}>
-                      Moteur Cœur : {cv.shadowScore}%
-                    </div>
-                  )}
                 </div>
 
-                {/* ANCRAGE */}
+                {/* Ronde 20 : ANCRAGE → VIGILANCE */}
                 <div style={{
                   padding: '12px 10px', borderRadius: 10,
                   background: '#ef444410', border: '1px solid #ef444428',
                   display: 'flex', flexDirection: 'column', gap: 4,
                 }}>
                   <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
-                    ANCRAGE
+                    VIGILANCE
                   </div>
-                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Domaine à surveiller — énergie plus faible ici</div>
+                  <div style={{ fontSize: 9, color: P.textDim, lineHeight: 1.3, marginBottom: 2 }}>Domaine à surveiller aujourd'hui</div>
                   {worst && (
                     <>
                       <div style={{ fontSize: 13, fontWeight: 800, color: DOMAIN_COLORS[worst.domain] ?? '#ef4444' }}>
-                        {worst.icon} {worst.score}%
+                        {worst.icon} {worst.score}/100
                       </div>
                       <div style={{ fontSize: 10, color: P.textMid, lineHeight: 1.3 }}>{worst.label}</div>
                     </>
@@ -1165,7 +1158,7 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 3 }}>
-                    Pic d'intensité personnelle
+                    Forces principales alignées
                   </div>
                   <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.4 }}>
                     Plusieurs de vos systèmes (astrologie, BaZi, numérologie) pointent dans la même direction aujourd'hui — c'est rare. Quand Lune, Astro et BaZi s'alignent positivement, votre potentiel est amplifié.
@@ -1316,9 +1309,9 @@ export default function ConvergenceTab({ data, psi, bd }: { data: SoulData; psi?
             const metaScore = (base: number, w: number) => Math.min(100, Math.max(0, Math.round(base * w)));
 
             const meta = [
-              { key: 'FAIRE', icon: '⚡', label: 'Faire', color: '#f59e0b', val: metaScore(calcMeta(domScore('BUSINESS'), domScore('CREATIVITE')), nF), sub: 'Business · Créativité' },
-              { key: 'LIER',  icon: '🤝', label: 'Lier',  color: '#c084fc', val: metaScore(calcMeta(domScore('AMOUR'), domScore('RELATIONS')), nL),     sub: 'Amour · Relations'    },
-              { key: 'ETRE',  icon: '🧘', label: 'Être',  color: '#4ade80', val: metaScore(calcMeta(domScore('VITALITE'), domScore('INTROSPECTION')), nE), sub: 'Vitalité · Intro'   },
+              { key: 'FAIRE', icon: '⚡', label: 'Agir & Créer',    color: '#f59e0b', val: metaScore(calcMeta(domScore('BUSINESS'), domScore('CREATIVITE')), nF), sub: 'Business · Créativité' },
+              { key: 'LIER',  icon: '🤝', label: 'Relier',        color: '#c084fc', val: metaScore(calcMeta(domScore('AMOUR'), domScore('RELATIONS')), nL),     sub: 'Amour · Relations'    },
+              { key: 'ETRE',  icon: '🧘', label: 'Équilibre',     color: '#4ade80', val: metaScore(calcMeta(domScore('VITALITE'), domScore('INTROSPECTION')), nE), sub: 'Vitalité · Intro'   },
             ];
             return (
               <div style={{ marginBottom: 12, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
