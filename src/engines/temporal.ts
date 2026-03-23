@@ -22,13 +22,6 @@
 // TYPES — DÉPENDANCES EXTERNES (à connecter)
 // ─────────────────────────────────────────────
 
-export interface BirthData {
-  birthDate: string;           // ISO date
-  missingNumbers?: number[];
-  northNode?: string;
-  [key: string]: any;
-}
-
 export interface PinnacleInfo {
   number: number;
   startAge: number;
@@ -89,25 +82,6 @@ export interface MACDResult {
 // ─────────────────────────────────────────────
 // TYPES — DERIVATIVE VOLATILITY SHOCK (V3.2)
 // ─────────────────────────────────────────────
-
-export interface VolatilityShock {
-  detected: boolean;
-  delta: number;            // différence score aujourd'hui - hier
-  direction: 'up' | 'down';
-  magnitude: 'moderate' | 'severe' | 'extreme';  // |35-49| | |50-64| | |65+|
-  narrative: string;
-}
-
-// ─────────────────────────────────────────────
-// TYPES — PINNACLE CONTEXTUAL BASELINE (V3.2)
-// ─────────────────────────────────────────────
-
-export interface PinnacleBaseline {
-  baselineOffset: number;   // -3 à +3
-  reason: string;
-  pinnaclePhase: 'early' | 'middle' | 'late';
-  pinnacleNumber: number;
-}
 
 // ─────────────────────────────────────────────
 // TYPES — FORECAST ENGINE
@@ -527,6 +501,340 @@ export const ARC_NARRATIVES: Record<ArcName, {
 };
 
 // ─────────────────────────────────────────────
+// NARRATIVE BUILDERS — Templates dynamiques (Ronde #9)
+// Architecture : Gemini (builders + helpers) · Tonalité : GPT (concret, grand public)
+// Règles : Passé=rétrospectif, Présent=directif, Futur=prospectif+chiffre
+// ─────────────────────────────────────────────
+
+export interface NarrativeContext {
+  // Momentum (pour Passé)
+  momentumTrend: 'rising' | 'falling' | 'stable' | 'volatile';
+  streak: number;
+  avg7: number;
+  // Signal (pour Présent)
+  signalScore: number;
+  signalLabel: string;
+  // Tendance (pour Présent)
+  trendScore: number;
+  py: number;
+  // Forecast (pour Futur)
+  goldDays30: number;
+  actionWindows: number;
+  bestDayLabel: string;
+  bestDayScore: number;
+  ciLabel: string;
+  // Contexte général
+  intensity: 'calm' | 'building' | 'peak' | 'releasing';
+  keyMessage: string;
+}
+
+// ── Helper functions (réutilisables entre les 12 arcs) ──
+
+function getMomentumHook(trend: string, streak: number): string {
+  if (trend === 'volatile') return `Après ${streak} jours en dents de scie`;
+  if (trend === 'falling') return `Malgré le ralentissement des derniers jours`;
+  if (trend === 'rising') return `Porté par l'élan des ${streak} derniers jours`;
+  return `Avec la stabilité de ces ${streak} derniers jours`;
+}
+
+function getScoreAction(score: number): string {
+  if (score >= 80) return 'utilise cette excellente énergie pour avancer sur tes projets clés';
+  if (score >= 65) return 'profite de cette journée favorable pour structurer ce qui compte';
+  if (score >= 40) return 'concentre-toi sur l\'essentiel, sans forcer le rythme';
+  return 'protège ton énergie, simplifie, reporte ce qui peut attendre';
+}
+
+function getTrendAction(trendScore: number): string {
+  if (trendScore > 2) return 'Tes cycles personnels poussent à avancer avec confiance.';
+  if (trendScore < -2) return 'Tes cycles demandent prudence — protège l\'existant.';
+  return 'Tes cycles soutiennent une progression sobre et régulière.';
+}
+
+function getForecastHook(goldDays: number, windows: number, bestDay: string, bestScore: number): string {
+  if (goldDays >= 5) return `${goldDays} jours d'alignement fort arrivent, dont un pic à ${bestScore} le ${bestDay}`;
+  if (windows > 0) return `une fenêtre d'action se profile dans les prochaines semaines (pic à ${bestScore} le ${bestDay})`;
+  return `le terrain se prépare progressivement — le prochain pic est attendu le ${bestDay} (score ${bestScore})`;
+}
+
+function getCIHook(ciLabel: string): string {
+  if (ciLabel === 'Haute' || ciLabel === 'Bonne') return 'La lisibilité est suffisamment nette pour te projeter.';
+  if (ciLabel === 'Modérée') return 'L\'horizon reste mouvant — avance par étapes.';
+  return 'La visibilité est faible — reste flexible et ajuste au fil des jours.';
+}
+
+type NarrativeSegment = { title: string; narrative: string; insight: string };
+type NarrativeBuilder = (ctx: NarrativeContext) => { past: NarrativeSegment; present: NarrativeSegment; future: NarrativeSegment };
+
+// ── Builders par arc ──
+
+const NARRATIVE_BUILDERS: Record<ArcName, NarrativeBuilder> = {
+  "L'Envol": (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'rising' ? 'Élan confirmé' : 'Bases solides',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, les fondations posées récemment commencent à porter. La moyenne de ${Math.round(ctx.avg7)} témoigne d'un terrain fertile.`,
+      insight: 'Les efforts passés se transforment en momentum visible.',
+    },
+    present: {
+      title: ctx.signalScore >= 80 ? 'Décollage' : 'Impulsion',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}, ${ctx.signalLabel.toLowerCase()}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 5 ? 'Accélération en vue' : 'Ouverture progressive',
+      narrative: `L'envol se confirme : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Traversée': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'falling' ? 'Décélération naturelle' : 'Digestion en cours',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, l'énergie se retire naturellement après une phase d'expansion. La moyenne de ${Math.round(ctx.avg7)} reflète ce recalibrage.`,
+      insight: 'Ce ralentissement n\'est pas un recul — c\'est une intégration.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Tri sélectif' : 'Économie d\'énergie',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Rebond en préparation' : 'Patience stratégique',
+      narrative: `La traversée prépare le prochain élan : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Renaissance': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'rising' ? 'Sortie de crise' : 'Fin de cycle',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, ce qui devait se transformer l'a fait. La moyenne de ${Math.round(ctx.avg7)} marque le début d'un nouveau chapitre.`,
+      insight: 'L\'ancien a laissé la place — l\'énergie revient plus claire.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Reconstruction active' : 'Premiers pas',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 5 ? 'Nouveau cycle porteur' : 'Germination',
+      narrative: `Ce que tu plantes maintenant portera le prochain cycle : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'Le Sommet': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Plateau atteint' : 'Ascension confirmée',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, tu as atteint un pic de ton cycle. La moyenne de ${Math.round(ctx.avg7)} confirme cette position haute.`,
+      insight: 'Ce que tu as semé porte ses fruits visiblement.',
+    },
+    present: {
+      title: ctx.signalScore >= 80 ? 'Récolte stratégique' : 'Maintien du cap',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 5 ? 'Prolonger l\'avantage' : 'Préparer la descente',
+      narrative: `Le sommet est temporaire — anticipe la suite : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Maturation': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Sagesse acquise' : 'Profondeur installée',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, l'énergie n'est plus explosive mais durable. La moyenne de ${Math.round(ctx.avg7)} reflète une profondeur tranquille.`,
+      insight: 'Tu passes de l\'action brute à l\'influence durable.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Transmission active' : 'Ancrage patient',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Impact qui se multiplie' : 'Évolution lente mais sûre',
+      narrative: `Ton impact se construit dans la durée : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Tempête': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'volatile' ? 'Signaux contradictoires' : 'Tensions accumulées',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, les tensions sous-jacentes sont montées en surface. La moyenne de ${Math.round(ctx.avg7)} reflète cette instabilité.`,
+      insight: 'Les vieux systèmes sont testés — c\'est normal.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Tenir le cap' : 'Protéger l\'essentiel',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Éclaircie en approche' : 'Patience requise',
+      narrative: `Après la tempête, un nouveau paysage émerge : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'Le Portail': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Cycle en maturité' : 'Préparation du passage',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, un cycle majeur arrive à son terme. La moyenne de ${Math.round(ctx.avg7)} montre cette phase de convergence.`,
+      insight: 'Le passage approche — ce que tu fais maintenant a un poids décuplé.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Semer dans le portail' : 'Lâcher pour traverser',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: 'Nouveau chapitre',
+      narrative: `Ce que tu sèmes dans le portail détermine la suite : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  "L'Endurance": (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Résistance tranquille' : 'Traversée de zone difficile',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, la persévérance a été ton allié. La moyenne de ${Math.round(ctx.avg7)} témoigne de cette régularité discrète.`,
+      insight: 'L\'énergie est modérée mais constante — c\'est une force.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Discipline récompensée' : 'Tenir la ligne',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Récompense en approche' : 'Chaque pas compte',
+      narrative: `Les récompenses arrivent souvent après l'endurance : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Moisson': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'rising' ? 'Effort qui porte' : 'Graines levées',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, les graines semées récemment commencent à lever. La moyenne de ${Math.round(ctx.avg7)} confirme cette énergie porteuse.`,
+      insight: 'Les résultats arrivent — pas par chance, par construction.',
+    },
+    present: {
+      title: ctx.signalScore >= 80 ? 'Cueillir les fruits' : 'Célébrer avec lucidité',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 5 ? 'Abondance prolongée' : 'Préparer le prochain semis',
+      narrative: `Utilise cette énergie pour semer la suite : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'Le Pivot': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'volatile' ? 'Signaux de changement' : 'Fin d\'un cycle',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, les signaux de changement se sont multipliés. La moyenne de ${Math.round(ctx.avg7)} montre un système en mouvement.`,
+      insight: 'L\'ancien cycle s\'achève — le nouveau commence à se dessiner.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Ajuster le cap' : 'Observer avant d\'agir',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Nouvelle direction confirmée' : 'Direction en formation',
+      narrative: `Les pivots réussis sont ceux qui sont anticipés : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'La Consolidation': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Stabilisation utile' : ctx.momentumTrend === 'falling' ? 'Ralentissement structurant' : 'Base en formation',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, le rythme s'est posé autour d'une moyenne de ${Math.round(ctx.avg7)}. Ce passé récent parle moins d'expansion que de mise en ordre.`,
+      insight: 'Ce qui s\'est densifié récemment devient ton point d\'appui d\'aujourd\'hui.',
+    },
+    present: {
+      title: ctx.signalScore >= 75 ? 'Renforcer sans disperser' : ctx.signalScore >= 55 ? 'Cadrer l\'essentiel' : 'Tenir la structure',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}, ${ctx.signalLabel.toLowerCase()}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 6 ? 'Ouverture préparée' : ctx.actionWindows >= 1 ? 'Fenêtre en approche' : 'Croissance sous condition',
+      narrative: `Ce travail de fond prépare la suite : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  "L'Appel": (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'rising' ? 'Énergie tournée vers l\'extérieur' : 'Appel ressenti',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, quelque chose de plus grand s'est mis en mouvement. La moyenne de ${Math.round(ctx.avg7)} confirme cette dynamique d'ouverture.`,
+      insight: 'Ton impact commence à dépasser ta sphère personnelle.',
+    },
+    present: {
+      title: ctx.signalScore >= 75 ? 'Mission élargie' : 'Écouter le signal',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 5 ? 'Réponse amplifiée' : 'Clarification progressive',
+      narrative: `Ce qui vient maintenant est plus grand que toi : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+
+  'Le Cycle en Cours': (ctx) => ({
+    past: {
+      title: ctx.momentumTrend === 'stable' ? 'Rythme installé' : 'Mouvement ordinaire',
+      narrative: `${getMomentumHook(ctx.momentumTrend, ctx.streak)}, ta trajectoire suit son cours naturel. La moyenne de ${Math.round(ctx.avg7)} reflète cette progression régulière.`,
+      insight: 'Chaque phase a sa fonction — même les plus calmes.',
+    },
+    present: {
+      title: ctx.signalScore >= 65 ? 'Avancer avec régularité' : 'Patience active',
+      narrative: `Aujourd'hui (score ${ctx.signalScore}), ${getScoreAction(ctx.signalScore)}. ${getTrendAction(ctx.trendScore)}`,
+      insight: ctx.keyMessage,
+    },
+    future: {
+      title: ctx.goldDays30 >= 3 ? 'Accélération à venir' : 'Constance payante',
+      narrative: `L'évolution se poursuit : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
+    },
+  }),
+};
+
+/** Construit le NarrativeContext à partir des données existantes */
+export function buildNarrativeContext(
+  momentum: MomentumResult,
+  present: PresentContext,
+  forecast: ForecastResult,
+  signalScore: number,
+  signalLabel: string,
+  trendScore: number,
+  ciLabel: string,
+): NarrativeContext {
+  const fmtDate = (d: Date): string =>
+    d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+  return {
+    momentumTrend: momentum.trend,
+    streak: momentum.streak,
+    avg7: momentum.avgLast7,
+    signalScore,
+    signalLabel,
+    trendScore,
+    py: present.cyclePosition.personalYear.number,
+    goldDays30: forecast.next30.goldDays,
+    actionWindows: forecast.windows.length,
+    bestDayLabel: fmtDate(forecast.next7.best.date),
+    bestDayScore: Math.round(forecast.next7.best.score),
+    ciLabel,
+    intensity: present.intensity,
+    keyMessage: present.keyMessage,
+  };
+}
+
+// ─────────────────────────────────────────────
 // CONSTANTES — POSITIONS DANS LE PINNACLE (12 textes)
 // Source : Grok R7
 // ─────────────────────────────────────────────
@@ -721,7 +1029,7 @@ export const FORECAST_NARRATIVES: Record<string, { narratif: string; conseil: st
     conseil: 'Identifie les jours Gold et concentre ton action sur ces moments.'
   },
   'transition': {
-    narratif: 'Tu approches d\'un portail temporel important — un changement de Personal Year ou de Pinnacle est proche.',
+    narratif: 'Tu approches d\'un portail temporel important — un changement d\'année personnelle ou de grande phase de vie est proche.',
     conseil: 'Prépare le passage avec intention — ce que tu sèmes ici détermine ce qui pousse après.'
   },
   'eclipse': {
@@ -831,7 +1139,7 @@ export const WOW_MOMENTS: Record<string, {
 }> = {
   'alignement_total': {
     titre: 'Alignement Total',
-    signification: 'Triple pic biorhythmique + Yi King A-tier + Personal Day 1 crée une rareté exceptionnelle où énergie physique, émotionnelle, intellectuelle, symbolique et numérologique sont toutes au maximum simultanément.',
+    signification: 'Triple pic biorhythmique + Oracle A-tier + Jour personnel 1 crée une rareté exceptionnelle où énergie physique, émotionnelle, intellectuelle, symbolique et numérologique sont toutes au maximum simultanément.',
     conseil: 'Utilise cette journée pour lancer ou décider ce qui compte vraiment — l\'univers est aligné avec toi.'
   },
   'portail_puissance': {
@@ -841,7 +1149,7 @@ export const WOW_MOMENTS: Record<string, {
   },
   'grand_depart': {
     titre: 'Le Grand Départ',
-    signification: 'Mercury direct après rétrograde + Lune Nouvelle + Personal Year 1 mois 1 crée un triple nouveau départ cosmique.',
+    signification: 'Mercure direct après rétrograde + Lune Nouvelle + Année personnelle 1 mois 1 crée un triple nouveau départ cosmique.',
     conseil: 'Lance ce que tu repousses depuis longtemps — le timing est exceptionnellement favorable.'
   },
   'super_convergence': {
@@ -851,7 +1159,7 @@ export const WOW_MOMENTS: Record<string, {
   },
   'createur_maitre': {
     titre: 'Le Créateur Maître',
-    signification: 'Yi King #1 (Créateur) + Personal Day maître 11 ou 22 crée un double maître créateur extrêmement rare.',
+    signification: 'Oracle #1 (Créateur) + Jour personnel maître 11 ou 22 crée un double maître créateur extrêmement rare.',
     conseil: 'Utilise cette journée pour initier ce qui te semble trop grand — ton pouvoir créateur est amplifié.'
   },
   'appel_destin': {
@@ -1138,27 +1446,33 @@ export function calcForecast(
 
   const avg = (a: ForecastDay[]) => a.reduce((t, x) => t + x.score, 0) / a.length;
 
-  // Action Windows (clusters ≥72) — moyenne correcte
+  // Action Windows (clusters ≥72) — tolérance 1 jour de gap
   const windows: ActionWindow[] = [];
-  let current: { start: Date; end: Date; total: number; count: number } | null = null;
+  let current: { start: Date; end: Date; total: number; count: number; gap: number } | null = null;
 
   for (const d of s90) {
     if (d.score >= 72) {
       if (!current) {
-        current = { start: d.date, end: d.date, total: d.score, count: 1 };
+        current = { start: d.date, end: d.date, total: d.score, count: 1, gap: 0 };
       } else {
         current.end = d.date;
         current.total += d.score;
         current.count++;
+        current.gap = 0; // reset gap counter
       }
     } else if (current) {
-      windows.push({
-        start: current.start,
-        end: current.end,
-        avg: current.total / current.count,
-        days: current.count
-      });
-      current = null;
+      current.gap++;
+      if (current.gap > 1) {
+        // Plus de 1 jour sous seuil → fermer la fenêtre
+        windows.push({
+          start: current.start,
+          end: current.end,
+          avg: current.total / current.count,
+          days: current.count
+        });
+        current = null;
+      }
+      // gap === 1 → on tolère, on continue le cluster
     }
   }
   if (current) {
@@ -1173,7 +1487,7 @@ export function calcForecast(
   // Événements majeurs dans les 90j
   const majorEvents: ForecastEvent[] = [];
   for (const d of s90) {
-    if (d.score >= 90) {
+    if (d.score >= 86) {
       majorEvents.push({
         type: 'Cosmique',
         date: d.date,
@@ -1188,17 +1502,17 @@ export function calcForecast(
       avg: avg(s7),
       best: s7.reduce((a, b) => a.score > b.score ? a : b),
       worst: s7.reduce((a, b) => a.score < b.score ? a : b),
-      goldDays: s7.filter(x => x.score >= 75).length
+      goldDays: s7.filter(x => x.score >= 80).length
     },
     next30: {
       avg: avg(s30),
-      goldDays: s30.filter(x => x.score >= 75).length,
-      cosmiqueDays: s30.filter(x => x.score >= 90).length,
+      goldDays: s30.filter(x => x.score >= 80).length,
+      cosmiqueDays: s30.filter(x => x.score >= 86).length,
       trend: avg(s30) > 50 ? 'favorable' : 'challenging'
     },
     next90: {
       avg: avg(s90),
-      goldDays: s90.filter(x => x.score >= 75).length,
+      goldDays: s90.filter(x => x.score >= 80).length,
       majorEvents
     },
     windows,
@@ -1327,19 +1641,20 @@ export function calcPresentContext(
   const pinnacleIndex = pinnacles.indexOf(current) + 1;
 
   // Intensité : croisement multi-cycles
+  // Ordre : peak → releasing (conditions fortes) → building → calm (fallback)
   let intensity: PresentContext['intensity'] = 'calm';
   if ([1, 5, 9].includes(py) && activeRetrogrades.length === 0 && position !== 'late') {
     intensity = 'peak';
-  } else if ([2, 3].includes(py) || position === 'early') {
-    intensity = 'building';
-  } else if ([4, 7, 9].includes(py) || position === 'late' || activeRetrogrades.length >= 2) {
-    intensity = 'releasing';
+  } else if (position === 'late' || activeRetrogrades.length >= 2 || [4, 7, 9].includes(py)) {
+    intensity = 'releasing';  // late/retro/PY clôture-difficile prime sur building
+  } else if ([1, 2, 3, 5, 6, 8].includes(py) || position === 'early') {
+    intensity = 'building';   // PY actives (inclut 1/5 quand retro bloque peak)
   }
 
   // Key message : priorité contextuelle
   let keyMessage = 'Cycle en cours.';
   if (position === 'late') {
-    keyMessage = 'Fin de Pinnacle : préparez la transition.';
+    keyMessage = 'Fin de Pinnacle : prépare la transition.';
   } else if (activeRetrogrades.length > 0) {
     keyMessage = 'Rétrograde active : ralentir pour réajuster.';
   } else if (mercuryStatus.phase.includes('retro')) {
@@ -1348,6 +1663,8 @@ export function calcPresentContext(
     keyMessage = 'Année de puissance et d\'activation.';
   } else if ([4, 8].includes(py)) {
     keyMessage = 'Année de construction et de résultats concrets.';
+  } else if (py === 6) {
+    keyMessage = 'Année d\'harmonie — relations et responsabilités au centre.';
   }
 
   return {
@@ -1453,27 +1770,74 @@ export function detectArc(
     present.intensity === 'calm'
   ) return 'La Maturation';
 
+  // 13. Filets de sécurité — combinaisons restantes (éviter le fallback générique)
+  if (past.pastPattern === 'consolidation' && present.intensity === 'calm') return 'La Maturation';
+  if (past.pastPattern === 'consolidation' && present.intensity === 'releasing') return 'La Traversée';
+  if (past.pastPattern === 'expansion' && present.intensity === 'calm') return 'La Moisson';
+  if (past.pastPattern === 'transition' && present.intensity === 'peak') return 'La Renaissance';
+  if (past.pastPattern === 'transition' && present.intensity === 'releasing') return 'La Traversée';
+  if (past.pastPattern === 'maturation' && present.intensity === 'building') return 'La Consolidation';
+  if (past.pastPattern === 'maturation' && present.intensity === 'peak') return 'Le Sommet';
+
   // Fallback
   return 'Le Cycle en Cours';
 }
 
 /**
  * Génère la narrative temporelle complète Passé→Présent→Futur.
+ *
+ * V2 — Template Factory (Ronde #9) :
+ *   Utilise NARRATIVE_BUILDERS[arc](ctx) pour des textes dynamiques
+ *   contextualisés par segment (momentum, signal, forecast, CI).
+ *   Fallback automatique sur ARC_NARRATIVES statiques en cas d'erreur.
+ *
+ * @param signalScore  Score de convergence du jour (5-97). Défaut 50.
+ * @param trendScore   Score de tendance PY+PM (-10 à +10). Défaut 0.
  */
 export function generateTemporalNarrative(
   past: PastAnalysis,
   present: PresentContext,
   momentum: MomentumResult,
-  forecast: ForecastResult
+  forecast: ForecastResult,
+  signalScore: number = 50,
+  trendScore: number = 0,
 ): TemporalNarrative {
   const arc = detectArc(past, present, momentum, forecast);
-  const texts = ARC_NARRATIVES[arc];
 
+  // ── Tentative Template Factory (dynamique) ──
+  const builder = NARRATIVE_BUILDERS[arc];
+  if (builder) {
+    try {
+      // Derive signalLabel from score thresholds
+      const signalLabel = signalScore >= 90 ? 'Cosmique'
+        : signalScore >= 80 ? 'Gold'
+        : signalScore >= 65 ? 'Favorable'
+        : signalScore >= 40 ? 'Routine'
+        : signalScore >= 25 ? 'Prudence'
+        : 'Tempête';
+
+      // Simplified CI label from 30-day midpoint estimate
+      const sigma7j = momentum.scores.length > 1
+        ? Math.sqrt(momentum.scores.reduce((s, v) => s + (v - momentum.avgLast7) ** 2, 0) / momentum.scores.length)
+        : 10;
+      const ciRaw = Math.exp(-0.0012 * 15) * (0.75 + 0.45 * 0.7) * (1 - 0.018 * Math.max(1, sigma7j));
+      const ciLabel = ciRaw >= 0.75 ? 'Haute' : ciRaw >= 0.55 ? 'Bonne' : ciRaw >= 0.35 ? 'Modérée' : 'Faible';
+
+      const ctx = buildNarrativeContext(momentum, present, forecast, signalScore, signalLabel, trendScore, ciLabel);
+      const dynamic = builder(ctx);
+      return { ...dynamic, arc };
+    } catch (e) {
+      console.warn('[Temporal] Narrative builder error for arc "' + arc + '", fallback to static:', e);
+    }
+  }
+
+  // ── Fallback : textes statiques ──
+  const texts = ARC_NARRATIVES[arc];
   return {
     past: texts.past,
     present: {
       ...texts.present,
-      insight: present.keyMessage // override avec le vrai keyMessage
+      insight: present.keyMessage
     },
     future: {
       ...texts.future,
@@ -1486,35 +1850,7 @@ export function generateTemporalNarrative(
 }
 
 // ─────────────────────────────────────────────
-// 6️⃣ SCORING TEMPOREL — MODIFICATEURS
-// Source : GPT R7+R8
-// Ces modificateurs sont OPTIONNELS et subtils (+/-1 max).
-// ─────────────────────────────────────────────
-
-/**
- * Applique les modificateurs temporels au score quotidien.
- * Impact estimé : Mean +0.5, StdDev +0.3, Cosmique +0.3%
- */
-export function applyTemporalModifiers(
-  score: number,
-  pinnaclePosition: 'early' | 'middle' | 'late',
-  monthInYear: number
-): number {
-  let modified = score;
-
-  // Pinnacle early = +1 (énergie nouvelle), late = -1 (fatigue de cycle)
-  if (pinnaclePosition === 'early') modified += 1;
-  if (pinnaclePosition === 'late') modified -= 1;
-
-  // Mois 1 du PY = +1 (élan), mois 12 = -1 (clôture)
-  if (monthInYear === 1) modified += 1;
-  if (monthInYear === 12) modified -= 1;
-
-  return modified;
-}
-
-// ─────────────────────────────────────────────
-// 7️⃣ MACD TREND INVERSION — V3.2
+// 7️⃣ MACD TREND INVERSION (Signal d'inversion) — V3.2
 // Source : Gemini R6 (concept) + Claude (implémentation)
 // Détecte les retournements de tendance via EMA(3)/EMA(7).
 // Le crossover bullish/bearish est le signal le plus actionnable.
@@ -1564,28 +1900,30 @@ export function calcMACD(
   const prevSignal = signal; // approximation
   let crossover: MACDResult['crossover'] = null;
 
-  if (prevMacd <= 0 && macdLine > 0) crossover = 'bullish';
-  else if (prevMacd >= 0 && macdLine < 0) crossover = 'bearish';
+  // Filtre d'amplitude : crossover valide seulement si |macdLine| > 1.5
+  // Évite les faux positifs sur des oscillations mineures (Ronde #6 — Grok)
+  if (prevMacd <= 0 && macdLine > 0 && Math.abs(macdLine) > 1.5) crossover = 'bullish';
+  else if (prevMacd >= 0 && macdLine < 0 && Math.abs(macdLine) > 1.5) crossover = 'bearish';
 
   // Divergence : score monte mais MACD descend (ou inverse)
   const scoreDirection = scores[scores.length - 1] - scores[scores.length - 4]; // delta 3j
   const macdDirection = macdLine - prevMacd;
   const divergence = (scoreDirection > 5 && macdDirection < -2) || (scoreDirection < -5 && macdDirection > 2);
 
-  // Narrative
+  // Narrative — vocabulaire "Signal d'inversion" (non-trading, Ronde #6 — GPT)
   let narrative = '';
   if (crossover === 'bullish') {
-    narrative = 'Retournement haussier détecté — la tendance courte dépasse la tendance longue. Le momentum change en ta faveur.';
+    narrative = 'Signal d\'inversion positive — l\'élan récent dépasse la tendance de fond. Le courant change en ta faveur.';
   } else if (crossover === 'bearish') {
-    narrative = 'Retournement baissier détecté — la tendance courte passe sous la tendance longue. Ralentis et protège.';
+    narrative = 'Signal d\'inversion négative — l\'élan récent passe sous la tendance de fond. Ralentis et consolide.';
   } else if (divergence) {
-    narrative = 'Divergence MACD : le score et la tendance vont dans des directions opposées. Un retournement est probable dans 1-3 jours.';
+    narrative = 'Divergence détectée : le score et l\'élan vont dans des directions opposées. Un changement de direction est probable dans 1-3 jours.';
   } else if (histogram > 3) {
-    narrative = 'Momentum en accélération — la tendance haussière se renforce.';
+    narrative = 'Élan en accélération — la dynamique positive se renforce.';
   } else if (histogram < -3) {
-    narrative = 'Momentum en décélération — la tendance baissière se renforce.';
+    narrative = 'Élan en décélération — la dynamique s\'essouffle.';
   } else {
-    narrative = 'Tendance stable — pas de signal MACD notable.';
+    narrative = 'Tendance stable — pas de signal d\'inversion notable.';
   }
 
   return {
@@ -1600,106 +1938,7 @@ export function calcMACD(
   };
 }
 
-// ─────────────────────────────────────────────
-// 8️⃣ DERIVATIVE VOLATILITY SHOCK — V3.2
-// Source : Gemini R7
-// Alerte quand le delta quotidien (score aujourd'hui - score hier) ≥ ±35.
-// Un choc de cette amplitude indique un changement brusque de configuration.
-// ─────────────────────────────────────────────
 
-/**
- * Détecte un choc de volatilité (delta ≥ ±35 entre 2 jours consécutifs).
- * @param todayScore - score du jour
- * @param yesterdayScore - score d'hier
- */
-export function detectVolatilityShock(
-  todayScore: number,
-  yesterdayScore: number
-): VolatilityShock {
-  const delta = todayScore - yesterdayScore;
-  const absDelta = Math.abs(delta);
-  const detected = absDelta >= 35;
-
-  let magnitude: VolatilityShock['magnitude'] = 'moderate';
-  if (absDelta >= 65) magnitude = 'extreme';
-  else if (absDelta >= 50) magnitude = 'severe';
-
-  const direction: VolatilityShock['direction'] = delta >= 0 ? 'up' : 'down';
-
-  let narrative = '';
-  if (!detected) {
-    narrative = 'Pas de choc de volatilité — transition normale.';
-  } else if (direction === 'up') {
-    narrative = magnitude === 'extreme'
-      ? `Choc haussier EXTRÊME (+${absDelta}pts). L'énergie a radicalement changé — ce qui était bloqué hier est libéré. Attention au vertige.`
-      : magnitude === 'severe'
-      ? `Choc haussier sévère (+${absDelta}pts). Retournement brutal — hier était sombre, aujourd'hui tout s'aligne. Surfe la vague mais reste ancré.`
-      : `Choc haussier modéré (+${absDelta}pts). Changement de configuration notable — l'énergie repart à la hausse après une baisse.`;
-  } else {
-    narrative = magnitude === 'extreme'
-      ? `Choc baissier EXTRÊME (${delta}pts). Tout ce qui fonctionnait hier est remis en question. Protège l'essentiel, reporte tout.`
-      : magnitude === 'severe'
-      ? `Choc baissier sévère (${delta}pts). Retournement brutal — ne lance rien, ne signe rien, ne réagis pas émotionnellement.`
-      : `Choc baissier modéré (${delta}pts). L'énergie se retire — ralentis et observe avant d'agir.`;
-  }
-
-  return { detected, delta, direction, magnitude, narrative };
-}
-
-// ─────────────────────────────────────────────
-// 9️⃣ PINNACLE CONTEXTUAL BASELINE — V3.2
-// Source : Gemini R7
-// Ajuste le score selon la phase du Pinnacle et le numéro du Pinnacle.
-// Le Pinnacle 1 est notoirement plus difficile (formation), le Pinnacle 3
-// est le plus puissant (maîtrise). Early = bonus (énergie nouvelle),
-// Late = malus (fatigue de cycle).
-// ─────────────────────────────────────────────
-
-/**
- * Calcule l'offset contextuel basé sur la phase du Pinnacle.
- * Retourne un offset [-3, +3] à appliquer au score brut AVANT le clamp final.
- */
-export function calcPinnacleBaseline(
-  pinnacles: PinnacleInfo[],
-  age: number
-): PinnacleBaseline {
-  // Trouver le pinnacle courant
-  const current = pinnacles.find(p => age >= p.startAge && age < p.endAge)
-    || pinnacles[pinnacles.length - 1];
-
-  const pinnacleIndex = pinnacles.indexOf(current);
-  const yearsIn = current.endAge - current.startAge;
-  const yearsPassed = age - current.startAge;
-
-  let phase: 'early' | 'middle' | 'late' = 'middle';
-  if (yearsPassed <= 2) phase = 'early';
-  else if (yearsIn - yearsPassed <= 2) phase = 'late';
-
-  // Offset par Pinnacle : P1=-1 (formation), P2=0, P3=+2 (maîtrise), P4=+1 (sagesse)
-  const pinnacleOffset: Record<number, number> = { 0: -1, 1: 0, 2: 2, 3: 1 };
-  const pOff = pinnacleOffset[pinnacleIndex] ?? 0;
-
-  // Offset par phase : early=+1, middle=0, late=-1
-  const phaseOffset: Record<string, number> = { early: 1, middle: 0, late: -1 };
-  const phOff = phaseOffset[phase];
-
-  // Pinnacle maître (11, 22, 33) = bonus +1
-  const masterBonus = [11, 22, 33].includes(current.number) ? 1 : 0;
-
-  const baselineOffset = Math.max(-3, Math.min(3, pOff + phOff + masterBonus));
-
-  const reasons: string[] = [];
-  if (pOff !== 0) reasons.push(`Pinnacle ${pinnacleIndex + 1} (${pOff > 0 ? '+' : ''}${pOff})`);
-  if (phOff !== 0) reasons.push(`Phase ${phase} (${phOff > 0 ? '+' : ''}${phOff})`);
-  if (masterBonus) reasons.push(`Maître ${current.number} (+1)`);
-
-  return {
-    baselineOffset,
-    reason: reasons.length > 0 ? reasons.join(' + ') : 'Neutre',
-    pinnaclePhase: phase,
-    pinnacleNumber: current.number,
-  };
-}
 
 // ─────────────────────────────────────────────
 // HELPERS — NARRATIF PY
@@ -1721,13 +1960,6 @@ export function getPYNarrativePhase(py: number, monthInYear: number): string {
 /**
  * Retourne le texte de transition PY→PY+1.
  */
-export function getPYTransitionText(fromPY: number, toPY: number): {
-  finir: string; preparer: string; risque: string;
-} | null {
-  const key = `${fromPY}_${toPY}`;
-  return PY_TRANSITIONS[key] || null;
-}
-
 /**
  * Retourne le texte de position dans le Pinnacle.
  */
@@ -1737,25 +1969,6 @@ export function getPinnaclePositionText(
 ): { title: string; narrative: string; conseil: string } | null {
   const key = `${pinnacleIndex}_${position}`;
   return PINNACLE_POSITION_TEXTS[key] || null;
-}
-
-/**
- * Retourne le contexte d'éclipse basé sur le type et la proximité.
- */
-export function getEclipseContext(
-  eclipseType: string,
-  daysUntil: number
-): { narratif: string; conseil: string } | null {
-  const isSolaire = eclipseType.toLowerCase().includes('solaire');
-  const prefix = isSolaire ? 'solaire' : 'lunaire';
-
-  let phase: string;
-  if (daysUntil > 3) phase = 'avant';
-  else if (daysUntil >= 0) phase = 'pendant';
-  else phase = 'apres'; // daysUntil négatif = après
-
-  const key = `${prefix}_${phase}`;
-  return ECLIPSE_CONTEXTS[key] || null;
 }
 
 /**
@@ -1931,30 +2144,36 @@ function _psiNarrative(
     ? Math.round((Date.now() - top.date.getTime()) / 86400000)
     : 0;
   const scoreInfo = top?.score != null ? ` (score ${top.score} ce jour-là)` : '';
+  const nextDays = nextOccurrence
+    ? Math.round((nextOccurrence.date.getTime() - Date.now()) / 86400000)
+    : 0;
   const nextInfo  = nextOccurrence
-    ? ` La prochaine occurrence similaire est dans ${Math.round(
-        (nextOccurrence.date.getTime() - Date.now()) / 86400000
-      )} jours.`
+    ? ` La prochaine occurrence similaire est dans ${nextDays} jour${nextDays > 1 ? 's' : ''}.`
     : '';
+
+  // Aligner le vocabulaire de distance avec le UI (distanceLabel dans TemporalTab)
+  // Distance euclidienne 12D : plage réelle ~0-6, forte < 2.1, modérée < 4.0
+  const topDist = top?.distance ?? 6;
+  const distWord = topDist < 0.7 ? 'quasi identique' : topDist < 1.2 ? 'très similaire' : topDist < 2.1 ? 'similaire' : topDist < 4.0 ? 'partiellement similaire' : 'faiblement similaire';
 
   if (resonanceLabel === 'forte') {
     let conseil: string;
     if (top?.score != null && top.score >= 65) {
-      conseil = "Ce cycle t'a été favorable — capitalise sur les mêmes leviers qu'il y a quelques semaines.";
+      conseil = "Ce cycle t\'a été favorable — capitalise sur les mêmes leviers qu'il y a quelques semaines.";
     } else if (top?.score != null && top.score < 45) {
       conseil = "Ce cycle a été difficile dans le passé — anticipe les mêmes résistances et prépare-toi.";
     } else {
       conseil = "Observe ce que tu as vécu lors du dernier écho pour orienter tes décisions d'aujourd'hui.";
     }
     return {
-      narrative: `Résonance périodique forte — une configuration très similaire s'est produite il y a ${daysAgo} jour${daysAgo > 1 ? 's' : ''}${scoreInfo}.${nextInfo}`,
+      narrative: `Résonance périodique forte — une configuration ${distWord} s'est produite il y a ${daysAgo} jour${daysAgo > 1 ? 's' : ''}${scoreInfo}.${nextInfo}`,
       conseil,
     };
   }
 
   if (resonanceLabel === 'modérée') {
     return {
-      narrative: `Résonance périodique modérée — des échos de cette configuration ont été détectés il y a ${daysAgo} jour${daysAgo > 1 ? 's' : ''}${scoreInfo}.${nextInfo}`,
+      narrative: `Résonance périodique modérée — des échos ${topDist < 2.5 ? 'proches' : 'partiels'} de cette configuration ont été détectés il y a ${daysAgo} jour${daysAgo > 1 ? 's' : ''}${scoreInfo}.${nextInfo}`,
       conseil:   "Les patterns de cette période se répètent partiellement — ajuste ta stratégie en tenant compte du cycle passé.",
     };
   }

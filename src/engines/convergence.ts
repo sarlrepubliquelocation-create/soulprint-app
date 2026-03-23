@@ -14,11 +14,13 @@ import { calcProgressions } from './progressions';
 import { extractNatalReturnLongs, interpolateReturnIntensity } from './returns';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { type IChingReading, calcIChing, nuclearHexScore } from './iching';
-import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, type VoidOfCourseMoon } from './moon'; // getPlanetaryRetroScore, getVoidOfCourseMoon retirés Sprint AP
+import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, type VoidOfCourseMoon } from './moon'; // Ronde 27 : getVoidOfCourseMoon retiré (délégué à calcDailyModules)
 import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ShenShaResult } from './bazi'; // Sprint AS P1 : ChangshengResult retiré (csResult mort dans calcDayPreview)
 // calcInteractions, buildInteractionContext retirés Sprint AP (interactions stubées)
-import { calcNakshatra, getAyanamsa } from './nakshatras';
-// Sprint AS P6 : calcCurrentDasha, calcDashaScore retirés (bloc Dasha preview supprimé — seul L2 les utilise)
+import { calcNakshatra, getAyanamsa } from './nakshatras'; // Ronde 27 : NakshatraComposite retiré (délégué à calcDailyModules)
+// Sprint AS P6 : calcDashaScore retiré (seul L2 l'utilise)
+// Ronde 28 : calcCurrentDasha réimporté pour calcBaseSignalLite (antar.lord)
+import { calcCurrentDasha as calcCurrentDashaImport } from './vimshottari';
 import { getModuleDomainWeight } from './domain-weights';
 import {
   ALGO_VERSION, SLOW_PLANETS,
@@ -40,7 +42,8 @@ import {
   calcJianChuPts, // Sprint AT — Ronde 13 consensus 3/3 : Jian Chu partagé L1↔L3
   type DailyModuleResult,
 } from './convergence-daily';
-import { calcSlowModules } from './convergence-slow';
+import { calcSlowModules, buildNatalDashaCtx, calcDashaMultLite, calcBaseSignalLite, type NatalDashaCtx } from './convergence-slow';
+// Ronde 27 : imports fixed-stars, kinetic-shocks, panchanga retirés (délégués à calcDailyModules)
 import { getAdaptedAlphaG } from './alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 
@@ -96,19 +99,19 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
       narrative: "Ton corps est au point zéro — ni tension ni élan. C'est une page blanche sensorielle : chaque micro-décision pèsera plus lourd que d'habitude."
     };
   }
-  if (score >= 88 && mercuryPts < 0) {
+  if (score >= COSMIC_THRESHOLD && mercuryPts < 0) {
     return {
-      name: '⚡ Convergence rare', icon: '⚡', color: '#E0B0FF',
+      name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF',
       narrative: "Tu sens une puissance brute dans la poitrine, mais ta gorge bloque — les mots veulent sortir trop vite. Agis en silence, relis avant d'envoyer, et laisse la force couler sans bruit."
     };
   }
-  if (score >= 88) {
+  if (score >= COSMIC_THRESHOLD) {
     const narratives = [
       "Ton corps vibre à une fréquence que tu reconnais immédiatement : tout est ouvert. La poitrine est large, le souffle profond, la vision nette. Bouge maintenant — cette fenêtre ne dure pas.",
       "Une chaleur dorée irradie depuis le plexus solaire. Chaque pas semble plus léger, chaque décision plus évidente. C'est le jour où tu signes, tu lances, tu oses.",
       "Tu te réveilles avec cette certitude rare dans les os : aujourd'hui, le courant te porte. Ne résiste pas, ne planifie pas — surfe."
     ];
-    return { name: '⚡ Convergence rare', icon: '⚡', color: '#E0B0FF', narrative: narratives[variant] };
+    return { name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF', narrative: narratives[variant] };
   }
   if (score >= 80) {
     const narratives = [
@@ -151,7 +154,7 @@ function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
 }
 
 function scoreLevelColor(score: number): string {
-  if (score >= 88) return '#E0B0FF';
+  if (score >= COSMIC_THRESHOLD) return '#E0B0FF';
   if (score >= 80) return '#FFD700';
   if (score >= 65) return '#4ade80';
   if (score >= 40) return '#60a5fa';
@@ -166,7 +169,7 @@ function scoreLevelColor(score: number): string {
 // Ronde 20 : 3 postures (AGIR / AJUSTER / RALENTIR) — le score décide, le dayType nuance
 const ACTION_DEFS: Record<ActionVerb, Omit<ActionReco, 'conseil'>> = {
   agir:     { verb: 'agir',     icon: '🚀', label: 'AGIR',     color: '#4ade80' },
-  ajuster:  { verb: 'ajuster',  icon: '⚡', label: 'AJUSTER',  color: '#f59e0b' },
+  ajuster:  { verb: 'ajuster',  icon: '🌟', label: 'AJUSTER',  color: '#f59e0b' },
   ralentir: { verb: 'ralentir', icon: '🛡', label: 'RALENTIR', color: '#ef4444' },
 };
 
@@ -184,26 +187,26 @@ function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string)
 
   const conseils: Record<ActionVerb, string[]> = {
     agir: isRetrait ? [
-      `Bonne énergie — canalisez-la dans la réflexion et les décisions mûries. ${hexKeyword}.`,
-      `Le potentiel est là. Avancez sur l'essentiel, gardez le reste pour demain. ${hexKeyword}.`,
-      `Journée riche en énergie. Prenez du recul stratégique pour mieux viser. ${hexKeyword}.`,
+      `Bonne énergie — canalise-la dans la réflexion et les décisions mûries. ${hexKeyword}.`,
+      `Le potentiel est là. Avance sur l\'essentiel, garde le reste pour demain. ${hexKeyword}.`,
+      `Journée riche en énergie. Prends du recul stratégique pour mieux viser. ${hexKeyword}.`,
     ] : [
-      `Feu vert — agissez sur vos décisions clés. ${hexKeyword}.`,
+      `Feu vert — agis sur tes décisions clés. ${hexKeyword}.`,
       `Conditions optimales pour lancer, signer, avancer. ${hexKeyword}.`,
       `L'alignement est fort — c'est le moment d'agir avec conviction. ${hexKeyword}.`,
     ],
     ajuster: isRetrait ? [
       `Énergie modérée + journée calme : idéal pour organiser et préparer. ${hexKeyword}.`,
-      `Pas de précipitation — structurez vos prochaines actions. ${hexKeyword}.`,
-      `Posez-vous, faites le tri, préparez le terrain pour la prochaine fenêtre. ${hexKeyword}.`,
+      `Pas de précipitation — structure tes prochaines actions. ${hexKeyword}.`,
+      `Pose-toi, fais le tri, prépare le terrain pour la prochaine fenêtre. ${hexKeyword}.`,
     ] : [
-      `Avancez avec méthode — priorisez et ajustez au fil de la journée. ${hexKeyword}.`,
-      `Le contexte est mitigé : sélectionnez vos batailles. ${hexKeyword}.`,
+      `Avance avec méthode — priorise et ajuste au fil de la journée. ${hexKeyword}.`,
+      `Le contexte est mitigé : sélectionne tes batailles. ${hexKeyword}.`,
       `Bon timing pour tester, valider et affiner avant de lancer. ${hexKeyword}.`,
     ],
     ralentir: [
-      `Journée de pause stratégique — consolidez vos acquis. ${hexKeyword}.`,
-      `Protégez votre énergie, reportez les décisions importantes. ${hexKeyword}.`,
+      `Journée de pause stratégique — consolide tes acquis. ${hexKeyword}.`,
+      `Protège ton énergie, reporte les décisions importantes. ${hexKeyword}.`,
       `Repli stratégique — ce n'est pas une faiblesse, c'est de l'intelligence. ${hexKeyword}.`,
     ],
   };
@@ -239,12 +242,12 @@ function calcClimate(num: NumerologyProfile): ClimateResult {
 // ══════════════════════════════════════
 
 const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: string }> = {
-  BUSINESS:      { label: 'Business',      icon: '💼', color: '#4ade80' },
+  BUSINESS:      { label: 'Affaires',      icon: '💼', color: '#4ade80' },
   AMOUR:         { label: 'Amour',         icon: '❤️', color: '#f472b6' },
   RELATIONS:     { label: 'Relations',     icon: '🤝', color: '#60a5fa' },
   CREATIVITE:    { label: 'Créativité',    icon: '✨', color: '#f59e0b' },
   INTROSPECTION: { label: 'Introspection', icon: '🧘', color: '#c084fc' },
-  VITALITE:      { label: 'Vitalité',      icon: '⚡', color: '#fb923c' },
+  VITALITE:      { label: 'Vitalité',      icon: '🌟', color: '#fb923c' },
 };
 
 // V6.1 — DOMAIN_AFFINITY révisée (GPT R6) : suppression négatifs excessifs,
@@ -272,14 +275,21 @@ const DOMAIN_DIRECTIVES: Record<LifeDomain, { haut: string; bon: string; neutre:
   AMOUR:         { haut: 'Déclare, invite, ose — le cœur est aligné.', bon: 'Bon moment pour connecter et approfondir.', neutre: 'Présence tranquille — pas de grandes déclarations.', bas: 'Protège ton énergie émotionnelle aujourd\'hui.' },
   RELATIONS:     { haut: 'Réseaute, allie-toi, fédère — ton charisme rayonne.', bon: 'Tes échanges seront fluides — profites-en.', neutre: 'Maintiens tes relations sans forcer de nouveau contact.', bas: 'Risque de malentendu — choisis tes mots avec soin.' },
   CREATIVITE:    { haut: 'Crée, innove, écris — l\'inspiration coule.', bon: 'Bonne énergie créative — exploite-la.', neutre: 'Peaufine l\'existant plutôt que de créer du neuf.', bas: 'Pas le jour pour brainstormer — recharge.' },
-  INTROSPECTION: { haut: 'Journée idéale pour méditer, planifier et voir clair.', bon: 'Ton intuition est fiable — écoute-la.', neutre: 'Garde un moment calme dans ta journée.', bas: 'L\'agitation extérieure domine — dur de se poser.' },
+  INTROSPECTION: { haut: 'Journée idéale pour méditer, planifier et voir clair.', bon: 'Ta intuition est fiable — écoute-la.', neutre: 'Garde un moment calme dans ta journée.', bas: 'L\'agitation extérieure domine — dur de se poser.' },
   VITALITE:      { haut: 'Énergie physique au top — bouge, agis, entreprends.', bon: 'Bonne forme — gère ton rythme intelligemment.', neutre: 'Énergie stable — pas d\'excès.', bas: 'Corps en retrait — repos et récupération.' },
 };
 
-function getDomainDirective(domain: LifeDomain, score: number): string {
+// Ronde Pilotage P1 : Mercury-aware BUSINESS directives
+function getDomainDirective(domain: LifeDomain, score: number, mercRetro: boolean = false): string {
   const d = DOMAIN_DIRECTIVES[domain];
-  if (score >= 75) return d.haut;
-  if (score >= 55) return d.bon;
+  if (score >= 75) {
+    if (mercRetro && domain === 'BUSINESS') return 'Terrain porteur, mais Mercure rétrograde — relisez tout avant de signer, reporte les lancements.';
+    return d.haut;
+  }
+  if (score >= 55) {
+    if (mercRetro && domain === 'BUSINESS') return 'Avance tes dossiers avec prudence — Mercure rétrograde, vérifie chaque détail.';
+    return d.bon;
+  }
   if (score >= 40) return d.neutre;
   return d.bas;
 }
@@ -291,7 +301,8 @@ function calculateContextualScores(
   pmv: number = 0,
   directBonuses?: Partial<Record<LifeDomain, number>>,
   nakshatraMods?: Record<string, number>,
-  nakshatraAffinityOverride?: Record<LifeDomain, number>  // V9.0 P3 — affinités dynamiques par Nakshatra actif
+  nakshatraAffinityOverride?: Record<LifeDomain, number>,  // V9.0 P3 — affinités dynamiques par Nakshatra actif
+  mercRetro: boolean = false  // Ronde Pilotage P1 — Mercury-aware BUSINESS directive
 ): ContextualScores {
   const allDomains: LifeDomain[] = ['BUSINESS', 'AMOUR', 'RELATIONS', 'CREATIVITE', 'INTROSPECTION', 'VITALITE'];
   const domainRaw: Record<LifeDomain, number> = {
@@ -365,7 +376,7 @@ function calculateContextualScores(
       domain,
       ...DOMAIN_META[domain],
       score,
-      directive: getDomainDirective(domain, score),
+      directive: getDomainDirective(domain, score, mercRetro),
     };
   });
 
@@ -379,9 +390,9 @@ function calculateContextualScores(
   if (diff <= 10) {
     conseil = `Énergie équilibrée — tous les domaines sont alignés aujourd'hui.`;
   } else if (diff <= 25) {
-    conseil = `${best.icon} ${best.label} à ${best.score}% — capitalise là. ${worst.icon} ${worst.label} à ${worst.score}% — temporise.`;
+    conseil = `${best.icon} ${best.label} à ${best.score}/100 — capitalise là. ${worst.icon} ${worst.label} à ${worst.score}/100 — temporise.`;
   } else {
-    conseil = `${best.icon} ${best.label} en zone haute (${best.score}%). Évite les décisions critiques en ${worst.label} (${worst.score}%).`;
+    conseil = `${best.icon} ${best.label} en zone haute (${best.score}/100). Évite les décisions critiques en ${worst.label} (${worst.score}/100).`;
   }
 
   return { domains, bestDomain: best.domain, worstDomain: worst.domain, conseil };
@@ -519,33 +530,33 @@ function computeRarityIndex(
 
 function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexKeyword: string): string {
   const t = dayType.type;
-  if (score >= 88) {
-    if (t === 'decision')      return `⚡ CONVERGENCE RARE — Prenez LA décision que vous repoussez. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
-    if (t === 'communication') return `⚡ CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
-    if (t === 'expansion')     return `⚡ CONVERGENCE RARE — Convergence totale vers la croissance. Lancez maintenant.`;
-    if (t === 'observation')   return `⚡ CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
-    return `⚡ CONVERGENCE RARE — Même en retrait, l'énergie est exceptionnelle. Semez avec intention.`;
+  if (score >= COSMIC_THRESHOLD) {
+    if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
+    if (t === 'communication') return `🌟 CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
+    if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lancez maintenant.`;
+    if (t === 'observation')   return `🌟 CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
+    return `🌟 CONVERGENCE RARE — Même en retrait, l'énergie est exceptionnelle. Semez avec intention.`;
   }
   if (score >= 80) {
     if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hexName} (${hexKeyword}) : c'est le moment d'agir.`;
-    if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. ${hexName} amplifie vos échanges.`;
-    if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. ${hexName} soutient vos ambitions.`;
-    return `Journée de recul dans des conditions positives. Rechargez vos batteries stratégiques.`;
+    if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. ${hexName} amplifie tes échanges.`;
+    if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. ${hexName} soutient tes ambitions.`;
+    return `Journée de recul dans des conditions positives. Recharge tes batteries stratégiques.`;
   }
   if (score >= 65) {
-    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hexName} (${hexKeyword}) vous encourage à avancer.`;
+    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hexName} (${hexKeyword}) t\'encourage à avancer.`;
     if (t === 'communication') return `Énergie porteuse pour les échanges. ${hexName} favorise le dialogue.`;
-    return `Le courant est porteur. Maintenez le cap. ${hexName} soutient l'élan.`;
+    return `Le courant est porteur. Maintiens le cap. ${hexName} soutient l'élan.`;
   }
   if (score >= 40) {
-    if (t === 'decision')      return `Vous pouvez décider, mais vérifiez vos données. ${hexName} (${hexKeyword}) appelle à la prudence mesurée.`;
+    if (t === 'decision')      return `Tu peux décider, mais vérifie tes données. ${hexName} (${hexKeyword}) appelle à la prudence mesurée.`;
     return `L'énergie est stable. ${hexName} (${hexKeyword}) invite à se concentrer sur l'essentiel.`;
   }
   if (score >= 25) {
     if (t === 'decision')      return `Journée de décision en conditions tendues. ${hexName} (${hexKeyword}) : ne décidez que si c'est urgent.`;
     return `L'énergie résiste. ${hexName} (${hexKeyword}) recommande la prudence.`;
   }
-  return `Repli stratégique. ${hexName} (${hexKeyword}) signale des vents contraires — préservez votre énergie.`;
+  return `Repli stratégique. ${hexName} (${hexKeyword}) signale des vents contraires — préserve ton énergie.`;
 }
 
 // ══════════════════════════════════════
@@ -680,220 +691,147 @@ export function estimateSlowTransitBonus(astro: AstroChart | null): number {
 // ═══ DAY PREVIEW (lightweight, calendrier) ═══
 // ══════════════════════════════════════
 
-// Sprint AH — Cache inter-render pour calcDayPreview
-// Évite de recalculer les mêmes jours lors des re-renders React
-// ou lors de la navigation entre onglets (Calendar ↔ Forecast).
-const _dayPreviewCache = new Map<string, DayPreview>();
+// V5/E — Cache 2 zones (consensus 3/3 Gemini+GPT+Grok)
+// Zone 1 : Volatile (±28j autour d'aujourd'hui) — TTL midnight, clé inclut todayDate
+//   Car alpha varie avec le temps → le score change demain pour une même date future.
+// Zone 2 : Permanent (>28j) — alpha=1 constant, indépendant de todayDate.
+//   Score figé, recalcul inutile = performance optimale pour le calendrier 36 mois.
+const _dayPreviewCacheVolatile = new Map<string, DayPreview>();   // Zone 1 : ±28j
+const _dayPreviewCachePermanent = new Map<string, DayPreview>();  // Zone 2 : >28j
 const DAY_PREVIEW_CACHE_MAX = 1200; // 36 mois × ~30 jours + marge
+let _volatileCacheDate: string = '';  // date du jour au moment du dernier fill — TTL midnight
 
-function _dayPreviewCacheKey(bd: string, targetDate: string, transitBonus: number): string {
-  return `${bd}|${targetDate}|${transitBonus}`;
+function _dayPreviewCacheKey(bd: string, targetDate: string, transitBonus: number, ctxMult: number = 1.0, dashaMult: number = 1.0, baseSignal: number = 0): string {
+  return `${bd}|${targetDate}|${transitBonus}|${ctxMult.toFixed(3)}|${dashaMult.toFixed(3)}|${baseSignal.toFixed(3)}`;
 }
 
 /** Vide le cache calcDayPreview (appelé si les données natal changent). */
 export function clearDayPreviewCache(): void {
-  _dayPreviewCache.clear();
+  _dayPreviewCacheVolatile.clear();
+  _dayPreviewCachePermanent.clear();
+  _volatileCacheDate = '';
 }
+
+// ═══ AUDIT : Force clear au chargement du module (HMR ne vide PAS le cache permanent) ═══
+// À RETIRER après stabilisation — en production le cache permanent est souhaitable.
+clearDayPreviewCache();
+// [CACHE] Force clear permanent+volatile au chargement module (log supprimé — prod)
 
 export function calcDayPreview(
   bd: string, num: NumerologyProfile, cz: ChineseZodiac,
-  targetDate: string, transitBonus: number = 0, astro: AstroChart | null = null
+  targetDate: string, transitBonus: number = 0, astro: AstroChart | null = null,
+  ctxMult: number = 1.0, dashaMult: number = 1.0, baseSignal: number = 0,
+  natalCtx?: NatalDashaCtx | null,  // Ronde 28 — contexte natal précompilé
+  todayStr?: string,                // Ronde 28 — date du jour (pour garde GAP=0)
 ): DayPreview {
-  // Sprint AH — cache lookup
-  const _cKey = _dayPreviewCacheKey(bd, targetDate, transitBonus);
-  const _cached = _dayPreviewCache.get(_cKey);
+  // ═══ V5/E — Alpha-blend + Cache 2 zones ═══
+  const _today = todayStr ?? getTodayStr();
+
+  // Guard daysDiff ≥ 0 (Gemini, consensus 3/3)
+  const _targetMs = new Date(targetDate + 'T12:00:00').getTime();
+  const _todayMs  = new Date(_today + 'T12:00:00').getTime();
+  const daysDiff  = Math.max(0, (_targetMs - _todayMs) / 86_400_000);
+
+  // Alpha : 0 (LIVE/aujourd'hui) → 1 (≥90j futur), transition linéaire
+  // 90j = ~3 mois — l'année courante garde des scores quasi-LIVE pour les prochains mois,
+  // les années suivantes sont pleinement corrigées par V5/E.
+  const V5E_ALPHA_RAMP = 90;
+  const alpha = Math.min(1, daysDiff / V5E_ALPHA_RAMP);
+
+  // Cache 2 zones : volatile (alpha<1, ±ramp) vs permanent (alpha=1, >ramp)
+  const _isPermanent = alpha >= 1;
+  const _cKey = natalCtx
+    ? (_isPermanent
+        ? `v5p|${bd}|${targetDate}|${transitBonus}|L2lite`          // permanent: pas de todayDate
+        : `v5v|${bd}|${targetDate}|${transitBonus}|L2lite|${_today}`) // volatile: inclut todayDate
+    : _dayPreviewCacheKey(bd, targetDate, transitBonus, ctxMult, dashaMult, baseSignal);
+
+  // TTL midnight : si le jour a changé, vider le cache volatile
+  if (_volatileCacheDate !== _today) {
+    _dayPreviewCacheVolatile.clear();
+    _volatileCacheDate = _today;
+  }
+
+  const _cache = _isPermanent ? _dayPreviewCachePermanent : _dayPreviewCacheVolatile;
+  const _cached = _cache.get(_cKey);
   if (_cached) return _cached;
 
-  const ppd = calcPersonalDay(bd, targetDate);
-  const pdv = ppd.v;
-  const iching = calcIChing(bd, targetDate);
-  const reasons: string[] = [];
+  // ═══ Ronde 27 — Single Source of Truth (consensus 3/3 : GPT+Gemini+Grok) ═══
+  // Le calendrier utilise EXACTEMENT la même fonction que le live (calcDailyModules)
+  // pour garantir écart = 0 entre les onglets Pilotage et Calendrier.
+  //
+  // ═══ Ronde 28 — L2-lite (consensus 3/3 : GPT+Gemini+Grok) ═══
+  // dashaMult + baseSignal recalculés par jour (arithmétique Vimshottari).
+  // ctxMult reste fixe (quasi-constant sur 1 an).
+  // Garde : jour J = terrain live (GAP = 0 strict).
 
+  // 1. Recalculer la numérologie pour la date cible (ppd, py, pm varient)
   const tYear = parseInt(targetDate.split('-')[0]);
   const tMonth = parseInt(targetDate.split('-')[1]);
-  let delta = 0;
+  const ppd = calcPersonalDay(bd, targetDate);
+  const py  = calcPersonalYear(bd, tYear);
+  const pm  = calcPersonalMonth(bd, tYear, tMonth);
+  const numForDate: NumerologyProfile = { ...num, ppd, py, pm };
 
-  // 1. Numérologie PD — V8: narratif + onboarding uniquement (R25 GPT : redondant BaZi, valeur commerciale)
-  // pdPts calculé pour display/breakdown, NON ajouté au delta
-  let pdPts = 0;
-  if (pdv === num.lp.v)        { pdPts = 7; reasons.push(`✦ Jour ${pdv} = Chemin de Vie — alignement profond`); }
-  else if (pdv === num.expr.v) { pdPts = 5; reasons.push(`✦ Jour ${pdv} = Expression — talents amplifiés`); }
-  else if (pdv === num.soul.v) { pdPts = 4; reasons.push(`✦ Jour ${pdv} = Âme — désirs profonds activés`); }
-  else if (pdv === num.pers.v) { pdPts = 3; reasons.push(`✦ Jour ${pdv} = Personnalité — charisme renforcé`); }
-  if (isMaster(pdv)) { pdPts = Math.min(7, pdPts + 2); reasons.push(`✦ Nombre Maître ${pdv} — énergie spirituelle`); }
-  pdPts = Math.max(-7, Math.min(7, pdPts));
-  // numTotal supprimé V8 — PD narratif, Trinity supprimé, aucune dépendance restante
-  // V8 : PD narratif — non ajouté au delta
+  // 2. I Ching pour la date cible
+  const iching = calcIChing(bd, targetDate);
 
-  // 5. I Ching — V8: consultation séparée (R25 GPT : non calendaire sans question posée)
-  // ichRes calculé pour display et interactions, NON ajouté au delta
-  const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
-  const hexDesc: Record<string, string> = { A: 'puissant', B: 'favorable', C: 'neutre', D: 'tension', E: 'épreuve' };
-  reasons.push(`☯ I Ching #${iching.hexNum} ${iching.name} — ${hexDesc[ichRes.tier]} (narratif)`);
-  // delta += ichRes.pts; // SUPPRIMÉ V8 — non calendaire sans question
+  // 3. Appel au moteur LIVE — mêmes 20 modules, mêmes 4 groupes, même score
+  //    Ronde Transit : on passe _liveDate = vrai aujourd'hui pour que calcDailyModules
+  //    utilise calcTransitsLite (Meeus) quand targetDate ≠ today.
+  //    _today déjà calculé dans le bloc cache V5/E ci-dessus.
+  const _breakdown: SystemBreakdown[] = [];
+  const _signals: string[] = [];
+  const _alerts: string[] = [];
+  const daily = calcDailyModules(
+    { num: numForDate, astro, iching, bd, todayStr: targetDate, _liveDate: _today },
+    _breakdown, _signals, _alerts,
+  );
 
-  // 6. BaZi FAMILLE
-  // Sprint AS P2 : csPts, csResult (Changsheng) supprimés — toujours 0/null depuis Sprint AP
-  let baziDMPts = 0, tenGodsPts = 0, ssPts = 0;
-  let peachActivePreview = false;
-  let ssResult: ShenShaResult | null = null;
-  let tgResult: TenGodsResult | null = null;
-  let natalDMIsYang = false;
-  let natalDMElement: string | null = null;
+  // 4. Terrain : Ronde 28 L2-lite par jour (dashaMult + baseSignal varient)
+  //    Garde R27 : si targetDate === today, on garde le terrain live (GAP = 0 strict)
+  let _ctxMult = ctxMult;
+  let _dashaMult = dashaMult;
+  let _baseSignal: number | undefined = baseSignal;
 
-  try {
-    const birthD = new Date(bd + 'T12:00:00');
-    const dayD = new Date(targetDate + 'T12:00:00');
-    const baziDP = calcBaZiDaily(birthD, dayD, 50);
-    baziDMPts = Math.max(-6, Math.min(6, Math.round(baziDP.totalScore * 2)));
-    natalDMIsYang = baziDP.natalStem?.yinYang === 'Yang';
-    natalDMElement = baziDP.natalStem?.element ?? null;
-    if (baziDMPts !== 0) reasons.push(`BaZi ${baziDP.dailyStem.chinese} → ${baziDP.interaction.dynamique.split('.')[0]} (${baziDMPts > 0 ? '+' : ''}${baziDMPts})`);
-  } catch { /* silent */ }
+  // _today déjà calculé dans le bloc cache V5/E
+  if (natalCtx && targetDate !== _today) {
+    // L2-lite : recalculer dashaMult + baseSignal pour cette date spécifique
+    const _targetDateObj = new Date(targetDate + 'T12:00:00');
+    const _dashaLite = calcDashaMultLite(natalCtx, _targetDateObj);
+    _dashaMult = _dashaLite.dashaMult;
 
-  try {
-    const birthD = new Date(bd + 'T12:00:00');
-    const dayD = new Date(targetDate + 'T12:00:00');
-    tgResult = calc10Gods(birthD, dayD);
-    tenGodsPts = Math.max(-6, Math.min(6, tgResult.totalScore));
-    if (tenGodsPts !== 0) reasons.push(`十神 ${tgResult.dominant?.label || ''} (${tenGodsPts > 0 ? '+' : ''}${tenGodsPts})`);
-  } catch { /* silent */ }
+    // Récupérer l'Antar-Dasha lord pour la garde AB-R1 (sameLord)
+    const _dashaForSignal = calcCurrentDashaImport(natalCtx.natalMoonSid, natalCtx.birthD, _targetDateObj);
 
-  try {
-    const peach = getPeachBlossom(new Date(bd + 'T12:00:00'), new Date(targetDate + 'T12:00:00'));
-    peachActivePreview = peach.active;
-    if (peach.active) reasons.push(`🌸 Peach Blossom active — magnétisme relationnel`);
-  } catch { /* silent */ }
-
-  // Sprint AS P2 : bloc csResult/csPts Changsheng supprimé (mort depuis Sprint AP P5)
-
-  try {
-    ssResult = checkShenSha(new Date(bd + 'T12:00:00'), new Date(targetDate + 'T12:00:00'));
-    ssPts = 0; // V8: narratif BaZi enrichi uniquement (R25 : redondant, enrichissement visuel)
-    if (ssResult.active.length > 0) reasons.push(`⭐ ${ssResult.active.map((s: { chinese: string }) => s.chinese).join(' ')} (narratif BaZi)`);
-  } catch { /* silent */ }
-
-  // Sprint AT — Ronde 13 consensus 3/3 Option A : alignement complet avec calcDailyModules
-  // Sub-cap ±8 sur DM+10Gods (Ronde 6 P3 — colinéarité), Jian Chu inclus, cap C_BAZI ±15 (αG Monte Carlo)
-  const baziCorePtsPrev = Math.max(-8, Math.min(8, baziDMPts + tenGodsPts)); // sub-cap ±8
-  const jianChu = calcJianChuPts(targetDate);
-  const jianchuPtsPrev = jianChu.pts;
-  if (jianChu.officer && jianChu.officer.pts > 0) reasons.push(`建除 ${jianChu.officer.zh} ${jianChu.officer.fr} — timing favorable`);
-  else if (jianChu.officer && jianChu.officer.pts < 0) reasons.push(`建除 ${jianChu.officer.zh} ${jianChu.officer.fr} — timing difficile`);
-  const baziFamilyPrev = Math.max(-15, Math.min(15, baziCorePtsPrev + jianchuPtsPrev + ssPts)); // C_BAZI ±15
-  delta += baziFamilyPrev;
-
-  // 7. Lune — V8: narratif visible (R25 : absorbée par Nakshatra, valeur contextuelle)
-  // moonScore calculé pour display, NON ajouté au delta
-  const dayType = calcDayType(pdv, iching, null);
-  const moonScore = calcMoonScore(targetDate, dayType.type);
-  if (moonScore.points !== 0) {
-    reasons.push(`🌙 ${moonScore.phaseLabel} (narratif lunaire)`);
+    _baseSignal = calcBaseSignalLite(
+      natalCtx, _targetDateObj, _dashaLite.dashaTotal,
+      daily.nakshatraData?.globalBaseScore ?? 0,
+      daily.nakshatraData?.lord,
+      daily.luneGroupDelta,
+      _dashaForSignal.antar.lord,
+    );
+    // ctxMult reste fixe (quasi-constant sur 1 an — consensus 3/3)
   }
-  // delta += moonScore.points; // SUPPRIMÉ V8 — absorbé par Nakshatra
 
-  // 8. Transit Lunaire — V6.2: supprimé (redondant avec Nakshatra — R15 consensus)
-  const moonTr = getMoonTransit(targetDate); // conservé pour moonTransit dans le return
+  // 5. Score = scoreFromGroups avec terrain L2-lite + V5/E alpha-blend
+  const score = scoreFromGroups(
+    daily.luneGroupDelta, daily.ephemGroupDelta,
+    daily.baziGroupDelta, daily.indivGroupDelta,
+    _ctxMult, _dashaMult, _baseSignal,
+    alpha,           // V5/E — 0=LIVE/today, →1 progressivement sur 90j (V5E_ALPHA_RAMP)
+  );
+  // Ronde 6 — capture side-channel xt/dm pour blend post-traitement annuel
+  const _dayXt = _sfgLastXt;
+  const _dayDm = _sfgLastDm;
 
-  // 9. Mercure — V8: alerte narrative (R25 : bruit populaire, valeur commerciale d'acquisition)
-  // mercStatus calculé pour alerte conditionnelle, NON ajouté au delta
-  const mercStatus = getMercuryStatus(new Date(targetDate + 'T12:00:00'));
-  const mercPts = Math.max(-3, mercStatus.points); // conservé pour getScoreLevel (condition narrative ⚡)
-  if (mercPts < 0) { reasons.push(`⚠️ ${mercStatus.label} — double-vérifier communications (narratif)`); }
-  // delta += mercPts; // SUPPRIMÉ V8 — bruit non prédictif (R25 GPT)
-
-  // 10. Rétrogrades — retiré Sprint AO P6 (module mort) + Sprint AP P2 (alignement preview)
-
-  // 11. Transits lents — supprimés V6.3 de calcDayPreview (transitBonus statique → biais annuel, Gemini R21)
-  // Transits lents actifs uniquement dans calcSlowModules (L2, temps réel)
-
-  // 11b. Nakshatra Lords (±7 sub-cap)
-  try {
-    const tYearL = parseInt(targetDate.split('-')[0]);
-    const moonDL = getMoonPhase(new Date(targetDate + 'T12:00:00'));
-    const ayanamsaL = getAyanamsa(tYearL);
-    const moonSidL = ((moonDL.longitudeTropical - ayanamsaL) % 360 + 360) % 360;
-    const nakL = calcNakshatra(moonSidL);
-    const transitLordL = nakL.lord;
-    const nakQualityL = nakL.globalBaseScore;
-    let r25l = 0, r27l = 0;
-    if (nakQualityL !== 0) {
-      const isHarmonic = nakQualityL > 0;
-      if (transitLordL === 'Rahu')      r25l = isHarmonic ? 4 : -4;
-      else if (transitLordL === 'Ketu') r25l = isHarmonic ? 2 : -3;
-      else                               r25l = isHarmonic ? 3 : -3;
-    }
-    // R26 supprimée V6.3 — biais annuel constant ±4, construction non traditionnelle (R20 GPT+Gemini)
-    try {
-      const natalMoonL = getMoonPhase(new Date(bd + 'T12:00:00'));
-      const natalAyanL = getAyanamsa(new Date(bd + 'T12:00:00').getFullYear());
-      const natalSidL = ((natalMoonL.longitudeTropical - natalAyanL) % 360 + 360) % 360;
-      const natalNakL = calcNakshatra(natalSidL);
-      if (transitLordL === natalNakL.lord && nakQualityL !== 0) r27l = nakQualityL > 0 ? 6 : -6;
-    } catch { /* natal fail silent */ }
-    const nakLordTotalL = Math.max(-7, Math.min(7, r25l + r27l));
-    if (nakLordTotalL !== 0) { delta += nakLordTotalL; reasons.push(`🌙 Lord ${transitLordL} ${nakL.name} (${nakLordTotalL > 0 ? '+' : ''}${nakLordTotalL})`); }
-  } catch { /* nakshatra lords fail silent */ }
-
-  // Sprint AS P6 : bloc Dasha preview supprimé — dashaDeltaPrevHoisted était mort (Trinity supprimée)
-  // Sprint AS P2 : trinityBonusPrev (=0) + Interactions stub supprimés — zéro consommateur
-
-  // ── P3.1 : estimateL2Bonus — Retours planétaires interpolés (Saturne, Jupiter, Nœud Nord) ──
-  // Objectif : réduire la divergence CalendarTab ↔ ConvergenceTab (Issue #1 audit V8.1)
-  // Méthode : interpolation linéaire via vitesse moyenne (zéro appel Meeus — PSI de returns.ts)
-  //
-  // ⚠️ HORIZON LIMITÉ À 12 MOIS (V8.8 hotfix3)
-  // Pourquoi : l'interpolation linéaire est imprécise au-delà de ~12 mois car :
-  //   - Jupiter dévie ±15° par an (rétrogrades de 4 mois), Saturne ±8°/an
-  //   - Ces erreurs créent de fausses intensités de retour → biais annuels artificiels
-  // Exemple : Nœud return 2033 et Sat+Jup return 2037 → 17-20 Cosmiques/an au lieu de 5
-  // Fix : l2Bonus=0 si |deltaJours|>365. Le CalendarTab (<12 mois) reste précis.
-  // Note : éphémérides longue portée (Meeus) — amélioration future non prioritaire
-  try {
-    if (astro) {
-      const natalLongs = extractNatalReturnLongs(astro);
-      if (natalLongs) {
-        const today = new Date();
-        const targetD = new Date(targetDate + 'T12:00:00');
-        const deltaJours = Math.round((targetD.getTime() - today.getTime()) / 86400000);
-
-        // Horizon >12 mois : interpolation linéaire non fiable → skip l2Bonus
-        if (Math.abs(deltaJours) <= 365) {
-          // Positions planétaires actuelles (réutilisées via interpolation pour horizon court)
-          const satTodayLong  = getPlanetLongitudeForDate('saturn',    today);
-          const jupTodayLong  = getPlanetLongitudeForDate('jupiter',   today);
-          const nodeTodayLong = getPlanetLongitudeForDate('northNode', today);
-
-          const satIntensity  = interpolateReturnIntensity(natalLongs.saturn,    satTodayLong,  'saturn',    deltaJours);
-          const jupIntensity  = interpolateReturnIntensity(natalLongs.jupiter,   jupTodayLong,  'jupiter',   deltaJours);
-          const nodeIntensity = interpolateReturnIntensity(natalLongs.northNode, nodeTodayLong, 'northNode', deltaJours);
-
-          // Amplitudes réduites (sat=3, jup=2, node=2, cap=4) — V8.8 hotfix2
-          // Config.amp (8,5,6) était calibré pour le calcul L2 exact (via ctx.multiplier)
-          // Ici, l2Bonus est additif direct sur delta → divisé par ~3 pour équivalence
-          const satPts  = satIntensity  > 0.15 ? Math.round(satIntensity  * 3)  : 0;
-          const jupPts  = jupIntensity  > 0.15 ? Math.round(jupIntensity  * 2)  : 0;
-          const nodePts = nodeIntensity > 0.15 ? Math.round(nodeIntensity * 2)  : 0;
-
-          const l2Bonus = Math.max(-4, Math.min(4, satPts + jupPts + nodePts));
-          if (l2Bonus !== 0) {
-            delta += l2Bonus;
-            if (satPts > 0)  reasons.push(`🪐 Retour Saturne approche (est. +${satPts})`);
-            if (jupPts > 0)  reasons.push(`♃ Retour Jupiter actif (est. +${jupPts})`);
-            if (nodePts > 0) reasons.push(`☊ Nœud Nord en retour (est. +${nodePts})`);
-            if (l2Bonus < 0) reasons.push(`🔻 Tension retours planétaires (est. ${l2Bonus})`);
-          }
-        }
-      }
-    }
-  } catch { /* L2 estimate fail silently — never crash the preview */ }
-
-  // 14. Cap global (biais conditionnel supprimé V6.2 — patch non symbolique)
-  delta = Math.max(-60, Math.min(60, delta));
-
-  const score = Math.max(5, Math.min(97, compressL1Legacy(delta)));
+  // 5. Construire DayPreview
+  const pdv = ppd.v;
   const lCol = scoreLevelColor(score);
-  const conseil = buildConseil(dayType, score, iching.name, iching.keyword);
+  const conseil = buildConseil(daily.dayType, score, iching.name, iching.keyword);
+
+  // Reasons : signaux + alertes issus de calcDailyModules
+  const reasons = [..._signals, ..._alerts];
 
   const yearScores = getYearScores(bd, num, cz, transitBonus);
   const higherOrEqual = yearScores.filter(s => s >= score).length;
@@ -901,33 +839,199 @@ export function calcDayPreview(
 
   const _result: DayPreview = {
     date: targetDate, day: parseInt(targetDate.split('-')[2]),
-    pdv, dayType, score, lCol,
+    pdv, dayType: daily.dayType, score, lCol,
     hexNum: iching.hexNum, hexName: iching.name, hexKeyword: iching.keyword,
     reasons, conseil, rarityPct,
+    ...((_dayXt !== 0) && { xt: _dayXt, dm: _dayDm }),  // Sprint N+ — TOUS les jours (passés + futurs)
   };
 
-  // Sprint AH — store in cache (LRU-like : clear if full)
-  if (_dayPreviewCache.size >= DAY_PREVIEW_CACHE_MAX) _dayPreviewCache.clear();
-  _dayPreviewCache.set(_cKey, _result);
+  // V5/E — store in cache 2 zones (LRU-like : clear if full)
+  if (_cache.size >= DAY_PREVIEW_CACHE_MAX) _cache.clear();
+  _cache.set(_cKey, _result);
 
   return _result;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Ronde Cosmique — Post-traitement annuel Plancher + Plafond
+// Consensus 3/3 (GPT + Gemini + Grok) : Option C stricte
+//   - Cosmique = score ≥ 88 (absolu, universel)
+//   - Plafond : max 25 Cosmiques/an (les meilleurs gardent le badge, les autres → capped)
+//   - Plancher : min 3 "Pic de l'année" si < 3 Cosmiques (score ≥ 85)
+//   - Zéro changement sur la formule de score
+// ══════════════════════════════════════════════════════════════════════
+export const COSMIC_THRESHOLD = 86;  // V4.4 : abaissé de 88→86 (compense k_future=0.65, 2027 top=86.3 → Cosmiques possibles)
+const COSMIC_MAX_PER_YEAR = 999;  // Ronde 6 : cap désactivé — le Soft Shift régule naturellement (max ~15C en 2037)
+const ANNUAL_PEAK_MIN = 3;
+const ANNUAL_PEAK_FLOOR = 82;  // V4.1 : abaissé de 85→82 — garantit des "Pic de l'année" même en année faible (ex: 2027 Pic=84)
+
+/**
+ * Applique les labels annuels Plancher/Plafond sur une année complète de DayPreview.
+ * Mute les objets DayPreview en place (ajoute isAnnualPeak / isCosmicCapped).
+ */
+export function assignAnnualLabels(yearPreviews: DayPreview[]): void {
+  // 1. Identifier les jours Cosmiques (score ≥ 88), triés desc
+  const cosmicDays = yearPreviews
+    .filter(p => p.score >= COSMIC_THRESHOLD)
+    .sort((a, b) => b.score - a.score);
+
+  // 2. PLAFOND : si plus de 25 Cosmiques, les excédentaires perdent le badge
+  if (cosmicDays.length > COSMIC_MAX_PER_YEAR) {
+    const capped = cosmicDays.slice(COSMIC_MAX_PER_YEAR);
+    const cappedDates = new Set(capped.map(d => d.date));
+    yearPreviews.forEach(p => {
+      if (cappedDates.has(p.date)) p.isCosmicCapped = true;
+    });
+  }
+
+  // 3. PLANCHER : si < 3 vrais Cosmiques (non-capped), compléter avec "Pic de l'année"
+  const trueCosmic = cosmicDays.length <= COSMIC_MAX_PER_YEAR
+    ? cosmicDays.length
+    : COSMIC_MAX_PER_YEAR;
+
+  if (trueCosmic < ANNUAL_PEAK_MIN) {
+    const needed = ANNUAL_PEAK_MIN - trueCosmic;
+    // Candidats : jours non-Cosmiques avec score ≥ 85, triés desc
+    const cosmicDates = new Set(cosmicDays.slice(0, COSMIC_MAX_PER_YEAR).map(d => d.date));
+    const candidates = yearPreviews
+      .filter(p => !cosmicDates.has(p.date) && p.score >= ANNUAL_PEAK_FLOOR)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, needed);
+
+    const peakDates = new Set(candidates.map(d => d.date));
+    yearPreviews.forEach(p => {
+      if (peakDates.has(p.date)) p.isAnnualPeak = true;
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Ronde 6 — Soft Shift Passe 2 : blend S_rel sur l'année complète
+// Consensus unanime GPT+Grok+Gemini : percentile sur N=365 obligatoire.
+// Appelée par CalendarTab.yearHeatmap APRÈS collecte des 365 DayPreviews,
+// AVANT assignAnnualLabels. Même pattern : mute in place.
+//
+// Passe 1 (scoreFromGroups) a déjà calculé S_abs + terrainBonus.
+// Passe 2 (ici) recalcule le score final avec blend S_rel.
+//
+// Guard année tronquée (Gemini "bloquant") : si < 100 jours FUTURE → pas de blend.
+// Fallback GPT : ρ_eff = ρ × min(1, √(N/200)) si 100 ≤ N < 200.
+// Rollback : supprimer l'appel dans CalendarTab.tsx.
+// ══════════════════════════════════════════════════════════════════════
+export function applySoftShiftBlend(yearPreviews: DayPreview[]): void {
+  // ═══ Ronde 8 — v2 base + kicker quadratique (consensus GPT+Gemini+Claude 3/4) ═══
+  // v2 linéaire (0.30/0.15) préserve 2029=13C et 2033=12C intacts.
+  // Le kicker 8.0×(μ-0.95)² cible chirurgicalement les années extrêmes (2037)
+  // sans affecter les années moyennement fortes (ratio 18:1 entre 2037 et 2033).
+  const SS_K = 0.80;                // pente tanh (validé Ronde 6, confirmé Ronde 7)
+  const RHO  = 0.32;                // poids S_rel (consensus GPT+Grok Ronde 7)
+  const CS_FLOOR = 0.50;            // plancher c_s (protège années calmes)
+  const CS_MAX   = 0.90;            // plafond c_s (sécurité, clip max)
+  const MEAN_COEFF  = 0.30;         // retour v2 (protège 2033=12C, 2029=13C)
+  const MEAN_THRESH = 0.70;         // seuil d'activation mean
+  const P90_COEFF   = 0.15;         // retour v2 (composante queue haute)
+  const P90_THRESH  = 1.40;         // seuil d'activation P90
+  const KICKER_COEFF  = 8.0;        // Ronde 8 — amplifie non-linéairement les extrêmes
+  const KICKER_THRESH = 0.95;       // seuil kicker (2033 μ=0.981→quasi-nul, 2037 μ=1.084→fort)
+
+  // Sprint N+ : collecter TOUS les jours avec xt (passés + futurs)
+  const futureDays = yearPreviews.filter(p => p.xt != null && p.xt !== 0);
+  const N = futureDays.length;
+
+  // GF1 — Guard année tronquée : pas assez de données pour un percentile fiable
+  if (N < 100) return;
+
+  // Tableau trié des xt pour le percentile lissé et les métriques
+  const xts = futureDays.map(p => p.xt!).sort((a, b) => a - b);
+
+  // ═══ Ronde 8 — c_s adaptatif v2 + kicker quadratique ═══
+  // GF2 — Guard N < 200 : retomber sur c_s par défaut + ρ réduit
+  let cs: number;
+  let rhoEff: number;
+  if (N < 200) {
+    cs = CS_FLOOR;
+    rhoEff = RHO * Math.min(1, Math.sqrt(N / 200));
+  } else {
+    // Calculer mean et P90 sur les jours FUTURE de l'année
+    const meanXt = xts.reduce((a, b) => a + b, 0) / N;
+    const p90Idx = Math.min(Math.floor(0.90 * N), N - 1);
+    const p90Xt = xts[p90Idx];
+    // Ronde 8 : v2 dual metric + kicker quadratique pour extrêmes
+    const csRaw = CS_FLOOR
+      + MEAN_COEFF * Math.max(0, meanXt - MEAN_THRESH)
+      + P90_COEFF  * Math.max(0, p90Xt  - P90_THRESH)
+      + KICKER_COEFF * Math.max(0, meanXt - KICKER_THRESH) ** 2;
+    cs = Math.min(CS_MAX, Math.max(CS_FLOOR, csRaw));
+    rhoEff = RHO;
+  }
+
+  // Percentile lissé par kernel logistique (σ=0.06)
+  const _sigma = (x: number) => 1 / (1 + Math.exp(-x));
+  function smoothPercentile(xt: number): number {
+    let s = 0;
+    for (let j = 0; j < xts.length; j++) s += _sigma((xt - xts[j]) / 0.06);
+    return s / xts.length;
+  }
+
+  // S_rel : base + bonus queue haute (Ronde 5 consensus)
+  function sRel(p: number): number {
+    return 50 + 44 * Math.tanh((p - 0.79) / 0.12) + 3.0 * _sigma((p - 0.975) / 0.008);
+  }
+
+  // Soft Shift g(X) = X − c_s × tanh(X / c_s) — c_s adaptatif
+  function softShiftG(X: number): number {
+    return X - cs * Math.tanh(X / cs);
+  }
+
+  // Appliquer le blend sur chaque jour avec xt (passés + futurs)
+  // ═══ FIX INCOHÉRENCE CALENDRIER vs PILOTAGE ═══
+  // Protéger le jour d'aujourd'hui : son score LIVE (= Pilotage) ne doit PAS être
+  // écrasé par le Soft Shift. Sinon on affiche 37 sur le calendrier et 58 sur le Pilotage.
+  const _todayGuard = getTodayStr();
+  for (const p of yearPreviews) {
+    if (p.xt == null || p.xt === 0 || p.dm == null) continue;
+    if (p.date === _todayGuard) continue;  // Garde GAP=0 : aujourd'hui = score Pilotage
+
+    const g = softShiftG(p.xt);
+    const sAbs = 50 + 44 * Math.tanh(SS_K * g);
+    const pctl = smoothPercentile(p.xt);
+    const sRelVal = sRel(pctl);
+    const terrainBonus = Math.tanh((p.dm - 1) / 0.06);
+
+    // Score final Soft Shift avec blend
+    const scoreFinal = (1 - rhoEff) * sAbs + rhoEff * sRelVal + terrainBonus;
+    p.score = Math.max(0, Math.min(100, Math.round(scoreFinal)));
+
+    // Mettre à jour la couleur du score
+    p.lCol = scoreLevelColor(p.score);
+  }
+
+}
+
 export function calcMonthPreviews(
   bd: string, num: NumerologyProfile, cz: ChineseZodiac,
-  year: number, month: number, transitBonus: number = 0, astro: AstroChart | null = null
+  year: number, month: number, transitBonus: number = 0, astro: AstroChart | null = null,
+  ctxMult: number = 1.0, dashaMult: number = 1.0, baseSignal: number = 0,
+  bt?: string,   // Ronde 28 — heure naissance pour L2-lite
 ): DayPreview[] {
+  // ═══ Ronde 28 — L2-lite : dashaMult + baseSignal par jour (consensus 3/3) ═══
+  // Contexte natal construit UNE FOIS, passé à chaque jour.
+  const natalCtx = buildNatalDashaCtx(bd, bt, astro);
+  const todayStr = getTodayStr();
+
   const daysInMonth = new Date(year, month, 0).getDate();
   const previews: DayPreview[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    previews.push(calcDayPreview(bd, num, cz, ds, transitBonus, astro));
+    previews.push(calcDayPreview(bd, num, cz, ds, transitBonus, astro, ctxMult, dashaMult, baseSignal, natalCtx, todayStr));
   }
+
   const scores = previews.map(p => p.score);
   for (let i = 0; i < previews.length; i++) {
     previews[i].turbulence = computeTurbulence(scores, i);
     previews[i].outlier = flagMADOutlier(scores, i);
   }
+
   return previews;
 }
 
@@ -966,6 +1070,7 @@ export function calcConvergence(
   // calcMainScore retourne score + c4 + shapley — aucun fallback, crash si erreur = détectable
   const _mainResult = calcMainScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta);
   const score = Math.max(5, Math.min(97, _mainResult.score));
+  // R27 — GAP=0 confirmé : calcMainScore ≡ scoreFromGroups (diag retiré)
   const mercPts = daily.mercPts;
 
   const scoreLevel = getScoreLevel(score, mercPts);
@@ -974,8 +1079,44 @@ export function calcConvergence(
   const climate = calcClimate(num);
 
   let actionReco = calcActionReco(daily.dayType, score, iching.keyword);
+
+  // Ronde 21-bis + Ronde Narrative — Override moteur multi-système
+  // Signaux pause : Mercure rétro, Lune décroissante, jour retrait/observation, Lune VoC, Yi King prudent
+  // Option C (Ronde Narrative) : zone grise 65-74 sensible au contexte (seuil 2 au lieu de 3)
+  {
+    let pauseSignals = 0;
+    if (mercPts <= -3) pauseSignals++;
+    const moonPhase = daily.moonPhaseRawPhase ?? -1;  // 0-7 : 4=pleine, 5-7=décroissant
+    if (moonPhase >= 5 && moonPhase <= 7) pauseSignals++;
+    if (daily.dayType.type === 'retrait' || daily.dayType.type === 'observation') pauseSignals++;
+    if (daily.vocResult && daily.vocResult.isVoC) pauseSignals++;
+
+    // Yi King comme signal de pause : keywords prudents
+    // Poids 2 en zone grise (65-74) car c'est un système divinatoire complet
+    // Poids 1 en zone Gold+ (≥75) pour ne pas écraser un score fort
+    const PAUSE_KEYWORDS = new Set([
+      'Patiente', 'Attends', 'Observe', 'Protège-toi', 'Arrête-toi',
+      'Recule', 'Endure', 'Prudence', 'Lâche prise', 'Contourne',
+    ]);
+    const isGrayZone = score >= 65 && score < 75;
+    if (PAUSE_KEYWORDS.has(iching.keyword)) pauseSignals += isGrayZone ? 2 : 1;
+
+    // Zone grise 65-74 : seuil réduit (2 signaux suffisent)
+    // Zone ≥75 (Gold+) : seuil classique (3 signaux)
+    const pauseThreshold = (score >= 65 && score < 75) ? 2 : 3;
+    if (pauseSignals >= pauseThreshold && actionReco.verb === 'agir') {
+      actionReco = { ...ACTION_DEFS.ajuster, conseil: `L'énergie est là mais le contexte invite à la mesure — avance sur l'essentiel. ${iching.keyword}.` };
+    }
+  }
+
+  // Garde Mercure Rétro (indépendant de l'override multi-système)
+  // Ronde Pilotage P1 : score ≥ 85 → maintenir AGIR avec prudence Mercure (pas de rétrogradation)
   if (actionReco.verb === 'agir' && mercPts <= -3) {
-    actionReco = { ...ACTION_DEFS.ajuster, conseil: `Mercure rétrograde — avancez avec prudence, évitez les lancements. ${iching.keyword}.` };
+    if (score >= 85) {
+      actionReco = { ...ACTION_DEFS.agir, conseil: `Convergence exceptionnelle malgré Mercure rétrograde — agis sur l\'essentiel, relis tout avant de signer. ${iching.keyword}.` };
+    } else {
+      actionReco = { ...ACTION_DEFS.ajuster, conseil: `Mercure rétrograde — avance avec prudence, évite les lancements. ${iching.keyword}.` };
+    }
   }
 
   const transitBonusForRarity = astro?.tr.length ? Math.round(calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl).total) : 0;
@@ -995,7 +1136,8 @@ export function calcConvergence(
   } as Record<LifeDomain, number> : undefined;
   const contextualScores = calculateContextualScores(
     breakdown, score, num.py.v, num.pm.v,
-    daily.directDomainBonuses, nakshatraMods, nakshatraAffinityOverride
+    daily.directDomainBonuses, nakshatraMods, nakshatraAffinityOverride,
+    mercPts <= -3  // Ronde Pilotage P1 — Mercury retro awareness for BUSINESS directive
   );
 
   // V4.2 : Confiance temporelle
@@ -1010,11 +1152,11 @@ export function calcConvergence(
   const pyAligned = (pyPts > 0 && isScorePositive) || (pyPts < 0 && !isScorePositive);
   // pmAligned + pinnAligned supprimés V6.2
 
-  let confScore = 30;
-  confScore += agreementRatio * 0.3;
-  // Sprint AR P5 : trinityActive ? 15 : 0 supprimé — toujours +0 (Ronde 11 consensus 2/3)
-  confScore += pyAligned ? 8 : -5;
-  // pmAligned + pinnAligned supprimés V6.2 (modules retirés)
+  // Ronde Pilotage P3 : rescalé après suppression trinityActive + pmAligned + pinnAligned
+  // Ancien plafond = 68 (30 + 30 + 8). Nouveau = ~90 (15 + 65 + 10).
+  let confScore = 15;
+  confScore += agreementRatio * 0.65;
+  confScore += pyAligned ? 10 : -5;
   if ((score >= 80 || score <= 30) && agreementRatio < 50) confScore -= 10;
   confScore = Math.max(5, Math.min(95, Math.round(confScore)));
 
@@ -1090,12 +1232,157 @@ export function calcConvergence(
 
 // ══════════════════════════════════════════════════════════════════════
 // Sprint AW — C4 : Correlation-Corrected Concordance/Discordance
+// ══════════════════════════════════════════════════════════════════════
+// ═══ Ronde 29 V3 — scoreFromGroups : cœur tanh PARTAGÉ ═══════════════
+// Fonction pure : 4 group deltas bruts → score [0, 100]
+// Appelée par calcMainScore (live, alpha=0) ET calcDayPreview (calendrier, alpha=0→1)
+//
+// ═══ V5/E — Ronde Transit Finale (consensus 3/3 GPT+Grok+Gemini) ═══
+// Architecture dual-branch avec alpha-blend :
+//   alpha=0 (LIVE) : formule legacy INTACTE (zéro régression)
+//   alpha=1 (futur ≥90j) : V5/E — terrain HORS tanh + décorrélation + biais dynamique
+//   0<alpha<1 : transition C⁰ continue (rampe 90j — V5E_ALPHA_RAMP)
+//
+// V5/E Future branch :
+//   1. Décorrélation Gram-Schmidt XE ← XE - 0.34×|XL| (r≈0.40 Lune/Ephém)
+//   2. Biais dynamique (E[X_core] ≈ +0.55 → centré à 0)
+//   3. Terrain HORS tanh : terrainOffset = 6×tanh((dashaMult-1)/0.16) [GPT's E]
+//   4. HighZoneDamp : préserve discrimination au-dessus de 88 [GPT's E]
+// ══════════════════════════════════════════════════════════════════════
+const V5E_BIAS_OFFSET = 0.55;  // E[X_core] détecté par Grok MC simulation (365j) — consensus Ronde
+
+// ═══ Ronde 6 — Side-channel Soft Shift : scoreFromGroups expose xt/dm pour passe 2 ═══
+// Lecture synchrone par calcDayPreview immédiatement après appel — thread-safe (JS single-thread)
+let _sfgLastXt = 0;   // X_total_future du dernier appel (0 = LIVE)
+let _sfgLastDm = 0;   // dashaMult du dernier appel
+
+/** @internal — exported for unit testing only */
+export function scoreFromGroups(
+  luneGroupDelta: number,
+  ephemGroupDelta: number,
+  baziGroupDelta: number,
+  indivGroupDelta: number,
+  ctxMult: number,
+  dashaMult: number,
+  baseSignal: number | undefined,
+  alpha: number = 0,                     // V5/E — 0=LIVE legacy, 1=future V5/E
+  biasOffset: number = V5E_BIAS_OFFSET,  // V5/E — biais dynamique par profil
+): number {
+  const A    = 44.0;   // Ronde 29 V3 (ex 36)
+  const k    = 0.65;   // Ronde 29 V3 (ex 0.840)
+  const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+
+  // αG adaptatifs (Sprint AE) — même source que calcMainScore
+  const ALPHA_G = getAdaptedAlphaG().current;
+  const ALPHA_I = 0.90;
+  const P95_G   = { lune: 9, ephem: 7, bazi: 11, indiv: 6 } as const;
+  const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+
+  // Normalisation par P95 + pondération αG + caps
+  const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
+  const xE = _clampG(ephemGroupDelta / P95_G.ephem, -1, +1);
+  const xB = _clampG(baziGroupDelta  / P95_G.bazi,  -1, +1);
+  const xI = _clampG(indivGroupDelta / P95_G.indiv, -1, +1);
+
+  const XL = _clampG(ALPHA_G.lune  * xL, -G_CAP.lune,  +G_CAP.lune);
+  const XE = _clampG(ALPHA_G.ephem * xE, -G_CAP.ephem, +G_CAP.ephem);
+  const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
+  const XI = _clampG(ALPHA_I       * xI, -G_CAP.indiv, +G_CAP.indiv);
+
+  // ═══ BRANCHE LIVE (alpha=0) — formule Ronde 29 V3 INTACTE ═══
+  const X_core_live = _clampG(XL + XE + XB + XI, -2.80, +2.80);
+  const c4_live = calcC4(XL, XE, XB, XI);
+  const X_live = _clampG(X_core_live + c4_live, -3.15, +3.15);
+
+  const terrain_brut = ctxMult * dashaMult;
+  const terrain_sq   = 1 + 0.25 * Math.tanh((terrain_brut - 1) / 0.35);
+  const beta_live    = Math.max(0.0, 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15));
+  const X_total_live = X_live + beta_live * (baseSignal ?? 0);
+
+  const fade = 0.15 + 0.85 / (1 + Math.exp(3 * (X_total_live - 1.5)));
+  const effective_fade = terrain_sq > 1 ? fade : 1.0;
+  const blended_sq = 1 + effective_fade * (terrain_sq - 1);
+  const eff_terrain = Math.exp(Math.tanh(X_total_live / 0.35) * Math.log(blended_sq));
+
+  const rawLive = 50 + A * Math.tanh(k * X_total_live * eff_terrain);
+  const scoreLive = Math.max(0, Math.min(100, rawLive));
+
+  // ═══ X_total FUTURE — calculé pour TOUS les jours (side-channel pour passe 2) ═══
+  // Sprint N+ : on calcule X_total_future même quand alpha=0 (jours passés)
+  // pour que applySoftShiftBlend traite toutes les années du calendrier.
+  // Le score retourné pour alpha=0 reste scoreLive — zéro régression LIVE.
+  // Ronde #36bis (2026-03-15) : consensus GPT+Gemini+Claude (3/4).
+  // Rollback : remettre l'early return « if (alpha <= 0) { ... return scoreLive; } »
+
+  const F_P95  = { lune: 12, ephem: 10, bazi: 14, indiv: 8 } as const;
+  const F_AG   = { lune: 0.82, ephem: 0.78, bazi: 1.05, indiv: 0.65 } as const; // Σ=3.30 (αG inchangés)
+  const F_CAP  = F_AG; // G_CAP = αG (revert V4.2 — k_future seul suffit, G_CAP×0.86 écrasait les tops)
+
+  const fxL = _clampG(luneGroupDelta  / F_P95.lune,  -1, +1);
+  const fxE = _clampG(ephemGroupDelta / F_P95.ephem, -1, +1);
+  const fxB = _clampG(baziGroupDelta  / F_P95.bazi,  -1, +1);
+  const fxI = _clampG(indivGroupDelta / F_P95.indiv, -1, +1);
+  const FXL = _clampG(F_AG.lune  * fxL, -F_CAP.lune,  +F_CAP.lune);
+  const FXE = _clampG(F_AG.ephem * fxE, -F_CAP.ephem, +F_CAP.ephem);
+  const FXB = _clampG(F_AG.bazi  * fxB, -F_CAP.bazi,  +F_CAP.bazi);
+  const FXI = _clampG(F_AG.indiv * fxI, -F_CAP.indiv, +F_CAP.indiv);
+
+  const X_core_future = _clampG(FXL + FXE + FXB + FXI, -2.80, +2.80);
+  // V4.3 : coverage 3/4 relevée 0.55→0.75 pour la branche FUTURE
+  // En 2027, I ou E tombe souvent en deadzone → C4 chutait de 0.35 à 0.19 (trop sévère)
+  // Avec 0.75 : C4 3/4 = 0.35×0.75 = 0.26 → réduit le gap inter-années de ~1pt
+  // LIVE garde 0.55 (appel sans paramètre, ligne 1169)
+  const c4_future = calcC4(FXL, FXE, FXB, FXI, 0.75);
+  const X_total_future = _clampG(X_core_future + c4_future, -3.15, +3.15);
+
+  // ═══ Side-channel : exposer xt/dm pour passe 2 (applySoftShiftBlend) — TOUS les jours ═══
+  _sfgLastXt = X_total_future;
+  _sfgLastDm = dashaMult;
+
+  // Fast path : alpha≤0 → retour scoreLive, side-channel déjà posé pour passe 2
+  if (alpha <= 0) return Math.round(scoreLive);
+
+  // ═══ Score base FUTURE — Ronde 6 Soft Shift (consensus 3/3 GPT+Grok+Gemini) ═══
+  // g(X) = X − c_s × tanh(X / c_s) : shift asymptotique préservant le neutre
+  //   g(0)=0 → score(X=0)=50 ✓  |  g(∞)→X−c_s (≡ shift classique)
+  //   g'(x)=tanh²(x/c_s) ≥ 0 → monotone ✓  |  g impaire → symétrique ✓
+  // S_abs utilise k=0.80 (raideur) + c_s=0.50 (amplitude soft shift initiale)
+  // Le blend S_rel (ρ=0.32, c_s adaptatif) est appliqué en passe 2 post-traitement annuel
+  //   (applySoftShiftBlend dans CalendarTab.yearHeatmap — Ronde 8 v2+kicker quadratique)
+  // Rollback : remettre k_future=0.65 + scoreBase = 50 + A * tanh(k_future * Xt)
+  const SS_K = 0.80;  // pente courbe Soft Shift (zone stable [0.75, 0.85])
+  const SS_C = 0.50;  // amplitude soft shift (zone stable [0.45, 0.55])
+  const g_ss = X_total_future - SS_C * Math.tanh(X_total_future / SS_C);
+  const scoreBase = 50 + A * Math.tanh(SS_K * g_ss);
+
+  // ═══ TERRAIN ADDITIF — V4.3 Équilibre inter-années ═══
+  // Bonus/malus proportionnel à dashaMult, plafonné par tanh.
+  // TERRAIN_PTS = amplitude max (±1 pt). TERRAIN_WIDTH = sensibilité.
+  // V4.3 : PTS réduit de 2.0→1.0 (simulation 2026-03-15)
+  //   Ancien swing 2037↔2027 = 3.2 pts → 21 Cosmiques vs 0 (déséquilibré)
+  //   Nouveau swing = 1.6 pts → ~14 Cosmiques vs ~2 (équilibré)
+  //   Rollback : remettre 2.0
+  // dm=1.045 → +0.63 pts | dm=1.0 → 0 | dm=0.884 → -0.96 pts
+  const TERRAIN_PTS   = 1.0;
+  const TERRAIN_WIDTH = 0.06;
+  const terrainBonus = TERRAIN_PTS * Math.tanh((dashaMult - 1) / TERRAIN_WIDTH);
+
+  let scoreFuture: number = scoreBase + terrainBonus;
+  scoreFuture = Math.max(0, Math.min(100, scoreFuture));
+
+  // ═══ ALPHA-BLEND Live ↔ Future (transition C⁰ continue) ═══
+  // Note : side-channel _sfgLastXt/_sfgLastDm déjà posé avant le check alpha (cf. supra)
+  const blended = (1 - alpha) * scoreLive + alpha * scoreFuture;
+  return Math.max(0, Math.min(100, Math.round(blended)));
+}
+
 // Ronde 18 consensus 2/3 (GPT v2 + Grok concède) — formule Elena Vasquez révisée
 // Remplace le CIS binaire par une mesure Purity × Intensity × Coverage avec soft gates
 // Range : ±0.35 — actif ~15-40 jours/an (sélectif, anti-bruit)
 // Sprint AY : C4 promu LIVE (injecté dans calcMainScore), CIS gardé pour observabilité
 // ══════════════════════════════════════════════════════════════════════
-function calcC4(XL: number, XE: number, XB: number, XI: number): number {
+/** @internal — exported for unit testing only */
+export function calcC4(XL: number, XE: number, XB: number, XI: number, coverage3of4: number = 0.55): number {
   const _clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
   const eps = 1e-9;
   const G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
@@ -1134,8 +1421,8 @@ function calcC4(XL: number, XE: number, XB: number, XI: number): number {
   // 5) Intensity : soft mass gate (rampe à partir de 0.95, pleine à 1.50)
   const intensity = _clamp((domMass - 0.95) / 0.55, 0, 1);
 
-  // 6) Coverage : 4/4 alignés > 3/4 alignés
-  const coverage = domCount === 4 ? 1.0 : 0.55;
+  // 6) Coverage : 4/4 alignés > 3/4 alignés (paramétrable pour FUTURE)
+  const coverage = domCount === 4 ? 1.0 : coverage3of4;
 
   return 0.35 * Math.sign(posMass - negMass) * purity * intensity * coverage;
 }
@@ -1162,7 +1449,7 @@ function computeShapley4(
   terrainSq: number, betaEff: number, baseSignal: number,
 ): ShapleyContributions {
   const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
-  const A = 36.0, k = 0.840;
+  const A = 44.0, k = 0.65;  // Ronde 29 V3 (ex A=36, k=0.840)
   const features = [XL, XE, XB, XI];
 
   // Poids Shapley pour N=4 : |S|!(3-|S|)!/4!
@@ -1177,12 +1464,13 @@ function computeShapley4(
       (mask & 4) ? features[2] : 0,
       (mask & 8) ? features[3] : 0,
     ];
-    // Pipeline identique à calcMainScore : X_core → C4 → X → tanh → score
-    const X_core = _clampG(xs[0] + xs[1] + xs[2] + xs[3], -1.6, +1.6);
+    // Pipeline identique à calcMainScore V3 : X_core → C4 → X → eff_terrain → tanh → score
+    const X_core = _clampG(xs[0] + xs[1] + xs[2] + xs[3], -2.80, +2.80);  // Ronde 29
     const c4 = calcC4(xs[0], xs[1], xs[2], xs[3]);
-    const X = _clampG(X_core + c4, -2, +2);
+    const X = _clampG(X_core + c4, -3.15, +3.15);                          // Ronde 29
     const X_total = X + betaEff * baseSignal;
-    const raw = 50 + A * Math.tanh(k * X_total) * terrainSq;
+    const eff_t = Math.exp(Math.tanh(X_total / 0.35) * Math.log(terrainSq)); // Ronde 29 V3
+    const raw = 50 + A * Math.tanh(k * X_total * eff_t);                     // Ronde 29 V3
     F[mask] = Math.max(0, Math.min(100, Math.round(raw)));
   }
 
@@ -1220,12 +1508,14 @@ function computeShapley4(
 
 // ══════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════
-// Sprint AY — MOTEUR PRINCIPAL (ex-shadow Y2, promu production Sprint AY)
-// Formule tanh unifiée : Score = 50 + 36 × tanh(0.840 × X_total) × terrain_sq
+// ═══ Ronde 29 V3 — MOTEUR PRINCIPAL ═══════════════════════════════════
+// Formule tanh unifiée V3 : Score = 50 + 44 × tanh(0.65 × X_total × eff_terrain)
+// eff_terrain = exp(tanh(X_total/0.35) × ln(terrain_sq))  — lissage Vasquez
 // X_total = X_core + C4 + β_eff × base_signal
-// Paramètres calibrés (N=50 000, seed=10908) : A=36, k=0.840, bias=0
+// Ronde 29 (consensus 3/3) : A=44, k=0.65, X_core ±2.80, X ±3.15
 // ══════════════════════════════════════════════════════════════════════
-function calcMainScore(
+/** @internal — exported for unit testing only */
+export function calcMainScore(
   finalDelta: number,
   ctxMult: number,
   dashaMult: number,
@@ -1236,18 +1526,13 @@ function calcMainScore(
   indivGroupDelta: number = 0,
 ): { score: number; c4: number; cis: number; shapley: ShapleyContributions } {
   try {
-    const A    = 36.0;
-    const k    = 0.840;
-    const bias = 0; // Sprint AM — biais +5 supprimé (Ronde 5 : asymétrie statistique, compresse le plafond)
-    const MAX_DELTA = 22;  // point de saturation de compressL1Legacy() — même référence
+    const A    = 44.0;   // Ronde 29 V3 (ex 36)
+    const k    = 0.65;   // Ronde 29 V3 (ex 0.840)
 
-    // AB-G1 — X_hier avec αG hiérarchisés (GPT G1 Ronde 3 + Ronde 4 T1)
-    // Sprint AO — 4 groupes : lune, ephem, bazi, indiv (Ronde 7 consensus 3/3)
-    // Sprint AO P3 — P95_G recalibrés par Monte Carlo (N=500k, robustP95 winsorisé)
     const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
-    const ALPHA_G = getAdaptedAlphaG().current; // Sprint AE — αG adaptatifs (fallback init si localStorage vide)
-    const ALPHA_I = 0.90;  // Sprint AO — αI fixe, sera intégré dans calibration adaptative post-Monte Carlo
-    const P95_G   = { lune: 9,    ephem: 7,    bazi: 11,   indiv: 6  } as const; // Monte Carlo AO-P3
+    const ALPHA_G = getAdaptedAlphaG().current;
+    const ALPHA_I = 0.90;
+    const P95_G   = { lune: 9,    ephem: 7,    bazi: 11,   indiv: 6  } as const;
     const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
 
     const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
@@ -1260,49 +1545,45 @@ function calcMainScore(
     const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
     const XI = _clampG(ALPHA_I       * xI, -G_CAP.indiv, +G_CAP.indiv);
 
-    // X_core ±1.6 : réserve headroom pour beta_eff × base_signal (BPHS : noyau védique prioritaire)
-    const X_core = _clampG(XL + XE + XB + XI, -1.6, +1.6);
+    const X_core = _clampG(XL + XE + XB + XI, -2.80, +2.80);  // Ronde 29 (ex ±1.6)
 
-    // Sprint AV P5 — CIS Phase 1 (actif — score réel)
+    // CIS gardé pour observabilité
     const _signs = [XL, XE, XB, XI];
     const _pos = _signs.filter(s => s > 0).length;
     const _neg = _signs.filter(s => s < 0).length;
     const _countAlign = Math.max(_pos, _neg);
     const _alignSign = _pos >= _neg ? 1 : -1;
-    const cis = (_countAlign - 1) * 0.09 * _alignSign; // [-0.27, +0.27] — gardé pour observabilité
+    const cis = (_countAlign - 1) * 0.09 * _alignSign;
 
-    // Sprint AY P2 — C4 LIVE (ex-shadow, désormais injecté dans le score)
-    // C4 remplace CIS comme bonus de cohérence inter-systèmes
-    // CIS gardé en retour pour comparaison/observabilité
     const c4 = calcC4(XL, XE, XB, XI);
-
-    const X = _clampG(X_core + c4, -2, +2); // Sprint AY : CIS → C4
+    const X = _clampG(X_core + c4, -3.15, +3.15);              // Ronde 29 (ex ±2.0)
 
     // Terrain combiné (ctxMult × dashaMult)
     const terrain_brut = ctxMult * dashaMult;
     const terrain_sq   = 1 + 0.25 * Math.tanh((terrain_brut - 1) / 0.35);
 
-    // Ajout du noyau védique
-    // AA-3 — β_eff adaptatif (GPT G1 Ronde 2) : atténue quand terrain_sq est fort
-    // Évite double-amplification (terrain fort AND base_signal fort)
-    // β_eff = 0.8 × (1 − 0.25 × |terrain_sq − 1| / 0.15) ∈ [0.60, 0.80]
-    // P95 (terrain=1.15, base_signal=0.8) : score 83.02 vs 84.40 — atténuation raisonnable
-    // Sprint AR P6 : garde défensive Math.max(0.0) — Ronde 11 consensus 2/3 (GPT+Grok)
+    // β_eff adaptatif (Ronde 2)
     const beta    = Math.max(0.0, 0.8 * (1 - 0.25 * Math.abs(terrain_sq - 1) / 0.15));
     const X_total = X + beta * (baseSignal ?? 0);
 
-    // Formule tanh unifiée
-    const delta_sh = A * Math.tanh(k * X_total);
-    const raw      = 50 + delta_sh * terrain_sq + bias;
+    // Ronde Rééquilibrage — Fade-out terrain en zone haute (consensus 3/3)
+    const fade      = 0.15 + 0.85 / (1 + Math.exp(3 * (X_total - 1.5)));
+    // Ronde Transit — Fade-out asymétrique (Gemini, consensus 3/3)
+    const effective_fade = terrain_sq > 1 ? fade : 1.0;
+    const blended_sq = 1 + effective_fade * (terrain_sq - 1);
+
+    // Ronde 29 V3 — eff_terrain lissé (Vasquez) : transition C¹ continue
+    const eff_terrain = Math.exp(Math.tanh(X_total / 0.35) * Math.log(blended_sq));
+
+    // Formule tanh unifiée V3 — terrain DANS le tanh
+    const raw       = 50 + A * Math.tanh(k * X_total * eff_terrain);
     const mainScore = Math.max(0, Math.min(100, Math.round(raw)));
 
-    // Sprint AW — Shapley exact 16 coalitions (Ronde 17-18 consensus 3/3)
-    // terrain_sq et betaEff gelés (Ronde 17 Takeshi/Aarav : baseline du jour)
+    // Shapley exact 16 coalitions (Ronde 17-18 consensus 3/3)
     const shapley = computeShapley4(XL, XE, XB, XI, terrain_sq, beta, baseSignal ?? 0);
 
     return { score: mainScore, c4, cis, shapley };
   } catch (e) {
-    // Sprint AY : plus de fallback silencieux — crash = détectable
     throw new Error(`[calcMainScore] échec: ${e instanceof Error ? e.message : e}`);
   }
 }
@@ -1414,7 +1695,7 @@ function detectForecastAlerts(bd: string, num: NumerologyProfile, year: number, 
     const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const merc = getMercuryStatus(new Date(ds + 'T12:00:00'));
     if (merc.points <= -4) {
-      alerts.push({ date: ds, type: 'retrograde', message: `☿ ${merc.label} — protégez contrats et communications`, icon: '☿' });
+      alerts.push({ date: ds, type: 'retrograde', message: `☿ ${merc.label} — protège contrats et communications`, icon: '☿' });
       break;
     }
   }
@@ -1531,8 +1812,8 @@ export function generateForecast36Months(
     const baseline = calcMonthlyBaseline(bd, num, year, month);
     const monthStats = scoreMonthFromDays(dailyData.map(d => d.score), baseline);
     const score = monthStats.score;
-    const label = score >= 88 ? 'Cosmique' : score >= 80 ? 'Gold' : score >= 65 ? 'Favorable' : score >= 40 ? 'Routine' : score >= 25 ? 'Prudence' : 'Tempête';
-    const labelIcon = score >= 88 ? '⚡' : score >= 80 ? '🌟' : score >= 65 ? '✦' : score >= 40 ? '☉' : score >= 25 ? '☽' : '⛈';
+    const label = score >= COSMIC_THRESHOLD ? 'Cosmique' : score >= 80 ? 'Gold' : score >= 65 ? 'Favorable' : score >= 40 ? 'Routine' : score >= 25 ? 'Prudence' : 'Tempête';
+    const labelIcon = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '🌟' : score >= 65 ? '✦' : score >= 40 ? '☉' : score >= 25 ? '☽' : '⛈';
     const labelColor = scoreLevelColor(score);
     const dominantDomains = computeMonthDominantDomains(dailyData);
     const windows = detectActionWindows(dailyData, dominantDomains);
@@ -1628,7 +1909,7 @@ export function debugScoreDistribution(
       rawDeltas.push(rawDelta);
       scores.push(Math.max(5, Math.min(97, compressL1Legacy(rawDelta))));
 
-      if (logDetails) {
+      if (logDetails && import.meta.env.DEV) {
         console.log(`${ds} | raw=${rawDelta} | score=${compressL1Legacy(rawDelta)} | BaZi=${baziDMPts} | 10G=${tgPts} | Nak=${nakPts}`);
       }
     } catch { /* skip */ }
@@ -1646,19 +1927,21 @@ export function debugScoreDistribution(
   const goldRate     = stat(80, 'range', 88);
   const tempeteRate  = stat(25, 'lte');
 
-  console.log(`\n=== DEBUG DISTRIBUTION V8 — ${days} jours autour d'aujourd'hui ===`);
-  console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compressL1Legacy(maxDelta=22, exp=1.05)');
-  console.table([{
-    jours: scores.length,
-    'Cosmique ≥88': cosmiqueRate.toFixed(1) + '%',
-    'Or 80-87':     goldRate.toFixed(1) + '%',
-    'Tempête <25':  tempeteRate.toFixed(1) + '%',
-    moyenne:        avg.toFixed(1),
-    rawMax:         scores.length ? Math.max(...rawDeltas).toFixed(0) : 'N/A',
-    rawMin:         scores.length ? Math.min(...rawDeltas).toFixed(0) : 'N/A',
-  }]);
-  console.log('Cible V8 : Cosmique 1-2%/an (~4-7j) | Or 8-12%/an (~29-44j) | Tempête 5-8%');
-  console.log('Note : ctxMult/dashaMult≈1.0 (terrain), interactions≈0 (contexte manquant) → distribution légèrement sous-estimée');
+  if (import.meta.env.DEV) {
+    console.log(`\n=== DEBUG DISTRIBUTION V8 — ${days} jours autour d'aujourd'hui ===`);
+    console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compressL1Legacy(maxDelta=22, exp=1.05)');
+    console.table([{
+      jours: scores.length,
+      'Cosmique ≥88': cosmiqueRate.toFixed(1) + '%',
+      'Or 80-87':     goldRate.toFixed(1) + '%',
+      'Tempête <25':  tempeteRate.toFixed(1) + '%',
+      moyenne:        avg.toFixed(1),
+      rawMax:         scores.length ? Math.max(...rawDeltas).toFixed(0) : 'N/A',
+      rawMin:         scores.length ? Math.min(...rawDeltas).toFixed(0) : 'N/A',
+    }]);
+    console.log('Cible V8 : Cosmique 1-2%/an (~4-7j) | Or 8-12%/an (~29-44j) | Tempête 5-8%');
+    console.log('Note : ctxMult/dashaMult≈1.0 (terrain), interactions≈0 (contexte manquant) → distribution légèrement sous-estimée');
+  }
 
   return { cosmiqueRate, goldRate, tempeteRate, avgScore: avg, rawDeltas };
 }
@@ -1668,20 +1951,22 @@ export function debugAnalyzeCapture(): void {
     ? ((window as unknown as Record<string, unknown>).__kRawDeltas as number[] | undefined)
     : undefined;
   if (!buf || buf.length === 0) {
-    console.log('Aucun delta capturé. Active la capture avec : window.__kDebug = true');
+    if (import.meta.env.DEV) console.log('Aucun delta capturé. Active la capture avec : window.__kDebug = true');
     return;
   }
   // Sprint AU P2 : aligné sur compressL1Legacy() réel (maxDelta=22, exp=1.05) — était compress47(47, 1.4) obsolète
   const scores = buf.map(d => Math.max(5, Math.min(97, compressL1Legacy(d))));
   const n = scores.length;
-  console.log(`\n=== CAPTURE PASSIVE — ${n} appels réels ===`);
-  console.table([{
-    n,
-    'Cosmique ≥90': (scores.filter(s => s >= 90).length / n * 100).toFixed(1) + '%',
-    'Gold 80-89':   (scores.filter(s => s >= 80 && s < 90).length / n * 100).toFixed(1) + '%',
-    'Tempête <25':  (scores.filter(s => s < 25).length / n * 100).toFixed(1) + '%',
-    moyenne:        (scores.reduce((a, b) => a + b, 0) / n).toFixed(1),
-    rawMax:         Math.max(...buf).toFixed(1),
-    rawMin:         Math.min(...buf).toFixed(1),
-  }]);
+  if (import.meta.env.DEV) {
+    console.log(`\n=== CAPTURE PASSIVE — ${n} appels réels ===`);
+    console.table([{
+      n,
+      'Cosmique ≥90': (scores.filter(s => s >= 90).length / n * 100).toFixed(1) + '%',
+      'Gold 80-89':   (scores.filter(s => s >= 80 && s < 90).length / n * 100).toFixed(1) + '%',
+      'Tempête <25':  (scores.filter(s => s < 25).length / n * 100).toFixed(1) + '%',
+      moyenne:        (scores.reduce((a, b) => a + b, 0) / n).toFixed(1),
+      rawMax:         Math.max(...buf).toFixed(1),
+      rawMin:         Math.min(...buf).toFixed(1),
+    }]);
+  }
 }

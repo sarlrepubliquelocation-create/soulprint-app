@@ -162,10 +162,10 @@ function computeSpearman(predicted: number[], userScores: number[]): SpearmanRes
   if (absRho >= 0.7)      { label = rho > 0 ? 'Excellente calibration' : 'Profil atypique détecté'; icon = rho > 0 ? '🎯' : '⚠️'; }
   else if (absRho >= 0.4)  { label = rho > 0 ? 'Bonne calibration' : 'Décalage détecté'; icon = rho > 0 ? '📈' : '📉'; }
   else if (absRho >= 0.2)  { label = 'Calibration en cours'; icon = '〰️'; }
-  else                     { label = 'Pas encore calibré'; icon = '❔'; }
+  else                     { label = 'Calibration à venir'; icon = '🔮'; }
 
   if (!significant && n >= 10) {
-    label += ' — mesure à confirmer';
+    label += ' — affinage en cours';
   } else if (significant && n >= 10) {
     label += ' ✓';
   }

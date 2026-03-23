@@ -198,7 +198,7 @@ export function calcVolatility(raw: DailyVectorRaw): {
 // trend : 'rising' si EMA3 - EMA7 > seuil, 'falling' sinon, 'stable' au milieu.
 // ══════════════════════════════════════
 
-export function calcMomentum(
+export function calcVectorMomentum(
   recentScores: number[] // du plus ancien au plus récent, min 7 valeurs
 ): { ema3: number; ema7: number; momentum: number; trend: 'rising' | 'falling' | 'stable' } | null {
   if (recentScores.length < 7) return null;

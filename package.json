@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "regression": "npx tsx scripts/regression-check.ts"
+    "regression": "npx tsx scripts/regression-check.ts",
+    "test": "node tests/test-phase2.mjs && npx tsx --no-cache tests/test-scoring-engine.mts && npx tsx --no-cache tests/test-simulation.mts",
+    "test:coverage": "npx c8 --include='src/engines/**' --reporter=text --reporter=html --reports-dir=coverage npx tsx --no-cache tests/test-scoring-engine.mts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "firebase": "^12.10.0",
@@ -18,6 +21,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^3.14.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.0"
   }

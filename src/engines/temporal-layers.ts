@@ -175,30 +175,51 @@ const PM_SCORE: Record<number, number> = {
   2: -1, 4: -2, 7: -2, 9: -1,
 };
 
+/** Calcule le tendanceScore [-10, +10] à partir de PY et PM pour le Potentiel d'Action */
+export function calcTendanceScore(pyv: number, pmv: number): number {
+  const pyScore = (PY_SCORE[pyv] ?? 0) * 0.5;
+  const pmScore = (PM_SCORE[pmv] ?? 0) * 0.3;
+  return Math.max(-10, Math.min(10, Math.round((pyScore + pmScore) * 2)));
+}
+
 // ──────────────────────────────────────────────
 // CI(t) — FORMULE ARBITRAGE ROUND 2
-// Grok corrigé : CI(t) = exp(-0.0012×t) × (0.75 + 0.45×coherence) × (1 - 0.018×sigma7j)
+// Grok corrigé : CI(t) = exp(-k×t) × (base + coherenceWeight×coherence) × (1 - volPenalty×sigma7j)
 // t en jours
 // ──────────────────────────────────────────────
+
+/** Constantes CI(t) — ajustables sans toucher la formule */
+const CI_PARAMS = {
+  decayK:           0.0012,   // décroissance exponentielle par jour
+  baseConfidence:   0.75,     // confiance de base (sans cohérence)
+  coherenceWeight:  0.45,     // poids du ratio de cohérence
+  volatilityPenalty: 0.018,   // pénalité par unité de sigma 7j
+  thresholdHaute:   0.75,     // seuil label "Haute"
+  thresholdBonne:   0.55,     // seuil label "Bonne"
+  thresholdMutation: 0.40,    // seuil Zone de Mutation (< = Faible)
+} as const;
 
 export function calcCI(
   t: number,
   coherenceRatio: number = 0.7,
   sigma7j: number = 10,
 ): TemporalCI {
-  const raw = Math.exp(-0.0012 * t)
-    * (0.75 + 0.45 * coherenceRatio)
-    * (1 - 0.018 * sigma7j);
+  const { decayK, baseConfidence, coherenceWeight, volatilityPenalty, thresholdHaute, thresholdBonne, thresholdMutation } = CI_PARAMS;
+
+  const safeS = Math.max(1, sigma7j); // Plancher σ : variance nulle ≠ confiance absolue
+  const raw = Math.exp(-decayK * t)
+    * (baseConfidence + coherenceWeight * coherenceRatio)
+    * (1 - volatilityPenalty * safeS);
 
   const value = Math.max(0, Math.min(1, raw));
   const percent = Math.round(value * 100);
 
   const label: TemporalCI['label'] =
-    value >= 0.75 ? 'Haute' :
-    value >= 0.55 ? 'Bonne' :
-    value >= 0.40 ? 'Modérée' : 'Faible';
+    value >= thresholdHaute ? 'Haute' :
+    value >= thresholdBonne ? 'Bonne' :
+    value >= thresholdMutation ? 'Modérée' : 'Faible';
 
-  const isZoneMutation = value < 0.40;
+  const isZoneMutation = value < thresholdMutation;
 
   const mutationText = isZoneMutation
     ? 'Cette période présente une forte variabilité. Tes choix auront un poids supérieur à la moyenne — ton libre arbitre définit cet horizon.'
@@ -212,7 +233,7 @@ export function calcCI(
 // Potentiel = Signal × (1 + Tendance[-10,10] × 0.02)
 // ──────────────────────────────────────────────
 
-function calcPotentielAction(
+export function calcPotentielAction(
   signal: number,
   tendanceScore: number,
 ): PotentielAction {
@@ -222,9 +243,11 @@ function calcPotentielAction(
   const delta = score - signal;
 
   let detail: string;
-  if (delta > 5)  detail = `Tendance ${tendanceScore > 0 ? '+' : ''}${tendanceScore} amplifie le signal (+${delta} pts)`;
-  else if (delta < -5) detail = `Tendance ${tendanceScore} freine le signal (${delta} pts)`;
-  else            detail = `Tendance neutre — signal inchangé`;
+  if (delta > 5)       detail = `tendance ${tendanceScore > 0 ? '+' : ''}${tendanceScore} amplifie le signal (+${delta} pts)`;
+  else if (delta > 0)  detail = `tendance légèrement positive — signal renforcé (+${delta} pts)`;
+  else if (delta === 0) detail = `tendance neutre — signal inchangé`;
+  else if (delta > -5) detail = `tendance légèrement négative — signal atténué (${delta} pts)`;
+  else                 detail = `tendance ${tendanceScore} freine le signal (${delta} pts)`;
 
   return { score, delta, detail };
 }
@@ -256,10 +279,15 @@ function calcTransitionUrgency(
 }
 
 function calcDScore(daysAway: number, amplitude: number, sigma7j: number): number {
+  // Guard : événements passés (daysAway < 0) → traités comme imminents, jamais > 100%
+  const safeDays = Math.max(0, daysAway);
+  // Proximité : plus l'événement est proche, plus l'urgence monte
+  const proximity = (365 - Math.min(safeDays, 365)) / 365;
+  const safeS = Math.max(1, sigma7j);
   return (
-    (daysAway / 365) * 0.4 +
+    proximity * 0.4 +
     (amplitude / 20) * 0.35 +
-    (sigma7j / 25) * 0.25
+    (safeS / 25) * 0.25
   );
 }
 
@@ -268,14 +296,14 @@ const TRANSITION_TEMPLATES: Record<TransitionAlert['type'], (months: number, ext
   lp_change: (months, label) =>
     `Dans ${months} mois, tu entreras dans une décennie de ${label ?? 'nouveau cycle'}. Ce changement redéfinira ton environnement de long terme.`,
   pinnacle_end: (months) =>
-    `Dans ${months} mois, tu termines un cycle Pinnacle. Une nouvelle priorité de vie émergera.`,
+    `Dans ${months} mois, tu termines une grande phase de vie. Une nouvelle priorité émergera.`,
   py_transition: (months) =>
     `Dans ${months} mois, ton Année Personnelle change. Le thème énergétique de fond va évoluer.`,
   py9_to_1: (months) =>
     `Dans ${months} mois, tu clôtures un cycle de 9 ans et entres dans une phase de redémarrage majeur.`,
 };
 
-function buildTransitionAlerts(
+export function buildTransitionAlerts(
   luckPillars: LuckPillarResult,
   num: NumerologyProfile,
   sigma7j: number,

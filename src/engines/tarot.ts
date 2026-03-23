@@ -15,11 +15,15 @@
 // ─────────────────────────────────────────────
 export type TarotElement = 'feu' | 'eau' | 'air' | 'terre' | 'esprit';
 
+export type AstroType = 'planet' | 'sign' | 'element';
+
 export interface MajorArcana {
   num: number;          // 0–21 (Le Mat = 0)
   name_fr: string;
   name_en: string;
-  planet: string;       // planète ou signe associé
+  planet: string;       // LEGACY — conservé pour rétrocompat, voir astroType/astroValue
+  astroType: AstroType; // Golden Dawn — Ronde 2026-03-21 Q5 unanime 3/3
+  astroValue: string;   // Golden Dawn — valeur correspondante
   element: TarotElement;
   theme: string;        // mot-clé central (≤ 25 cars)
   light: string;        // aspect lumineux
@@ -80,7 +84,7 @@ export interface TarotDrawRecord {
 export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   {
     num: 0, name_fr: 'Le Mat', name_en: 'The Fool',
-    planet: 'Uranus', element: 'air',
+    planet: 'Uranus', astroType: 'planet', astroValue: 'Uranus', element: 'air',
     theme: 'Saut dans l\'inconnu',
     light: 'Spontanéité, liberté, commencements purs',
     shadow: 'Imprudence, fuite des responsabilités',
@@ -88,7 +92,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 1, name_fr: 'Le Bateleur', name_en: 'The Magician',
-    planet: 'Mercure', element: 'air',
+    planet: 'Mercure', astroType: 'planet', astroValue: 'Mercure', element: 'air',
     theme: 'Maîtrise de l\'action',
     light: 'Habileté, volonté, concentration sur l\'instant',
     shadow: 'Manipulation, dispersion, illusions',
@@ -96,7 +100,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 2, name_fr: 'La Papesse', name_en: 'The High Priestess',
-    planet: 'Lune', element: 'eau',
+    planet: 'Lune', astroType: 'planet', astroValue: 'Lune', element: 'eau',
     theme: 'Connaissance intérieure',
     light: 'Intuition, mystère, réceptivité profonde',
     shadow: 'Secrets lourds, repli excessif, passivité',
@@ -104,7 +108,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 3, name_fr: 'L\'Impératrice', name_en: 'The Empress',
-    planet: 'Vénus', element: 'terre',
+    planet: 'Vénus', astroType: 'planet', astroValue: 'Vénus', element: 'terre',
     theme: 'Abondance et création',
     light: 'Fertilité, sensualité, générosité naturelle',
     shadow: 'Dépendance, excès, possession',
@@ -112,7 +116,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 4, name_fr: 'L\'Empereur', name_en: 'The Emperor',
-    planet: 'Mars', element: 'feu',
+    planet: 'Bélier', astroType: 'sign', astroValue: 'Bélier', element: 'feu',
     theme: 'Autorité et structure',
     light: 'Leadership, stabilité, fondations solides',
     shadow: 'Rigidité, contrôle excessif, tyrannie',
@@ -120,7 +124,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 5, name_fr: 'Le Pape', name_en: 'The Hierophant',
-    planet: 'Jupiter', element: 'terre',
+    planet: 'Taureau', astroType: 'sign', astroValue: 'Taureau', element: 'terre',
     theme: 'Tradition et sagesse transmise',
     light: 'Enseignement, guidance spirituelle, appartenance',
     shadow: 'Dogmatisme, conformisme, autorité aveugle',
@@ -128,7 +132,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 6, name_fr: 'L\'Amoureux', name_en: 'The Lovers',
-    planet: 'Mercure', element: 'air',
+    planet: 'Gémeaux', astroType: 'sign', astroValue: 'Gémeaux', element: 'air',
     theme: 'Choix du cœur',
     light: 'Union, désir assumé, choix conscient',
     shadow: 'Hésitation, dualité non résolue, désir inconscient',
@@ -136,7 +140,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 7, name_fr: 'Le Chariot', name_en: 'The Chariot',
-    planet: 'Lune', element: 'eau',
+    planet: 'Cancer', astroType: 'sign', astroValue: 'Cancer', element: 'eau',
     theme: 'Maîtrise du mouvement',
     light: 'Victoire, direction affirmée, élan maîtrisé',
     shadow: 'Arrogance, fuite en avant, contrôle perdu',
@@ -144,15 +148,15 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 8, name_fr: 'La Justice', name_en: 'Justice',
-    planet: 'Vénus', element: 'air',
+    planet: 'Balance', astroType: 'sign', astroValue: 'Balance', element: 'air',
     theme: 'Équilibre et vérité',
     light: 'Équité, clarté, responsabilité assumée',
     shadow: 'Jugement sévère, rigidité morale, rancune',
-    narrative: 'Tu récoltes ce que tu as semé, ni plus, ni moins. La question n\'est pas d\'être jugé, mais de rétablir ton propre équilibre.',
+    narrative: 'Tu récoltes ce que tu as semé, ni plus, ni moins. La question n\'est pas d\'être jugé, mais de rétablir ta propre équilibre.',
   },
   {
     num: 9, name_fr: 'L\'Ermite', name_en: 'The Hermit',
-    planet: 'Mercure', element: 'terre',
+    planet: 'Vierge', astroType: 'sign', astroValue: 'Vierge', element: 'terre',
     theme: 'Sagesse en solitude',
     light: 'Discernement, intériorité, guidance douce',
     shadow: 'Isolement, repli, refus du monde',
@@ -160,7 +164,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 10, name_fr: 'La Roue de Fortune', name_en: 'Wheel of Fortune',
-    planet: 'Jupiter', element: 'feu',
+    planet: 'Jupiter', astroType: 'planet', astroValue: 'Jupiter', element: 'feu',
     theme: 'Cycles et retournements',
     light: 'Chance, mouvement, acceptation du changement',
     shadow: 'Dépendance au destin, passivité, imprévisibilité',
@@ -168,7 +172,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 11, name_fr: 'La Force', name_en: 'Strength',
-    planet: 'Soleil', element: 'feu',
+    planet: 'Lion', astroType: 'sign', astroValue: 'Lion', element: 'feu',
     theme: 'Douceur qui dompte',
     light: 'Courage intérieur, maîtrise des instincts, persévérance',
     shadow: 'Force brute, domination, refoulement',
@@ -176,7 +180,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 12, name_fr: 'Le Pendu', name_en: 'The Hanged Man',
-    planet: 'Neptune', element: 'eau',
+    planet: 'Neptune', astroType: 'planet', astroValue: 'Neptune', element: 'eau',
     theme: 'Suspension volontaire',
     light: 'Nouvelle perspective, lâcher-prise, sagesse inversée',
     shadow: 'Blocage, sacrifice inutile, victimisation',
@@ -184,7 +188,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 13, name_fr: 'L\'Arcane sans Nom', name_en: 'Death',
-    planet: 'Scorpion', element: 'eau',
+    planet: 'Scorpion', astroType: 'sign', astroValue: 'Scorpion', element: 'eau',
     theme: 'Transformation radicale',
     light: 'Renouveau, fin nécessaire, transition libératrice',
     shadow: 'Résistance au changement, stagnation, peur',
@@ -192,7 +196,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 14, name_fr: 'La Tempérance', name_en: 'Temperance',
-    planet: 'Jupiter', element: 'feu',
+    planet: 'Sagittaire', astroType: 'sign', astroValue: 'Sagittaire', element: 'feu',
     theme: 'Alchimie intérieure',
     light: 'Équilibre, patience, fusion des contraires',
     shadow: 'Procrastination, manque d\'engagement, dilution',
@@ -200,7 +204,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 15, name_fr: 'Le Diable', name_en: 'The Devil',
-    planet: 'Saturne', element: 'terre',
+    planet: 'Capricorne', astroType: 'sign', astroValue: 'Capricorne', element: 'terre',
     theme: 'Face aux chaînes intérieures',
     light: 'Prise de conscience, énergie brute libérée, désirs assumés',
     shadow: 'Attachement, addiction, illusion de contrainte',
@@ -208,7 +212,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 16, name_fr: 'La Maison Dieu', name_en: 'The Tower',
-    planet: 'Mars', element: 'feu',
+    planet: 'Mars', astroType: 'planet', astroValue: 'Mars', element: 'feu',
     theme: 'Effondrement libérateur',
     light: 'Révélation soudaine, rupture nécessaire, vérité qui libère',
     shadow: 'Chaos subi, destruction inconsciente, choc non intégré',
@@ -216,7 +220,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 17, name_fr: 'L\'Étoile', name_en: 'The Star',
-    planet: 'Uranus', element: 'air',
+    planet: 'Verseau', astroType: 'sign', astroValue: 'Verseau', element: 'air',
     theme: 'Espoir et renouveau',
     light: 'Foi, inspiration, connexion au cosmos',
     shadow: 'Naïveté, idéalisme fragile, fuite vers le rêve',
@@ -224,7 +228,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 18, name_fr: 'La Lune', name_en: 'The Moon',
-    planet: 'Neptune', element: 'eau',
+    planet: 'Poissons', astroType: 'sign', astroValue: 'Poissons', element: 'eau',
     theme: 'Illusion et profondeur',
     light: 'Réceptivité, imagination, accès à l\'inconscient',
     shadow: 'Confusion, anxiété, peurs projetées',
@@ -232,7 +236,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 19, name_fr: 'Le Soleil', name_en: 'The Sun',
-    planet: 'Soleil', element: 'feu',
+    planet: 'Soleil', astroType: 'planet', astroValue: 'Soleil', element: 'feu',
     theme: 'Rayonnement et joie',
     light: 'Vitalité, succès, clarté retrouvée',
     shadow: 'Orgueil, aveuglement par l\'excès de lumière',
@@ -240,7 +244,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 20, name_fr: 'Le Jugement', name_en: 'Judgement',
-    planet: 'Pluton', element: 'feu',
+    planet: 'Pluton', astroType: 'planet', astroValue: 'Pluton', element: 'feu',
     theme: 'L\'appel à être soi',
     light: 'Éveil, réponse à sa vocation, renaissance consciente',
     shadow: 'Culpabilité, auto-jugement, refus d\'entendre',
@@ -248,7 +252,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   },
   {
     num: 21, name_fr: 'Le Monde', name_en: 'The World',
-    planet: 'Saturne', element: 'terre',
+    planet: 'Saturne', astroType: 'planet', astroValue: 'Saturne', element: 'terre',
     theme: 'Accomplissement et totalité',
     light: 'Intégration, succès complet, liberté gagnée',
     shadow: 'Stagnation après la victoire, refus d\'avancer',
@@ -274,7 +278,7 @@ export const DASHA_ARCANA_MAP: Record<string, number> = {
 // ─────────────────────────────────────────────
 // Texte d'onboarding (framing anti-charlatan)
 // ─────────────────────────────────────────────
-export const TAROT_ONBOARDING = `Dans Kaironaute, le Tarot n'est pas un oracle : c'est un miroir archétypal au sens jungien du terme. Chaque Arcane représente une configuration psychologique universelle — non pas ce qui va vous "arriver", mais ce que votre inconscient met en avant aujourd'hui. La synchronicité fait le reste : le bon symbole, au bon moment, révèle ce que vous saviez déjà.`;
+export const TAROT_ONBOARDING = `Dans Kaironaute, le Tarot n\'est pas un oracle : c\'est un miroir archétypal au sens jungien du terme. Chaque Arcane représente une configuration psychologique universelle — non pas ce qui va t\'arriver, mais ce que tu savais déjà. La synchronicité fait le reste : le bon symbole, au bon moment, révèle ce que tu savais déjà.`;
 
 // ─────────────────────────────────────────────
 // Algorithmes de calcul
@@ -301,25 +305,97 @@ function arcanaNumFrom1to22(r: number): number {
   return r === 22 ? 0 : r;
 }
 
+/** Extrait [year, month, day] depuis YYYY-MM-DD ou YYYYMMDD */
+function parseDateComponents(dateStr: string): [number, number, number] {
+  const d = dateStr.replace(/\D/g, '');
+  if (d.length === 8) return [parseInt(d.slice(0, 4), 10), parseInt(d.slice(4, 6), 10), parseInt(d.slice(6, 8), 10)];
+  const parts = dateStr.split('-').map(Number);
+  return [parts[0] || 2000, parts[1] || 1, parts[2] || 1];
+}
+
 /**
  * Calcule la Carte Natale (Birth Card) depuis la date de naissance.
+ * Méthode Mary K. Greer : jour + mois + année → réduction théosophique [1–22] → [0–21]
+ * Ronde 2026-03-21 Q4 : unanime 3/3 — remplace la somme des chiffres YYYYMMDD
  * @param bd Date de naissance format YYYY-MM-DD ou YYYYMMDD
- * @returns num ∈ [0–21] de l'Arcane Majeur
+ * @returns num ∈ [0–21] de l'Arcane Majeur (Carte de Personnalité)
  */
 export function calcBirthCard(bd: string): number {
-  const digits = bd.replace(/\D/g, ''); // strip les tirets
-  const sum = sumDigits(digits);
+  const [y, m, d] = parseDateComponents(bd);
+  const sum = d + m + y;
   return arcanaNumFrom1to22(reduceTo1to22(sum));
 }
 
 /**
+ * Constellation Greer complète : Carte de Personnalité + Carte d'Âme.
+ * Ronde 2026-03-21 R2 — GPT + Gemini : ajouter double réduction.
+ *
+ * Méthode Mary K. Greer (Who Are You in the Tarot?) :
+ * 1. sum = day + month + year
+ * 2. Réduire jusqu'à obtenir un nombre ≤ 22
+ *    - Si ≤ 9 → 1 seule carte (Personnalité = Âme)
+ *    - Si 10–22 → Personnalité = ce nombre, Âme = somme des chiffres
+ *    - Cas spécial 19 → Personnalité 19, Âme 10, Essence 1 (3 cartes)
+ *    - Cas spécial 22 → Le Mat (0) comme Personnalité, Âme = 4
+ *
+ * @returns { personality: [0-21], soul: [0-21], essence?: [0-21] }
+ */
+export interface BirthCardConstellation {
+  personality: number; // Arcane de Personnalité [0-21]
+  soul: number;        // Arcane d'Âme [0-21]
+  essence?: number;    // Arcane d'Essence (seulement si 3 cartes, ex: 19→10→1)
+}
+
+export function calcBirthCardConstellation(bd: string): BirthCardConstellation {
+  const [y, m, d] = parseDateComponents(bd);
+  const sum = d + m + y;
+
+  // Première réduction : obtenir un nombre ≤ 22
+  let personality = sum;
+  while (personality > 22) {
+    personality = sumDigits(String(personality));
+  }
+
+  // Si ≤ 9 : une seule carte (Personnalité = Âme)
+  if (personality <= 9) {
+    return { personality: arcanaNumFrom1to22(personality), soul: arcanaNumFrom1to22(personality) };
+  }
+
+  // Si 10–22 : Personnalité + Âme (réduction supplémentaire)
+  const soulNum = sumDigits(String(personality));
+
+  // Cas spécial : 19 → 10 → 1 (trois niveaux)
+  if (personality === 19) {
+    return {
+      personality: 19,   // Le Soleil
+      soul: 10,          // La Roue de Fortune
+      essence: 1,        // Le Bateleur
+    };
+  }
+
+  // Cas spécial : 22 → Le Mat (0) + Âme 4
+  if (personality === 22) {
+    return {
+      personality: 0,    // Le Mat
+      soul: 4,           // L'Empereur
+    };
+  }
+
+  return {
+    personality: arcanaNumFrom1to22(personality),
+    soul: arcanaNumFrom1to22(soulNum),
+  };
+}
+
+/**
  * Calcule l'Arcane du Jour depuis une date.
+ * Méthode Mary K. Greer : jour + mois + année → réduction théosophique
  * @param dateStr Date format YYYY-MM-DD ou YYYYMMDD
  * @returns num ∈ [0–21]
  */
 export function calcTarotDayNumber(dateStr: string): number {
-  const digits = dateStr.replace(/\D/g, '');
-  const sum = sumDigits(digits);
+  const [y, m, d] = parseDateComponents(dateStr);
+  const sum = d + m + y;
   return arcanaNumFrom1to22(reduceTo1to22(sum));
 }
 
@@ -347,6 +423,11 @@ export function saveTarotDraw(rec: TarotDrawRecord): void {
   localStorage.setItem(LS_KEY_TAROT, JSON.stringify(arr.slice(0, 10)));
 }
 
+export function deleteTarotDraw(id: string): void {
+  const arr = loadTarotHistory().filter(r => r.id !== id);
+  localStorage.setItem(LS_KEY_TAROT, JSON.stringify(arr));
+}
+
 /**
  * Tirage conscient : sélectionne un Arcane via crypto.getRandomValues()
  * + orientation (endroit / renversé) selon la question posée.
@@ -362,4 +443,154 @@ export function drawConsciousTarot(question: string): TarotDraw {
     question,
     timestamp: Date.now(),
   };
+}
+
+// ─────────────────────────────────────────────
+// Tirage 3 cartes — Ronde 2026-03-21 S3 unanime 3/3
+// Format : "Ce qui se joue" / "Ce qui te challenge" / "Le conseil du moment"
+// ─────────────────────────────────────────────
+
+export const TAROT_3CARD_POSITIONS = [
+  { key: 'situation', label: 'Ce qui se joue', icon: '◉' },
+  { key: 'challenge', label: 'Ce qui te challenge', icon: '⚡' },
+  { key: 'conseil',   label: 'Le conseil du moment', icon: '✦' },
+] as const;
+
+export interface Tarot3CardDraw {
+  cards: { arcana: MajorArcana; isReversed: boolean; position: typeof TAROT_3CARD_POSITIONS[number] }[];
+  question: string;
+  timestamp: number;
+}
+
+export interface Tarot3CardRecord {
+  id: string;
+  question: string;
+  cards: { arcanaNum: number; arcanaName: string; isReversed: boolean; positionKey: string }[];
+}
+
+/**
+ * Tirage conscient 3 cartes : sélectionne 3 Arcanes DIFFÉRENTS via crypto.getRandomValues()
+ * + orientation individuelle (33% renversé chacune)
+ */
+export function drawConscious3Cards(question: string): Tarot3CardDraw {
+  const buf = new Uint32Array(6); // 3 pour cartes, 3 pour orientation
+  crypto.getRandomValues(buf);
+
+  // Tirage sans remise : 3 cartes différentes
+  const drawn: number[] = [];
+  let idx = 0;
+  while (drawn.length < 3 && idx < 100) { // safety limit
+    const candidate = buf[drawn.length] % 22;
+    if (!drawn.includes(candidate)) {
+      drawn.push(candidate);
+    } else {
+      // Collision : re-tirer avec un offset
+      const extra = new Uint32Array(1);
+      crypto.getRandomValues(extra);
+      const retry = extra[0] % 22;
+      if (!drawn.includes(retry)) drawn.push(retry);
+    }
+    idx++;
+  }
+
+  const cards = drawn.map((arcanaNum, i) => ({
+    arcana: getArcana(arcanaNum),
+    isReversed: (buf[3 + i] % 100) < 33,
+    position: TAROT_3CARD_POSITIONS[i],
+  }));
+
+  return { cards, question, timestamp: Date.now() };
+}
+
+export function saveTarot3CardDraw(rec: Tarot3CardRecord): void {
+  const key = 'kaironaute_tarot_3card_draws';
+  let arr: Tarot3CardRecord[] = [];
+  try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch { /* noop */ }
+  arr.unshift(rec);
+  localStorage.setItem(key, JSON.stringify(arr.slice(0, 10)));
+}
+
+export function loadTarot3CardHistory(): Tarot3CardRecord[] {
+  const key = 'kaironaute_tarot_3card_draws';
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+}
+
+export function deleteTarot3CardDraw(id: string): void {
+  const key = 'kaironaute_tarot_3card_draws';
+  let arr: Tarot3CardRecord[] = [];
+  try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch { /* noop */ }
+  localStorage.setItem(key, JSON.stringify(arr.filter(r => r.id !== id)));
+}
+
+// ─────────────────────────────────────────────
+// 22 textes Conseil dédiés — Position Conseil renversée
+// Ronde 2026-03-21 Q7 : unanime 3/3 — "Libère-toi de" orienté action de déblocage
+// Chaque texte est spécifique à l'arcane, formulé comme un conseil constructif
+// (pas juste le shadow générique réutilisé)
+// ─────────────────────────────────────────────
+export const CONSEIL_REVERSE_TEXTS: Record<number, string> = {
+  0:  'Arrête de fuir en avant. Pose un pied, puis l\'autre. Le vrai courage n\'est pas de sauter, c\'est de choisir où atterrir.',
+  1:  'Tu disperses ton énergie sur trop de fronts. Choisis UN seul outil aujourd\'hui et maîtrise-le. Le reste peut attendre.',
+  2:  'Tu gardes trop de choses pour toi. Partage ce que tu sais, même imparfaitement — la parole libère ce que le silence emprisonne.',
+  3:  'Tu donnes sans compter, mais tu oublies de recevoir. Aujourd\'hui, accepte ce qu\'on t\'offre sans culpabilité.',
+  4:  'Tu contrôles trop. Lâche une décision que quelqu\'un d\'autre peut prendre à ta place. Tu n\'as pas besoin de tout diriger.',
+  5:  'Tu suis une règle qui ne te convient plus. Questionne l\'autorité — même si c\'est la tienne — et ose ta propre voie.',
+  6:  'Tu hésites parce que tu veux la perfection. Choisis maintenant, même imparfaitement. L\'inaction est aussi un choix.',
+  7:  'Tu forces l\'avancée sans vérifier la direction. Arrête-toi un instant. Où vas-tu vraiment, et est-ce encore ce que tu veux ?',
+  8:  'Tu te juges trop durement. Remplace le verdict par la compréhension. La justice commence par celle que tu t\'accordes.',
+  9:  'Tu t\'isoles en pensant te protéger. Sors de ta tour — une seule conversation peut éclairer ce que la solitude obscurcit.',
+  10: 'Tu attends que la chance tourne. Mais la roue répond à l\'action, pas à l\'espoir passif. Pose un geste concret aujourd\'hui.',
+  11: 'Tu refoules une émotion puissante. Laisse-la exister sans la combattre — la vraie force est dans l\'accueil, pas dans la résistance.',
+  12: 'Tu t\'accroches à un sacrifice qui n\'a plus de sens. Ce qui t\'immobilise n\'est pas la situation — c\'est ta croyance qu\'il faut souffrir.',
+  13: 'Tu résistes à une fin qui est déjà là. Lâche ce qui est mort — non par faiblesse, mais pour faire place à ce qui naît.',
+  14: 'Tu procrastines sous couvert de prudence. L\'équilibre parfait n\'existe pas. Engage-toi dans une direction, même approximative.',
+  15: 'Tu nourris une dépendance — à une habitude, une personne, une peur. Identifie ta chaîne la plus courte et desserre-la d\'un cran.',
+  16: 'Tu refuses de voir ce qui s\'effondre. Regarde la fissure en face — ce qui tombe devait tomber pour que le vrai apparaisse.',
+  17: 'Tu idéalises une issue qui n\'existe pas. Redescends sur terre — l\'espoir réel se nourrit d\'action, pas de rêverie.',
+  18: 'Tu projettes des peurs sur une situation floue. Sépare ce que tu sais de ce que tu imagines — la clarté est dans les faits.',
+  19: 'Tu brilles tellement que tu ne vois plus les autres. Tempère ton éclat — le vrai rayonnement inclut ceux qui t\'entourent.',
+  20: 'Tu entends l\'appel mais tu refuses de répondre. Ce n\'est pas le jugement des autres qui te retient — c\'est le tien. Réponds.',
+  21: 'Tu stagnes après un accomplissement. Le cycle est fini — commence le suivant. Le monde attend ta prochaine version.',
+};
+
+/**
+ * Retourne le texte Conseil dédié pour un arcane renversé en position Conseil.
+ * Fallback sur le shadow générique si pas de texte dédié.
+ */
+export function getConseilReverseText(arcanaNum: number): string {
+  return CONSEIL_REVERSE_TEXTS[arcanaNum] ?? MARSEILLE_MAJOR_ARCANA.find(a => a.num === arcanaNum)?.shadow ?? '';
+}
+
+// ─────────────────────────────────────────────
+// Journal personnel — Notes sur les tirages
+// Ronde 2026-03-21 Q8 : consensus 2/3 (GPT + Gemini) — P2 rétention
+// Stockage clé-valeur : drawId → texte libre
+// ─────────────────────────────────────────────
+const LS_JOURNAL_KEY = 'kaironaute_journal_notes';
+
+export function loadJournalNote(drawId: string): string {
+  try {
+    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    return notes[drawId] || '';
+  } catch { return ''; }
+}
+
+export function saveJournalNote(drawId: string, text: string): void {
+  try {
+    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    if (text.trim()) {
+      notes[drawId] = text;
+    } else {
+      delete notes[drawId];
+    }
+    localStorage.setItem(LS_JOURNAL_KEY, JSON.stringify(notes));
+  } catch { /* noop */ }
+}
+
+export function deleteJournalNote(drawId: string): void {
+  try {
+    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    delete notes[drawId];
+    localStorage.setItem(LS_JOURNAL_KEY, JSON.stringify(notes));
+  } catch { /* noop */ }
 }

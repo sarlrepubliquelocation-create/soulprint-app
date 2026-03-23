@@ -82,7 +82,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'Le Chêne Impérial',
     strength: 'Leadership visible, capacité à grandir rapidement et à dominer son environnement.',
     risk: 'Rigidité, refus du changement.',
-    businessAdvice: 'Utilisez votre force naturelle pour créer des structures durables, mais restez ouvert aux nouvelles racines.'
+    businessAdvice: 'Utilise ta force naturelle pour créer des structures durables, mais reste ouvert aux nouvelles racines.'
   },
   {
     index: 1, chinese: '乙', pinyin: 'Yǐ',
@@ -90,7 +90,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'Le Bambou Flexible',
     strength: 'Adaptabilité stratégique, résilience face à la pression.',
     risk: 'Manque de direction claire, dispersion.',
-    businessAdvice: 'Utilisez votre flexibilité pour naviguer les crises, mais ancrez-vous dans une vision à long terme.'
+    businessAdvice: 'Utilise ta flexibilité pour naviguer les crises, mais ancre-toi dans une vision à long terme.'
   },
   {
     index: 2, chinese: '丙', pinyin: 'Bǐng',
@@ -98,7 +98,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'Le Soleil Rayonnant',
     strength: 'Charisme naturel, capacité à inspirer et à éclairer les autres.',
     risk: 'Épuisement par sur-exposition, manque de profondeur.',
-    businessAdvice: 'Utilisez votre rayonnement pour motiver les équipes, mais protégez votre énergie intérieure.'
+    businessAdvice: 'Utilise ton rayonnement pour motiver les équipes, mais protège ton énergie intérieure.'
   },
   {
     index: 3, chinese: '丁', pinyin: 'Dīng',
@@ -106,7 +106,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'La Bougie Précise',
     strength: 'Clarté, précision, capacité à illuminer les détails.',
     risk: 'Perfectionnisme paralysant, peur de l\'ombre.',
-    businessAdvice: 'Utilisez votre précision pour les opérations complexes, mais acceptez que certaines choses restent dans l\'ombre.'
+    businessAdvice: 'Utilise ta précision pour les opérations complexes, mais accepte que certaines choses restent dans l\'ombre.'
   },
   {
     index: 4, chinese: '戊', pinyin: 'Wù',
@@ -114,7 +114,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'La Montagne Stable',
     strength: 'Stabilité, fiabilité, capacité à porter de lourdes charges.',
     risk: 'Rigidité, résistance au changement.',
-    businessAdvice: 'Utilisez votre stabilité pour bâtir des empires durables, mais apprenez à bouger quand le terrain tremble.'
+    businessAdvice: 'Utilise ta stabilité pour bâtir des empires durables, mais apprends à bouger quand le terrain tremble.'
   },
   {
     index: 5, chinese: '己', pinyin: 'Jǐ',
@@ -122,7 +122,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'Le Jardin Cultivé',
     strength: 'Capacité à cultiver, à faire grandir les talents et les projets.',
     risk: 'Sur-attachement, difficulté à lâcher prise.',
-    businessAdvice: 'Utilisez votre talent de cultivateur pour faire grandir les équipes, mais sachez quand il faut arracher les mauvaises herbes.'
+    businessAdvice: 'Utilise ton talent de cultivateur pour faire grandir les équipes, mais sache quand il faut arracher les mauvaises herbes.'
   },
   {
     index: 6, chinese: '庚', pinyin: 'Gēng',
@@ -130,7 +130,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'L\'Épée Tranchante',
     strength: 'Décision rapide, clarté, capacité à trancher dans le vif.',
     risk: 'Rigidité, manque de nuance.',
-    businessAdvice: 'Utilisez votre tranchant pour les décisions difficiles, mais tempérez-le avec la sagesse.'
+    businessAdvice: 'Utilise ton tranchant pour les décisions difficiles, mais tempère-le avec la sagesse.'
   },
   {
     index: 7, chinese: '辛', pinyin: 'Xīn',
@@ -138,7 +138,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'Le Bijou Raffiné',
     strength: 'Raffinement, attention au détail, capacité à créer de la valeur perçue.',
     risk: 'Perfectionnisme excessif, peur de l\'imperfection.',
-    businessAdvice: 'Utilisez votre raffinement pour créer des produits ou des marques premium, mais acceptez que la perfection soit l\'ennemi du bon.'
+    businessAdvice: 'Utilise ton raffinement pour créer des produits ou des marques premium, mais accepte que la perfection soit l\'ennemi du bon.'
   },
   {
     index: 8, chinese: '壬', pinyin: 'Rén',
@@ -146,7 +146,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'L\'Océan Puissant',
     strength: 'Mouvement, profondeur, capacité à absorber et à transformer.',
     risk: 'Instabilité émotionnelle, dispersion.',
-    businessAdvice: 'Utilisez votre puissance océanique pour porter de grands projets, mais maîtrisez vos marées intérieures.'
+    businessAdvice: 'Utilise ta puissance océanique pour porter de grands projets, mais maîtrise tes marées intérieures.'
   },
   {
     index: 9, chinese: '癸', pinyin: 'Guǐ',
@@ -154,7 +154,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     archetype: 'La Rosée Subtile',
     strength: 'Intuition, subtilité, capacité à pénétrer les cœurs et les esprits.',
     risk: 'Manque de visibilité, difficulté à affirmer sa présence.',
-    businessAdvice: 'Utilisez votre subtilité pour influencer sans forcer, mais apprenez à briller quand le moment l\'exige.'
+    businessAdvice: 'Utilise ta subtilité pour influencer sans forcer, mais apprends à briller quand le moment l\'exige.'
   }
 ];
 
@@ -231,44 +231,44 @@ export const CLASHES: [number, number][] = [
 
 export const DAY_MASTER_INTERACTIONS: Record<string, { dynamique: string; conseil: string }> = {
   'same_positive': {
-    dynamique: 'Votre Maître du Jour du jour renforce naturellement votre identité profonde.',
-    conseil: 'Avancez avec confiance — vos décisions sont alignées avec votre nature.'
+    dynamique: 'Ton Maître du Jour du jour renforce naturellement ton identité profonde.',
+    conseil: 'Avance avec confiance — tes décisions sont alignées avec ta nature.'
   },
   'same_negative': {
-    dynamique: 'Votre Maître du Jour du jour renforce votre identité mais peut créer de la rigidité.',
+    dynamique: 'Ton Maître du Jour du jour renforce ton identité mais peut créer de la rigidité.',
     conseil: 'Introduis une légère flexibilité pour éviter la stagnation.'
   },
   'produces_positive': {
     dynamique: 'Ton identité profonde soutient naturellement l\'énergie du jour.',
-    conseil: 'Utilisez cette dynamique pour des projets qui demandent de la force intérieure.'
+    conseil: 'Utilise cette dynamique pour des projets qui demandent de la force intérieure.'
   },
   'produces_negative': {
     dynamique: 'Ton identité profonde est sollicitée pour soutenir le jour — risque d\'épuisement.',
-    conseil: 'Protégez votre énergie — ne donnez pas plus que ce que vous pouvez recharger.'
+    conseil: 'Protège ton énergie — ne donne pas plus que ce que tu peux recharger.'
   },
   'produced_by_positive': {
-    dynamique: 'L\'énergie du jour nourrit votre identité profonde.',
+    dynamique: 'L\'énergie du jour nourrit ton identité profonde.',
     conseil: 'Reçois avec gratitude — c\'est un jour de recharge stratégique.'
   },
   'produced_by_negative': {
-    dynamique: 'L\'énergie du jour nourrit votre identité mais crée une dépendance.',
-    conseil: 'Acceptez le soutien mais gardez votre autonomie décisionnelle.'
+    dynamique: 'L\'énergie du jour nourrit ton identité mais crée une dépendance.',
+    conseil: 'Accepte le soutien mais garde ton autonomie décisionnelle.'
   },
   'destroys_positive': {
     dynamique: 'Ton identité profonde domine l\'énergie du jour — contrôle stratégique.',
-    conseil: 'Utilisez cette domination pour structurer et diriger.'
+    conseil: 'Utilise cette domination pour structurer et diriger.'
   },
   'destroys_negative': {
     dynamique: 'Ton identité profonde entre en conflit avec l\'énergie du jour.',
     conseil: 'Reste souple — force moins, adapte plus.'
   },
   'destroyed_by_positive': {
-    dynamique: 'L\'énergie du jour teste et affine votre identité profonde.',
+    dynamique: 'L\'énergie du jour teste et affine ton identité profonde.',
     conseil: 'Accepte le test — il te rend plus résilient.'
   },
   'destroyed_by_negative': {
-    dynamique: 'L\'énergie du jour met une pression forte sur votre identité profonde.',
-    conseil: 'Protégez votre centre — ne laisse pas le jour te définir.'
+    dynamique: 'L\'énergie du jour met une pression forte sur ton identité profonde.',
+    conseil: 'Protège ton centre — ne laisse pas le jour te définir.'
   }
 };
 
@@ -512,12 +512,12 @@ export function calcRealtimeBonus(
   // Même animal
   if (shichenIdx === natalBranchIndex) {
     score = SHICHEN_SAME_ANIMAL_SCORE;
-    advice = 'Période en résonance avec votre animal natal — énergie amplifiée.';
+    advice = 'Période en résonance avec ton animal natal — énergie amplifiée.';
   }
   // Triade
   else if (TRIADS.some(t => t.includes(shichenIdx) && t.includes(natalBranchIndex))) {
     score = SHICHEN_TRIAD_SCORE;
-    advice = 'Période en triade avec votre animal natal — soutien harmonieux.';
+    advice = 'Période en triade avec ton animal natal — soutien harmonieux.';
   }
   // Clash
   else if (CLASHES.some(([a, b]) =>
@@ -525,7 +525,7 @@ export function calcRealtimeBonus(
     (b === shichenIdx && a === natalBranchIndex)
   )) {
     score = SHICHEN_CLASH_SCORE;
-    advice = 'Période en clash avec votre animal natal — prudence requise.';
+    advice = 'Période en clash avec ton animal natal — prudence requise.';
   }
   else {
     advice = shichen.conseil;
@@ -972,6 +972,7 @@ export interface BaZiCompatResult {
   harm: boolean;                                      // 害 friction
   punishments: Punishment[];                          // 刑 tensions
   peachBlossomCrossed: boolean;                       // Peach Blossom de A = branche natale de B ou vice versa
+  peachBlossomLevel: 0 | 1 | 2;                       // 0=inactif, 1=simple (1 direction), 2=double (bidirectionnel)
   elementRelation: ElementRelation;                   // Relation élémentaire DM × DM
   score: number;                                      // Score global compat BaZi [-30, +40]
   signals: string[];
@@ -990,38 +991,40 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
   const alerts: string[] = [];
   let score = 0;
 
-  // ── 1. Heavenly Combination 天合 (+22) ──
+  // ── Ronde 9ter (3/3) : scoring BaZi recalibré ──
+
+  // ── 1. Heavenly Combination 天合 (+18) — Ronde 9ter : réduit de +22 ──
   const hc = checkHeavenlyCombination(pillarA.stem.index, pillarB.stem.index);
   if (hc) {
-    score += 22;
+    score += 18;
     signals.push(`🌟 Combinaison Divine ${hc.label} — lien karmique puissant`);
   }
 
-  // ── 2. Liu He 六合 (+12) ──
+  // ── 2. Liu He 六合 (+12) — inchangé ──
   const liuHe = checkLiuHe(pillarA.branch.index, pillarB.branch.index);
   if (liuHe) {
     score += 12;
     signals.push(`🤝 Liu He — harmonie naturelle (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
-  // ── 3. Triades San He (+15) ──
+  // ── 3. Triades San He (+14) — Ronde 9ter : réduit de +15 ──
   const triad = checkTriad(pillarA.branch.index, pillarB.branch.index);
   if (triad) {
-    score += 15;
+    score += 14;
     signals.push(`🔺 Triade San He — alliance stratégique (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
-  // ── 4. Clash 冲 (-15) ──
+  // ── 4. Clash 冲 (-13) — Ronde 9ter : réduit de -15 ──
   const clash = checkClash(pillarA.branch.index, pillarB.branch.index);
   if (clash) {
-    score -= 15;
+    score -= 13;
     alerts.push(`⚔️ Clash — opposition frontale (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
-  // ── 5. Harm 害 (-8) ──
+  // ── 5. Harm 害 (-11) — Ronde 9ter : aggravé de -8 (érosion insidieuse sous-évaluée) ──
   const harm = checkHarm(pillarA.branch.index, pillarB.branch.index);
   if (harm) {
-    score -= 8;
+    score -= 11;
     alerts.push(`💔 Harm — friction subtile (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
@@ -1048,13 +1051,17 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
   if (elemPts > 0) signals.push(`${pillarA.stem.element} ${elementRelation === 'same' ? '=' : '→'} ${pillarB.stem.element} — flux élémentaire favorable`);
   if (elemPts < 0) alerts.push(`${pillarA.stem.element} ${elementRelation === 'destroys' ? '→×' : '×←'} ${pillarB.stem.element} — tension élémentaire`);
 
-  // ── 8. Peach Blossom croisée (+8) ──
+  // ── 8. Peach Blossom croisée (détection seule — score dans module séparé) ──
+  // Ronde 9 (3/3) : PB retirée du BaZi → module séparé (50/65/80/90)
   const peachA = PEACH_BLOSSOM_MAP[pillarA.branch.index];
   const peachB = PEACH_BLOSSOM_MAP[pillarB.branch.index];
-  const peachCrossed = (peachA !== undefined && peachA === pillarB.branch.index) ||
-                       (peachB !== undefined && peachB === pillarA.branch.index);
-  if (peachCrossed) {
-    score += 8;
+  const peachAtoB = peachA !== undefined && peachA === pillarB.branch.index;
+  const peachBtoA = peachB !== undefined && peachB === pillarA.branch.index;
+  const peachCrossed = peachAtoB || peachBtoA;
+  const peachBlossomLevel: 0 | 1 | 2 = (peachAtoB && peachBtoA) ? 2 : peachCrossed ? 1 : 0;
+  if (peachBlossomLevel === 2) {
+    signals.push('🌸🌸 Double Peach Blossom — attraction magnétique réciproque');
+  } else if (peachBlossomLevel === 1) {
     signals.push('🌸 Peach Blossom croisée — attraction magnétique');
   }
 
@@ -1062,6 +1069,7 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
     heavenlyCombination: hc,
     liuHe, triad, clash, harm, punishments,
     peachBlossomCrossed: peachCrossed,
+    peachBlossomLevel,
     elementRelation, score,
     signals, alerts,
   };
@@ -1161,7 +1169,7 @@ export function getMonthPillar(date: Date): { stemIdx: number; branchIdx: number
 
   for (let i = 0; i < JIE_QI.length; i++) {
     const jie = JIE_QI[i];
-    // Comparer mois/jour avec la date
+    if (jie.month === 1) continue; // FIX: XiaoHan (Jan) wraps → handled by isBeforeLiChun guard
     if (month > jie.month || (month === jie.month && day >= jie.dayApprox)) {
       activeJieIdx = i;
     }
@@ -1312,11 +1320,11 @@ export function calculateLuckPillars(
 // ── Thèmes des Luck Pillars (interaction DM × LP) ──
 
 const LUCK_PILLAR_THEMES: Record<ElementRelation, string> = {
-  same:         'Période d\'identité renforcée — vous êtes au centre de votre pouvoir, confiance et clarté.',
-  produces:     'Période de création et d\'expression — vos idées portent des fruits, investissez dans vos projets.',
-  produced_by:  'Période de soutien et de ressources — les opportunités viennent à vous, acceptez l\'aide.',
-  destroys:     'Période de conquête et de richesse — vous dominez votre environnement, prenez des risques calculés.',
-  destroyed_by: 'Période de pression et de transformation — chaque épreuve vous renforce et vous affine.',
+  same:         'Période d\'identité renforcée — tu es au centre de ton pouvoir, confiance et clarté.',
+  produces:     'Période de création et d\'expression — tes idées portent des fruits, investis dans tes projets.',
+  produced_by:  'Période de soutien et de ressources — les opportunités viennent à toi, accepte l\'aide.',
+  destroys:     'Période de conquête et de richesse — tu domines ton environnement, prends des risques calculés.',
+  destroyed_by: 'Période de pression et de transformation — chaque épreuve te renforce et t\'affine.',
 };
 
 // ── Narratifs pour la lecture Passé/Présent/Futur ──
@@ -1333,11 +1341,11 @@ export function getLuckPillarNarrative(
 
   switch (temporality) {
     case 'past':
-      return `De ${pillar.startAge} à ${pillar.endAge} ans (${periodStr}), vous étiez dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
+      return `De ${pillar.startAge} à ${pillar.endAge} ans (${periodStr}), tu étais dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
     case 'present':
-      return `Vous êtes dans le Pilier ${stemName}-${branchName} (${elementStr}) depuis ${pillar.startYear}. ${pillar.theme} Il vous reste ${yearsLeft ?? '?'} ans dans ce pilier.`;
+      return `Tu es dans le Pilier ${stemName}-${branchName} (${elementStr}) depuis ${pillar.startYear}. ${pillar.theme} Il te reste ${yearsLeft ?? '?'} ans dans ce pilier.`;
     case 'future':
-      return `En ${pillar.startYear}, vous entrez dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
+      return `En ${pillar.startYear}, tu entres dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
   }
 }
 
@@ -1417,10 +1425,10 @@ export function calcFourPillars(birthDate: Date, birthHour: number): FourPillars
 
   // Narrative : la relation DM × Hour Pillar
   const HOUR_NARRATIVES: Record<ElementRelation, string> = {
-    same:         'Ton Pilier de l\'Heure renforce votre Maître du Jour — énergie intérieure stable et cohérente.',
-    produces:     'Votre heure de naissance exprime votre créativité — vous créez naturellement dans l\'intimité.',
-    produced_by:  'Votre heure nourrit votre Maître du Jour — vous vous ressourcez facilement, soutien intérieur fort.',
-    destroys:     'Votre heure montre une ambition profonde — vous conquérez même dans le silence.',
+    same:         'Ton Pilier de l\'Heure renforce ton Maître du Jour — énergie intérieure stable et cohérente.',
+    produces:     'Ton heure de naissance exprime ta créativité — tu crées naturellement dans l\'intimité.',
+    produced_by:  'Ton heure nourrit ton Maître du Jour — tu te ressources facilement, soutien intérieur fort.',
+    destroys:     'Ton heure montre une ambition profonde — tu conquiers même dans le silence.',
     destroyed_by: 'Ton heure te pousse à évoluer — tension intérieure productive, transformation constante.',
   };
 

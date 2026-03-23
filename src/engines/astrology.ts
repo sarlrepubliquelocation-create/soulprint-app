@@ -58,6 +58,8 @@ export interface DominantPlanet {
   reasons: string[];
 }
 
+export type HouseSystem = 'placidus' | 'wholesign' | 'equal';
+
 export interface AstroChart {
   pl: PlanetPos[];
   b3: { sun: string; moon: string; asc: string };
@@ -65,7 +67,9 @@ export interface AstroChart {
   mcSign: string;   // V3.0: signe du MC
   mcDeg: number;    // V3.0: degré du MC dans son signe
   pof: number;      // V3.0: Part of Fortune (longitude 0-360)
+  pos: number;      // R25: Part of Spirit (longitude 0-360)
   hs: string[];     // cuspides maisons (signe de chaque cuspide 0-11)
+  houseSystem: HouseSystem; // R25: système de maisons utilisé
   as: Aspect[];     // aspects
   el: Record<string, number>;  // elements
   mo: Record<string, number>;  // modalities
@@ -129,8 +133,8 @@ export const DIGNITIES: Record<string, { dom: string[]; exa: string[]; fall: str
   pluto:   { dom: ['Scorpio'],                exa: ['Leo'],     fall: ['Aquarius'],   exi: ['Taurus'] },
 };
 
-export const DIG_SYM: Record<string, string> = { dom: '🏠', exa: '↑', fall: '↓', exi: '⊘' };
-export const DIG_FR: Record<string, string> = { dom: 'Domicile', exa: 'Exaltation', fall: 'Chute', exi: 'Exil' };
+export const DIG_SYM: Record<string, string> = { dom: '🏠', exa: '↑', fall: '⚘', exi: '~' };
+export const DIG_FR: Record<string, string> = { dom: 'Chez elle', exa: 'Amplifiée', fall: 'Zone sensible', exi: 'À apprivoiser' };
 
 export function getDignity(planet: string, sign: string): string | null {
   const d = DIGNITIES[planet];
@@ -282,36 +286,76 @@ function eclipticFromRA(ra: number, obl: number): number {
   return norm(lon * 180 / Math.PI);
 }
 
-// Calcul des 12 cuspides Placidus (itératif, stable pour lat 42-60°)
+// ═══ R25 FIX — Calcul Placidus CORRIGÉ (algorithme standard Holden/Meeus) ═══
+// Bugs corrigés :
+//   1. AD = arcsin(tan φ × tan δ)  [était arctan — faux]
+//   2. M11/M12 : RA = RAMC + f×DSA = RAMC + f×(90+AD) → signe + sur AD  [était −]
+//   3. M2/M3 : formule dédiée via NSA depuis IC  [était même formule que M11/M12]
+//   4. Cusps opposées M5/M6/M8/M9 = miroir +180° des cusps calculées
 function calcPlacidusHouses(asc: number, mc: number, ramc: number, obl: number, lat: number): number[] {
   const hs = new Array(12).fill(0);
   hs[0] = norm(asc);         // Maison 1 = ASC
   hs[9] = norm(mc);          // Maison 10 = MC
-  hs[3] = norm(asc + 180);   // Maison 4 = IC
-  hs[6] = norm(mc + 180);    // Maison 7 = DSC
+  hs[3] = norm(mc + 180);    // Maison 4 = IC  (opposé du MC)
+  hs[6] = norm(asc + 180);   // Maison 7 = DSC (opposé de l'ASC)
 
   const oblR = obl * Math.PI / 180;
   const latR = lat * Math.PI / 180;
+  const tanLat = Math.tan(latR);
 
-  const placidusCusp = (quadrant: number): number => {
-    let ra = norm(ramc + quadrant * 30);
-    for (let i = 0; i < 30; i++) {
-      const raR = ra * Math.PI / 180;
-      const sinDec = Math.sin(oblR) * Math.sin(raR);
-      const dec = Math.asin(Math.max(-1, Math.min(1, sinDec)));
-      const cosD = Math.cos(dec);
-      if (Math.abs(cosD) < 1e-10) break;
-      const adRaw = Math.atan(Math.tan(latR) * Math.sin(dec) / cosD);
-      const ad = adRaw * 180 / Math.PI;
-      ra = norm(ramc + quadrant * 30 - ad * (quadrant / 3));
+  // Ascensional difference: AD = arcsin(tan(φ) × tan(δ))
+  const calcAD = (raVal: number): number => {
+    const raR = raVal * Math.PI / 180;
+    const sinDec = Math.sin(oblR) * Math.sin(raR);
+    const dec = Math.asin(Math.max(-1, Math.min(1, sinDec)));
+    const tanDec = Math.tan(dec);
+    const x = tanLat * tanDec;
+    // Clamp for extreme latitudes
+    if (Math.abs(x) >= 1) return x > 0 ? 89 : -89;
+    return Math.asin(x) * 180 / Math.PI;
+  };
+
+  // Upper hemisphere cusps (MC → ASC) : RA = RAMC + f × DSA = RAMC + f×(90+AD)
+  const upperCusp = (f: number): number => {
+    let ra = norm(ramc + f * 90);  // initial guess
+    for (let i = 0; i < 50; i++) {
+      const ad = calcAD(ra);
+      const raNew = norm(ramc + f * (90 + ad));
+      if (Math.abs(raNew - ra) < 0.001 || Math.abs(raNew - ra) > 359.999) break;
+      ra = raNew;
     }
     return ra;
   };
 
-  hs[10] = eclipticFromRA(placidusCusp(1), obl);  // Maison 11
-  hs[11] = eclipticFromRA(placidusCusp(2), obl);  // Maison 12
-  hs[1]  = eclipticFromRA(placidusCusp(3), obl);  // Maison 2
-  hs[2]  = eclipticFromRA(placidusCusp(4), obl);  // Maison 3
+  // Lower hemisphere cusps (IC → ASC, going backward from IC)
+  // M3: 1/3 NSA before IC → RA = RAMC+180 − (1/3)×NSA = RAMC+150 + AD/3
+  // M2: 2/3 NSA before IC → RA = RAMC+180 − (2/3)×NSA = RAMC+120 + 2AD/3
+  const lowerCusp = (f: number): number => {
+    // f = fraction from IC toward ASC (1/3 for M3, 2/3 for M2)
+    let ra = norm(ramc + 180 - f * 90);  // initial guess
+    for (let i = 0; i < 50; i++) {
+      const ad = calcAD(ra);
+      const nsa = 90 - ad;
+      const raNew = norm(ramc + 180 - f * nsa);
+      if (Math.abs(raNew - ra) < 0.001 || Math.abs(raNew - ra) > 359.999) break;
+      ra = raNew;
+    }
+    return ra;
+  };
+
+  // M11 = 1/3 DSA from MC, M12 = 2/3 DSA from MC
+  hs[10] = eclipticFromRA(upperCusp(1 / 3), obl);  // Maison 11
+  hs[11] = eclipticFromRA(upperCusp(2 / 3), obl);  // Maison 12
+
+  // M2 = 2/3 NSA from IC toward ASC, M3 = 1/3 NSA from IC toward ASC
+  hs[1] = eclipticFromRA(lowerCusp(2 / 3), obl);   // Maison 2
+  hs[2] = eclipticFromRA(lowerCusp(1 / 3), obl);   // Maison 3
+
+  // Cusps opposées : miroir +180°
+  hs[4] = norm(hs[10] + 180);  // Maison 5 = opposée de Maison 11
+  hs[5] = norm(hs[11] + 180);  // Maison 6 = opposée de Maison 12
+  hs[7] = norm(hs[1]  + 180);  // Maison 8 = opposée de Maison 2
+  hs[8] = norm(hs[2]  + 180);  // Maison 9 = opposée de Maison 3
 
   return hs.map(norm);
 }
@@ -494,11 +538,12 @@ function calcAngles(d: number, gLon: number, gLat: number) {
 
 const toSign = (l: number) => SIGNS[Math.floor(norm(l) / 30)];
 
-// === MAIN CHART CALCULATION — V3.0 ===
+// === MAIN CHART CALCULATION — V3.0 / R25: +houseSystem param ===
 export function calcChart(
   y: number, mo: number, d: number, h: number, mi: number,
   lat: number, lon: number,
-  noTimeFallback = false   // si true → Equal House (heure inconnue)
+  noTimeFallback = false,  // si true → Equal House (heure inconnue)
+  houseSystem: HouseSystem = 'placidus'  // R25: Whole Sign / Placidus / Equal
 ): Omit<AstroChart, 'tr' | 'noTime'> {
   const dd = d0(y, mo, d, h, mi);
   const s = sunPos(dd), m = moonPos(dd);
@@ -524,24 +569,57 @@ export function calcChart(
   const ascSign = toSign(asc);
   const mcSign = toSign(mc);
 
-  // ── Maisons : Placidus si heure connue, Equal sinon ──
+  // ── R25: Maisons — Whole Sign / Placidus / Equal ──
   let cusps: number[];
-  let houseMode: 'placidus' | 'equal';
-  if (!noTimeFallback && Math.abs(lat) < 65) {
-    cusps = calcPlacidusHouses(asc, mc, ramc, obl, lat);
-    houseMode = 'placidus';
-  } else {
+  let resolvedHouseSystem: HouseSystem;
+
+  if (noTimeFallback) {
+    // Pas d'heure → Equal House
     const ai = Math.floor(norm(asc) / 30);
     cusps = Array.from({ length: 12 }, (_, i) => ((ai + i) % 12) * 30);
-    houseMode = 'equal';
+    resolvedHouseSystem = 'equal';
+  } else if (houseSystem === 'wholesign') {
+    // Whole Sign : chaque maison = 30° à partir du signe de l'ASC
+    const ascSignIdx = Math.floor(norm(asc) / 30);
+    cusps = Array.from({ length: 12 }, (_, i) => ((ascSignIdx + i) % 12) * 30);
+    resolvedHouseSystem = 'wholesign';
+  } else if (Math.abs(lat) < 65) {
+    const rawCusps = calcPlacidusHouses(asc, mc, ramc, obl, lat);
+    // R25: Validation — si les cuspides Placidus sont incohérentes (non-monotones),
+    // fallback sur Equal House pour éviter 11 planètes en Maison 1
+    let placidusOk = true;
+    for (let i = 0; i < 12; i++) {
+      const c1 = rawCusps[i], c2 = rawCusps[(i + 1) % 12];
+      const span = c1 <= c2 ? c2 - c1 : 360 - c1 + c2;
+      if (span < 5 || span > 55) { placidusOk = false; break; }
+    }
+    if (placidusOk) {
+      cusps = rawCusps;
+      resolvedHouseSystem = 'placidus';
+    } else {
+      // Placidus instable → fallback Equal House
+      const ai = Math.floor(norm(asc) / 30);
+      cusps = Array.from({ length: 12 }, (_, i) => ((ai + i) % 12) * 30);
+      resolvedHouseSystem = 'equal';
+      console.warn('[Astro] Placidus cusps incohérentes — fallback Equal House');
+    }
+  } else {
+    // Latitude extrême → fallback Equal
+    const ai = Math.floor(norm(asc) / 30);
+    cusps = Array.from({ length: 12 }, (_, i) => ((ai + i) % 12) * 30);
+    resolvedHouseSystem = 'equal';
   }
 
-  // ── Calcul PlanetPos avec maison Placidus ──
+  // ── Calcul PlanetPos avec attribution de maison ──
   const pl: PlanetPos[] = pls.map(pp => {
     const sign = toSign(pp.lon);
+    // Whole Sign : la maison = index du signe relatif à l'ASC + 1
+    const house = resolvedHouseSystem === 'wholesign'
+      ? ((Math.floor(norm(pp.lon) / 30) - Math.floor(norm(asc) / 30) + 12) % 12) + 1
+      : getPlanetHousePlacidus(pp.lon, cusps);
     return {
       k: pp.k, s: sign, d: +( norm(pp.lon) % 30).toFixed(2),
-      h: getPlanetHousePlacidus(pp.lon, cusps),
+      h: house,
       retro: ['northNode','southNode','chiron','lilith'].includes(pp.k) ? false : isRetrograde(pp.k, dd),
       dig: getDignity(pp.k, sign) || undefined,
     };
@@ -554,23 +632,42 @@ export function calcChart(
   const sunLon = pls[0].lon, moonLon = pls[1].lon;
   const isDay = norm(sunLon - asc) < 180;
   const pof = norm(isDay ? asc + moonLon - sunLon : asc + sunLon - moonLon);
+  // R25: Part of Spirit (Lot d'Esprit) — formule inversée par rapport à Fortune
+  const pos = norm(isDay ? asc + sunLon - moonLon : asc + moonLon - sunLon);
 
-  // ── Aspects (10 planètes classiques seulement — pas nœuds/chiron/lilith pour éviter le bruit) ──
+  // ── R25: Aspects avec orbes différenciés par type de planète ──
+  // Luminaires (Soleil/Lune) : orbe large, Personnelles : moyen, Lentes : serré
   const aspPls = pls.slice(0, 10);
   const aspPlPos = pl.slice(0, 10);
   const as: Aspect[] = [];
+
+  // Orbes de base par type d'aspect (pour luminaires — le max)
   const AD = [
     { t: 'conjunction', a: 0, o: 8 }, { t: 'opposition', a: 180, o: 8 },
-    { t: 'trine', a: 120, o: 8 }, { t: 'square', a: 90, o: 7 }, { t: 'sextile', a: 60, o: 6 },
+    { t: 'trine', a: 120, o: 7 }, { t: 'square', a: 90, o: 7 }, { t: 'sextile', a: 60, o: 5 },
     { t: 'quincunx', a: 150, o: 3 }, { t: 'sesquisquare', a: 135, o: 2 }  // V3.1
   ];
+
+  // R25: Facteur d'orbe par catégorie de planète (doctrine : luminaires larges, lentes serrées)
+  const ORB_FACTOR: Record<string, number> = {
+    sun: 1.0, moon: 1.0,                           // Luminaires : 100% de l'orbe
+    mercury: 0.80, venus: 0.80, mars: 0.80,        // Personnelles : 80%
+    jupiter: 0.70, saturn: 0.70,                    // Sociales : 70%
+    uranus: 0.60, neptune: 0.60, pluto: 0.60,      // Transpersonnelles : 60%
+  };
+
   for (let i = 0; i < aspPls.length; i++) {
     for (let j = i + 1; j < aspPls.length; j++) {
       const df = Math.abs(norm(aspPls[i].lon) - norm(aspPls[j].lon));
       const nd = df > 180 ? 360 - df : df;
+      // L'orbe effectif = orbe de base × moyenne des facteurs des 2 planètes
+      const f1 = ORB_FACTOR[aspPls[i].k] || 0.7;
+      const f2 = ORB_FACTOR[aspPls[j].k] || 0.7;
+      const orbMult = (f1 + f2) / 2;
       for (const aa of AD) {
         const ob = Math.abs(nd - aa.a);
-        if (ob <= aa.o) as.push({ p1: aspPlPos[i].k, p2: aspPlPos[j].k, t: aa.t, o: +ob.toFixed(2) });
+        const effectiveOrb = aa.o * orbMult;
+        if (ob <= effectiveOrb) as.push({ p1: aspPlPos[i].k, p2: aspPlPos[j].k, t: aa.t, o: +ob.toFixed(2) });
       }
     }
   }
@@ -600,8 +697,8 @@ export function calcChart(
     pl, b3,
     ad: +(norm(asc) % 30).toFixed(2),
     mcSign, mcDeg: +(norm(mc) % 30).toFixed(2),
-    pof,
-    hs, as, el, mo: moo,
+    pof, pos,
+    hs, houseSystem: resolvedHouseSystem, as, el, mo: moo,
     stelliums, dominant,
     grandTrines, tSquares,
   };
@@ -946,7 +1043,7 @@ export function calcPersonalTransits(
 
 // === FULL ASTRO CALCULATION ===
 // V2.7: Si tz provient du sélecteur manuel, on vérifie la cohérence avec la DST française
-export function calcAstro(bd: string, bt: string, bp: string, tz: number, today: string): AstroChart | null {
+export function calcAstro(bd: string, bt: string, bp: string, tz: number, today: string, houseSystem: HouseSystem = 'placidus'): AstroChart | null {
   const city = findCity(bp);
   if (!city) return null;
 
@@ -958,11 +1055,25 @@ export function calcAstro(bd: string, bt: string, bp: string, tz: number, today:
   const suggestedTz = suggestTimezone(bd, bp);
   const effectiveTz = suggestedTz !== null ? suggestedTz : tz;
 
-  const natal = calcChart(y, m, d, hh - effectiveTz, mm, city[0], city[1], noTime);
+  const natal = calcChart(y, m, d, hh - effectiveTz, mm, city[0], city[1], noTime, houseSystem);
   const [ty, tm, td] = today.split('-').map(Number);
   const tr = calcTransits(natal, ty, tm, td, 12, 0, city[0], city[1]);
 
   return { ...natal, tr, noTime, tzUsed: effectiveTz, tzSuggested: suggestedTz };
+}
+
+// ── R25 : ASC/MC pour une date/heure + position donnée ──
+// Utilisé par solar-return.ts pour calculer l'ASC du Retour Solaire
+export function calcAnglesForDate(
+  date: Date,
+  lat: number,
+  lon: number
+): { asc: number; mc: number; ascSign: string; mcSign: string } {
+  const y = date.getFullYear(), mo = date.getMonth() + 1, d = date.getDate();
+  const h = date.getUTCHours(), mi = date.getUTCMinutes();
+  const dd = d0(y, mo, d, h, mi);
+  const { asc, mc } = calcAngles(dd, lon, lat);
+  return { asc: norm(asc), mc: norm(mc), ascSign: toSign(asc), mcSign: toSign(mc) };
 }
 
 // ── A1.1 : Longitude géocentrique planétaire pour une date quelconque ──
@@ -972,7 +1083,9 @@ export function getPlanetLongitudeForDate(
   date: Date
 ): number {
   const y = date.getFullYear(), mo = date.getMonth() + 1, d = date.getDate();
-  const dd = d0(y, mo, d, 12, 0); // midi UTC
+  // R25: utiliser l'heure UTC réelle au lieu de midi fixe (nécessaire pour binary search SR)
+  const h = date.getUTCHours(), mi = date.getUTCMinutes();
+  const dd = d0(y, mo, d, h, mi);
   if (planet === 'sun')       return sunPos(dd).lon;
   if (planet === 'moon')      return moonPos(dd).lon;
   if (planet === 'northNode') return calcNodes(dd).northNode;

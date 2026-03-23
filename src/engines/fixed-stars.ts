@@ -63,19 +63,26 @@ export interface FixedStarResult {
 // ─── Données étoiles fixes ─────────────────────────────────────────────────
 
 /**
- * 10 étoiles fixes majeures — longitudes Swiss Ephemeris 2025.
- * Deltas justifiés par sources classiques (Robson/Ebertin/Brady).
+ * 35 étoiles fixes — longitudes Swiss Ephemeris 2025 (tropical).
+ * R25 : étendu de 10 à 35 pour crédibilité professionnelle.
  *
+ * Deltas justifiés par sources classiques (Robson/Ebertin/Brady).
  * Logique delta :
- *  - Étoile bénéfique pure (Spica, Sirius, Fomalhaut) : pos seulement
- *  - Étoile mixte (Régulus, Aldébaran, etc.)           : pos si bénéfique, neg si malefic
- *  - Étoile maléfique (Algol)                          : neg fort, pos minime (maîtrise)
+ *  - Bénéfique pure : pos seulement (neg = 0)
+ *  - Mixte : pos si bénéfique, neg si maléfique (moyenne pour sélection)
+ *  - Maléfique : neg fort, pos minime (maîtrise possible)
+ *
+ * Magnitude : 1 = première grandeur (très brillante), 2 = deuxième, etc.
+ * Tier : 'major' (les 10 originales, deltas forts) / 'notable' (25 ajoutées, deltas modérés)
  */
 export const FIXED_STARS: FixedStar[] = [
+  // ═══════════════════════════════════════════════════
+  // TIER 1 — 10 MAJEURES (Royal Stars + top classiques)
+  // ═══════════════════════════════════════════════════
   {
     name: 'Regulus',
     nameFr: 'Régulus',
-    lon2025: 150.183, // 00°11' Virgo
+    lon2025: 150.183, // 00°11' Virgo — Cœur du Lion
     nature: 'mixed',
     deltaExact: { pos: 4, neg: -3 },
     deltaWide:  { pos: 2, neg: -1 },
@@ -85,7 +92,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Spica',
     nameFr: 'Spica',
-    lon2025: 204.183, // 24°11' Libra
+    lon2025: 204.183, // 24°11' Libra — Épi de la Vierge
     nature: 'benefic',
     deltaExact: { pos: 5, neg: 0 },
     deltaWide:  { pos: 3, neg: 0 },
@@ -95,7 +102,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Aldebaran',
     nameFr: 'Aldébaran',
-    lon2025: 70.133, // 10°08' Gemini
+    lon2025: 70.133, // 10°08' Gemini — Œil du Taureau
     nature: 'mixed',
     deltaExact: { pos: 3, neg: -3 },
     deltaWide:  { pos: 1, neg: -1 },
@@ -105,7 +112,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Antares',
     nameFr: 'Antarès',
-    lon2025: 250.117, // 10°07' Sagittarius
+    lon2025: 250.117, // 10°07' Sagittarius — Cœur du Scorpion
     nature: 'mixed',
     deltaExact: { pos: 3, neg: -4 },
     deltaWide:  { pos: 1, neg: -2 },
@@ -115,7 +122,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Fomalhaut',
     nameFr: 'Fomalhaut',
-    lon2025: 334.217, // 04°13' Pisces
+    lon2025: 334.217, // 04°13' Pisces — Royal Star du Sud
     nature: 'benefic',
     deltaExact: { pos: 4, neg: 0 },
     deltaWide:  { pos: 2, neg: 0 },
@@ -125,7 +132,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Algol',
     nameFr: 'Algol',
-    lon2025: 56.517, // 26°31' Taurus
+    lon2025: 56.517, // 26°31' Taurus — Tête de Méduse
     nature: 'malefic',
     deltaExact: { pos: 1, neg: -5 },
     deltaWide:  { pos: 0, neg: -3 },
@@ -135,7 +142,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Sirius',
     nameFr: 'Sirius',
-    lon2025: 104.433, // 14°26' Cancer
+    lon2025: 104.433, // 14°26' Cancer — étoile la plus brillante du ciel
     nature: 'benefic',
     deltaExact: { pos: 4, neg: 0 },
     deltaWide:  { pos: 2, neg: 0 },
@@ -145,7 +152,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Vega',
     nameFr: 'Véga',
-    lon2025: 285.667, // 15°40' Capricorn
+    lon2025: 285.667, // 15°40' Capricorn — Alpha Lyrae
     nature: 'mixed',
     deltaExact: { pos: 3, neg: -1 },
     deltaWide:  { pos: 1, neg: 0 },
@@ -155,7 +162,7 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Arcturus',
     nameFr: 'Arcturus',
-    lon2025: 204.583, // 24°35' Libra
+    lon2025: 204.583, // 24°35' Libra — Alpha Boötis
     nature: 'mixed',
     deltaExact: { pos: 3, neg: -1 },
     deltaWide:  { pos: 1, neg: 0 },
@@ -165,12 +172,291 @@ export const FIXED_STARS: FixedStar[] = [
   {
     name: 'Capella',
     nameFr: 'Capella',
-    lon2025: 82.200, // 22°12' Gemini
+    lon2025: 82.200, // 22°12' Gemini — Alpha Aurigae
     nature: 'mixed',
     deltaExact: { pos: 2, neg: -1 },
     deltaWide:  { pos: 1, neg: 0 },
     source: 'Robson: "Versatility, curiosity, honour through learning"',
     icon: '📚',
+  },
+
+  // ═══════════════════════════════════════════════════
+  // TIER 2 — 25 NOTABLES (classiques Robson/Ebertin)
+  // Deltas plus modérés : exact ±2-3, wide ±1
+  // ═══════════════════════════════════════════════════
+
+  // --- ORION & GRANDS CHASSEURS ---
+  {
+    name: 'Rigel',
+    nameFr: 'Rigel',
+    lon2025: 77.167, // 17°10' Gemini — Pied d'Orion, mag 0.13
+    nature: 'benefic',
+    deltaExact: { pos: 3, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Splendour, mechanical ability, inventiveness" / Ebertin: "Quick rise"',
+    icon: '💎',
+  },
+  {
+    name: 'Betelgeuse',
+    nameFr: 'Bételgeuse',
+    lon2025: 89.267, // 29°16' Gemini — Épaule d'Orion, mag 0.42
+    nature: 'mixed',
+    deltaExact: { pos: 3, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Martial honours, preferment, wealth" / Ebertin: "Fame"',
+    icon: '🔶',
+  },
+  {
+    name: 'Bellatrix',
+    nameFr: 'Bellatrix',
+    lon2025: 81.233, // 21°14' Gemini — Épaule gauche d'Orion, mag 1.64
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -2 },
+    deltaWide:  { pos: 1, neg: -1 },
+    source: 'Robson: "Quick decision-making, courage, but rash" / Ebertin: "Ambition"',
+    icon: '⚔️',
+  },
+
+  // --- GÉMEAUX & CANIS ---
+  {
+    name: 'Pollux',
+    nameFr: 'Pollux',
+    lon2025: 113.467, // 23°28' Cancer — Beta Geminorum, mag 1.14
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -2 },
+    deltaWide:  { pos: 1, neg: -1 },
+    source: 'Robson: "Spirited, audacious, cruel if afflicted" / Ebertin: "Pugnacity"',
+    icon: '👊',
+  },
+  {
+    name: 'Castor',
+    nameFr: 'Castor',
+    lon2025: 110.533, // 20°32' Cancer — Alpha Geminorum, mag 1.58
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Distinction, keen intellect, good for writers" / Ebertin',
+    icon: '✍️',
+  },
+  {
+    name: 'Procyon',
+    nameFr: 'Procyon',
+    lon2025: 116.017, // 26°01' Cancer — Alpha Canis Minoris, mag 0.34
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Activity, violence of temper, sudden rise then fall"',
+    icon: '🐕',
+  },
+  {
+    name: 'Canopus',
+    nameFr: 'Canopus',
+    lon2025: 105.283, // 15°17' Cancer — 2e étoile du ciel, mag -0.74
+    nature: 'benefic',
+    deltaExact: { pos: 3, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Voyages, fame, learning" / Brady: "Pathfinder"',
+    icon: '🚢',
+  },
+
+  // --- GRANDE OURSE & ÉTOILES POLAIRES ---
+  {
+    name: 'Deneb Algedi',
+    nameFr: 'Deneb Algedi',
+    lon2025: 353.700, // 23°42' Aquarius — Delta Capricorni, mag 2.85
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Life ruled by justice, sorrow but eventual success"',
+    icon: '⚖️',
+  },
+  {
+    name: 'Deneb',
+    nameFr: 'Deneb',
+    lon2025: 335.567, // 05°34' Pisces — Alpha Cygni, mag 1.25
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Ingenious, clever, valiant" / Brady: "Cygnus — creativity"',
+    icon: '🦢',
+  },
+
+  // --- SCORPION & SERPENT ---
+  {
+    name: 'Achernar',
+    nameFr: 'Achernar',
+    lon2025: 345.533, // 15°32' Pisces — Alpha Eridani, mag 0.46
+    nature: 'benefic',
+    deltaExact: { pos: 3, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Success in public life, religious beneficence"',
+    icon: '🌊',
+  },
+  {
+    name: 'Zuben Elgenubi',
+    nameFr: 'Zuben Elgenubi',
+    lon2025: 195.417, // 15°25' Libra — Alpha Librae, mag 2.75
+    nature: 'malefic',
+    deltaExact: { pos: 0, neg: -2 },
+    deltaWide:  { pos: 0, neg: -1 },
+    source: 'Robson: "Unforgiving, revengeful, malevolent, disgrace"',
+    icon: '⚠️',
+  },
+  {
+    name: 'Zuben Eschamali',
+    nameFr: 'Zuben Eschamali',
+    lon2025: 199.667, // 19°40' Libra — Beta Librae, mag 2.61
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Good fortune, high ambition, honours"',
+    icon: '🌿',
+  },
+
+  // --- PLÉIADES & TAUREAU ---
+  {
+    name: 'Alcyone',
+    nameFr: 'Alcyone (Pléiades)',
+    lon2025: 60.333, // 00°20' Gemini — Brightest Pleiad, mag 2.87
+    nature: 'mixed',
+    deltaExact: { pos: 1, neg: -2 },
+    deltaWide:  { pos: 0, neg: -1 },
+    source: 'Robson: "Ambition, eminence, then disgrace" / Ebertin: "Sorrow"',
+    icon: '⟐',
+  },
+
+  // --- VERSEAU & POISSONS ---
+  {
+    name: 'Scheat',
+    nameFr: 'Scheat',
+    lon2025: 359.650, // 29°39' Aquarius — Beta Pegasi, mag 2.42
+    nature: 'malefic',
+    deltaExact: { pos: 0, neg: -3 },
+    deltaWide:  { pos: 0, neg: -1 },
+    source: 'Robson: "Extreme misfortune, drowning, suicide" / Ebertin',
+    icon: '🌪️',
+  },
+  {
+    name: 'Markab',
+    nameFr: 'Markab',
+    lon2025: 353.800, // 23°48' Aquarius — Alpha Pegasi, mag 2.49
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Honour, riches, good fortune in war"',
+    icon: '🐎',
+  },
+
+  // --- VIERGE & LION ---
+  {
+    name: 'Vindemiatrix',
+    nameFr: 'Vindemiatrix',
+    lon2025: 190.317, // 10°19' Libra — Epsilon Virginis, mag 2.83
+    nature: 'malefic',
+    deltaExact: { pos: 0, neg: -2 },
+    deltaWide:  { pos: 0, neg: -1 },
+    source: 'Robson: "Widowhood, disgrace, falsity, loss of partner"',
+    icon: '🍇',
+  },
+  {
+    name: 'Denebola',
+    nameFr: 'Denebola',
+    lon2025: 171.917, // 21°55' Virgo — Beta Leonis, mag 2.14
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -2 },
+    deltaWide:  { pos: 1, neg: -1 },
+    source: 'Robson: "Swift judgement, honours then ruin, public disgrace"',
+    icon: '🦁',
+  },
+  {
+    name: 'Zosma',
+    nameFr: 'Zosma',
+    lon2025: 161.633, // 11°38' Virgo — Delta Leonis, mag 2.56
+    nature: 'mixed',
+    deltaExact: { pos: 1, neg: -2 },
+    deltaWide:  { pos: 0, neg: -1 },
+    source: 'Robson: "Alert mind, benefit through service, victimization"',
+    icon: '🛡️',
+  },
+
+  // --- BÉLIER & BALEINE ---
+  {
+    name: 'Hamal',
+    nameFr: 'Hamal',
+    lon2025: 38.133, // 08°08' Taurus — Alpha Arietis, mag 2.00
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Violence, cruelty, premeditated crime if afflicted; patience if well-placed"',
+    icon: '🐏',
+  },
+
+  // --- AIGLE & DAUPHIN ---
+  {
+    name: 'Altair',
+    nameFr: 'Altaïr',
+    lon2025: 302.167, // 02°10' Aquarius — Alpha Aquilae, mag 0.77
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Boldness, valour, sudden but short-lived wealth"',
+    icon: '🦅',
+  },
+
+  // --- SAGITTAIRE ---
+  {
+    name: 'Nunki',
+    nameFr: 'Nunki',
+    lon2025: 282.633, // 12°38' Capricorn — Sigma Sagittarii, mag 2.02
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Truthfulness, optimism, good for travel & religion"',
+    icon: '🏹',
+  },
+
+  // --- COURONNE & SERPENTAIRE ---
+  {
+    name: 'Alphecca',
+    nameFr: 'Alphecca',
+    lon2025: 222.467, // 12°28' Scorpio — Alpha Coronae Borealis, mag 2.23
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Honour, dignity, artistic gifts, poetic ability"',
+    icon: '💍',
+  },
+  {
+    name: 'Ras Alhague',
+    nameFr: 'Ras Alhague',
+    lon2025: 262.583, // 22°35' Sagittarius — Alpha Ophiuchi, mag 2.07
+    nature: 'mixed',
+    deltaExact: { pos: 2, neg: -1 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Perverted, infamous, healing gifts, misuse of drugs"',
+    icon: '🐍',
+  },
+
+  // --- CENTAURE ---
+  {
+    name: 'Agena',
+    nameFr: 'Agena',
+    lon2025: 234.167, // 24°10' Scorpio — Beta Centauri, mag 0.61
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Position of authority, friendship, refinement, health"',
+    icon: '🏛️',
+  },
+  {
+    name: 'Toliman',
+    nameFr: 'Toliman (α Centauri)',
+    lon2025: 240.167, // 00°10' Sagittarius — Alpha Centauri, mag -0.01
+    nature: 'benefic',
+    deltaExact: { pos: 2, neg: 0 },
+    deltaWide:  { pos: 1, neg: 0 },
+    source: 'Robson: "Beneficent, friends, refinement, honour" / Ebertin: "Relationships"',
+    icon: '🌍',
   },
 ];
 
@@ -194,7 +480,7 @@ function angularDistance(a: number, b: number): number {
 
 /**
  * Calcule le score étoiles fixes pour une date donnée.
- * Vérifie les conjonctions de 7 planètes (Soleil→Saturne) avec 10 étoiles fixes.
+ * R25 : vérifie les conjonctions de 7 planètes (Soleil→Saturne) avec 35 étoiles fixes.
  *
  * Orbes :
  *  - Exacte : ≤0.5° → deltaExact

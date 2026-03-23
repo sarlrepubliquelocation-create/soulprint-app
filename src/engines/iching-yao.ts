@@ -252,6 +252,12 @@ const NUCLEAR_HEX: readonly number[] = [
  * @param hexNum - numéro de l'hexagramme principal (1-64)
  * @returns score Nuclear brut dans [−3, +3] (sans biais — adaptatif dans convergence.ts)
  */
+/** Retourne le numéro de l'hexagramme nucléaire (Hu Gua) — Ronde 2026-03-21 S1 */
+export function getNuclearHexNum(hexNum: number): number {
+  if (hexNum < 1 || hexNum > 64) return 0;
+  return NUCLEAR_HEX[hexNum] || 0;
+}
+
 export function getNuclearScore(hexNum: number): number {
   if (hexNum < 1 || hexNum > 64) return 0;
   const nucHex = NUCLEAR_HEX[hexNum];

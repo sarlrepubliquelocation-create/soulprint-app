@@ -23,7 +23,7 @@ const STEPS = [
   {
     icon: '✦',
     title: 'Bienvenue dans Kaironaute',
-    subtitle: 'Maîtrisez vos cycles. Optimisez vos décisions.',
+    subtitle: 'Maîtrise tes cycles. Optimise tes décisions.',
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ textAlign: 'center', margin: '8px 0' }}>
@@ -34,13 +34,13 @@ const STEPS = [
             border: '2px solid rgba(255,215,0,0.35)',
             fontSize: 36,
           }}>72</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.7)', marginTop: 6, letterSpacing: 1.5, fontWeight: 600 }}>VOTRE SCORE DU JOUR</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,215,0,0.7)', marginTop: 6, letterSpacing: 1.5, fontWeight: 600 }}>TON SCORE DU JOUR</div>
         </div>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, margin: 0, textAlign: 'center' }}>
-          Kaironaute calcule chaque jour un score personnalisé basé sur vos cycles astrologiques, numériques et cosmiques.
+          Kaironaute calcule chaque jour un score personnalisé basé sur tes cycles astrologiques, numériques et cosmiques.
         </p>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, margin: 0, textAlign: 'center', fontStyle: 'italic' }}>
-          Pas une prédiction — un miroir de vos rythmes intérieurs.
+          Pas une prédiction — un miroir de tes rythmes intérieurs.
         </p>
       </div>
     ),
@@ -75,12 +75,12 @@ const STEPS = [
   },
   {
     icon: '🚀',
-    title: 'Activez votre profil complet',
-    subtitle: 'Vos données restent sur votre appareil — jamais partagées',
+    title: 'Activez ton profil complet',
+    subtitle: 'Tes données restent sur ton appareil — jamais partagées',
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, margin: 0, textAlign: 'center' }}>
-          Pour un score précis, renseignez votre <strong style={{ color: P.gold }}>prénom, nom de naissance</strong> et <strong style={{ color: P.gold }}>date de naissance</strong>.
+          Pour un score précis, renseigne ton <strong style={{ color: P.gold }}>prénom, nom de naissance</strong> et <strong style={{ color: P.gold }}>date de naissance</strong>.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[

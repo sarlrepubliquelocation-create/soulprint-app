@@ -375,7 +375,7 @@ export function getOnboardingMessage(feedbackCount: number, weights: PersonalWei
   }
 
   if (feedbackCount >= 15 && feedbackCount < 20 && weights?.blendPercent === 25) {
-    return `⚡ Calibration en cours. L'algorithme commence à s'ajuster à ta signature énergétique.`;
+    return `🌟 Calibration en cours. L'algorithme commence à s'ajuster à ta signature énergétique.`;
   }
 
   if (feedbackCount === 20) {

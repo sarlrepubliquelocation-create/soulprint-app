@@ -165,10 +165,10 @@ export function calcTransitStellium(
     points: totalBonus,
     detail: `Concentration cosmique personnelle — ${mainStellium.elementFR}`,
     signals: totalBonus > 0
-      ? [`🌌 ${narrativeLabel} — activation de votre secteur ${mainStellium.signFR} (+${totalBonus})`]
+      ? [`🌌 ${narrativeLabel} — activation de ton secteur ${mainStellium.signFR} (+${totalBonus})`]
       : [],
     alerts: totalBonus < 0
-      ? [`🌌 ${narrativeLabel} — tension sur votre secteur ${mainStellium.signFR} (${totalBonus})`]
+      ? [`🌌 ${narrativeLabel} — tension sur ton secteur ${mainStellium.signFR} (${totalBonus})`]
       : [],
   });
 

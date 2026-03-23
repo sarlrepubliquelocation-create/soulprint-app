@@ -55,7 +55,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Guérisseur Pionnier',
     keyTrait: 'Rapidité et initiative',
     shadowAspect: 'Impulsivité aveugle',
-    coreText: "Ashwini porte l'énergie du commencement brut. Vous agissez vite, parfois avant même de comprendre pourquoi. Il y a en vous une impulsion guérisseuse, une capacité à initier le mouvement quand tout semble figé. Le défi est d'apprendre la constance sans perdre l'élan.",
+    coreText: "Ashwini porte l'énergie du commencement brut. Tu agis vite, parfois avant même de comprendre pourquoi. Il y a en toi une impulsion guérisseuse, une capacité à initier le mouvement quand tout semble figé. Le défi est d'apprendre la constance sans perdre l'élan.",
     globalBaseScore: 1,
     domainModifiers: { Business: 1.2, Amour: 1.0, Relations: 1.0, Créativité: 1.1, Introspection: 0.9, Vitalité: 1.3 },
   },
@@ -67,7 +67,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Porteur de Fardeau',
     keyTrait: "Transformation par l'épreuve",
     shadowAspect: 'Extrémisme et jalousie',
-    coreText: "Bharani connaît les extrêmes. Désir et discipline, intensité et retenue. Vous ressentez tout profondément, parfois secrètement. Votre âme traverse des cycles de transformation intérieure puissants. Lorsque vous acceptez votre profondeur au lieu de la craindre, vous devenez une force de maturation.",
+    coreText: "Bharani connaît les extrêmes. Désir et discipline, intensité et retenue. Tu ressens tout profondément, parfois secrètement. Ton âme traverse des cycles de transformation intérieure puissants. Lorsque tu acceptes ta profondeur au lieu de la craindre, tu deviens une force de maturation.",
     globalBaseScore: 0,
     domainModifiers: { Business: 1.15, Amour: 0.8, Relations: 0.85, Créativité: 1.2, Introspection: 1.2, Vitalité: 0.6 }, // V8.9 Gemini Q3 : Vitalité 0.9→0.6 (Yama, domaine de la mort)
   },
@@ -79,7 +79,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Forgeur de Destin',
     keyTrait: 'Détermination tranchante',
     shadowAspect: 'Sévérité et perfectionnisme',
-    coreText: "Krittika est le feu purificateur. Comme la flamme qui consume l'impur, vous avez une capacité naturelle à discerner l'essentiel de l'accessoire. Vous pouvez être sévère — avec vous-même surtout. Cette rigueur est votre force quand elle est orientée, votre prison quand elle se retourne.",
+    coreText: "Krittika est le feu purificateur. Comme la flamme qui consume l'impur, tu as une capacité naturelle à discerner l'essentiel de l'accessoire. Tu peux être sévère — avec toi-même surtout. Cette rigueur est ta force quand elle est orientée, ta prison quand elle se retourne.",
     globalBaseScore: 0,
     domainModifiers: { Business: 1.2, Amour: 0.85, Relations: 0.9, Créativité: 1.0, Introspection: 1.1, Vitalité: 1.1 },
   },
@@ -91,7 +91,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'La Beauté Fertile',
     keyTrait: 'Grâce créatrice et abondance',
     shadowAspect: 'Possessivité et matérialisme',
-    coreText: "Rohini est la favorite de la Lune — le Nakshatra de la beauté, de la fertilité et de la manifestation. Vous avez un don naturel pour créer, attirer et nourrir. Le monde répond à votre appel. Le danger réside dans l'attachement excessif aux formes et aux personnes.",
+    coreText: "Rohini est la favorite de la Lune — le Nakshatra de la beauté, de la fertilité et de la manifestation. Tu as un don naturel pour créer, attirer et nourrir. Le monde répond à ton appel. Le danger réside dans l'attachement excessif aux formes et aux personnes.",
     globalBaseScore: 1,
     domainModifiers: { Business: 1.3, Amour: 1.4, Relations: 1.2, Créativité: 1.5, Introspection: 0.9, Vitalité: 1.1 }, // V8.9 Gemini Q3 : Rohini — exaltation lunaire, magnétisme créatif maximal
   },
@@ -103,7 +103,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Chercheur Éternel',
     keyTrait: 'Curiosité et exploration',
     shadowAspect: 'Indécision chronique',
-    coreText: "Mrigashira est le chercheur qui ne s'arrête jamais. Vous êtes attiré par le nouveau, l'inconnu, la prochaine colline à explorer. Votre esprit est vif et adaptable. Mais cette quête sans fin peut devenir une fuite — apprendre à s'enraciner sans étouffer votre nature curieuse est votre travail.",
+    coreText: "Mrigashira est le chercheur qui ne s'arrête jamais. Tu es attiré par le nouveau, l'inconnu, la prochaine colline à explorer. Ton esprit est vif et adaptable. Mais cette quête sans fin peut devenir une fuite — apprendre à s'enraciner sans étouffer ta nature curieuse est ton travail.",
     globalBaseScore: 1,
     domainModifiers: { Business: 1.0, Amour: 1.1, Relations: 1.2, Créativité: 1.2, Introspection: 1.0, Vitalité: 1.0 },
   },
@@ -127,7 +127,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Renouveau Sage',
     keyTrait: 'Régénération et optimisme',
     shadowAspect: 'Excès de confiance',
-    coreText: "Punarvasu signifie 'retour de la lumière' — après la tempête d'Ardra vient la régénération. C'est un Nakshatra de renouveau, d'espoir et de sagesse acquise. Jupiter vous accorde une vision positive du monde. Ce jour est favorable pour recommencer, pardonner et réorienter.",
+    coreText: "Punarvasu signifie 'retour de la lumière' — après la tempête d'Ardra vient la régénération. C'est un Nakshatra de renouveau, d'espoir et de sagesse acquise. Jupiter t\'accorde une vision positive du monde. Ce jour est favorable pour recommencer, pardonner et réorienter.",
     globalBaseScore: 1,
     domainModifiers: { Business: 1.0, Amour: 1.1, Relations: 1.2, Créativité: 1.0, Introspection: 1.2, Vitalité: 1.1 },
   },
@@ -151,7 +151,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Mystique Profond',
     keyTrait: 'Pénétration psychologique',
     shadowAspect: 'Manipulation et poison',
-    coreText: "Ashlesha est l'énergie du serpent Kundalini — puissante, ambivalente, transformatrice. Vous avez une capacité naturelle à voir à travers les apparences. Cette perspicacité peut devenir de la méfiance ou de la manipulation si elle n'est pas canalisée avec intégrité.",
+    coreText: "Ashlesha est l'énergie du serpent Kundalini — puissante, ambivalente, transformatrice. Tu as une capacité naturelle à voir à travers les apparences. Cette perspicacité peut devenir de la méfiance ou de la manipulation si elle n'est pas canalisée avec intégrité.",
     globalBaseScore: 0,
     domainModifiers: { Business: 0.9, Amour: 0.8, Relations: 0.75, Créativité: 1.1, Introspection: 1.3, Vitalité: 0.9 },
   },
@@ -163,7 +163,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Roi Ancestral',
     keyTrait: 'Autorité et lignée',
     shadowAspect: 'Arrogance et attachement au passé',
-    coreText: "Magha est le Nakshatra des ancêtres et de l'autorité royale. Il y a en vous une conscience de votre lignée, de ce que vous avez hérité et de ce que vous transmettrez. Ce jour amplifie les questions de leadership, de statut et d'héritage. Favorable au Business, difficile pour l'humilité.",
+    coreText: "Magha est le Nakshatra des ancêtres et de l'autorité royale. Il y a en toi une conscience de ton lignée, de ce que tu as hérité et de ce que tu transmettres. Ce jour amplifie les questions de leadership, de statut et d'héritage. Favorable au Business, difficile pour l'humilité.",
     globalBaseScore: 0,
     domainModifiers: { Business: 1.25, Amour: 0.9, Relations: 0.95, Créativité: 0.9, Introspection: 1.1, Vitalité: 1.0 },
   },
@@ -235,7 +235,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Guerrier Déterminé',
     keyTrait: 'Ambition, persévérance, but',
     shadowAspect: 'Jalousie et obsession du résultat',
-    coreText: "Vishakha est l'arc tendu vers la cible. Ces jours portent une énergie d'ambition déterminée. Jupiter et Indra se partagent ce Nakshatra — expansion spirituelle et puissance matérielle. La question est : vers quelle cible pointez-vous réellement ?",
+    coreText: "Vishakha est l'arc tendu vers la cible. Ces jours portent une énergie d'ambition déterminée. Jupiter et Indra se partagent ce Nakshatra — expansion spirituelle et puissance matérielle. La question est : vers quelle cible pointez-toi réellement ?",
     globalBaseScore: 0,
     domainModifiers: { Business: 1.2, Amour: 0.9, Relations: 0.9, Créativité: 1.0, Introspection: 1.1, Vitalité: 1.1 },
   },
@@ -343,7 +343,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: "L'Ascète Ardent",
     keyTrait: 'Ferveur spirituelle, transformation ascétique',
     shadowAspect: 'Fanatisme et extrémisme',
-    coreText: "PurvaBhadrapada porte le feu de la transformation spirituelle profonde. Ces jours peuvent amener un questionnement radical de vos valeurs ou une ardeur inhabituelle pour quelque chose qui vous dépasse. Jupiter ici n'est pas le philosophe serein — c'est le chercheur consumé par sa quête.",
+    coreText: "PurvaBhadrapada porte le feu de la transformation spirituelle profonde. Ces jours peuvent amener un questionnement radical de tes valeurs ou une ardeur inhabituelle pour quelque chose qui te dépasse. Jupiter ici n'est pas le philosophe serein — c'est le chercheur consumé par sa quête.",
     globalBaseScore: 0,
     domainModifiers: { Business: 0.85, Amour: 0.85, Relations: 0.9, Créativité: 1.1, Introspection: 1.3, Vitalité: 0.9 },
   },
@@ -523,7 +523,7 @@ export function calcNakshatraComposite(
 
   // ── Signals / Alerts ──
   const lordTag  = `${transitLord} ${transitNak.name}`;
-  const r27tag   = rule27Pts !== 0 ? ` ⚡double-activation ${transitNak.name}↔${natalNakName}` : '';
+  const r27tag   = rule27Pts !== 0 ? ` 🌟double-activation ${transitNak.name}↔${natalNakName}` : '';
   const signStr  = total > 0 ? '+' : '';
 
   if (total > 0) {

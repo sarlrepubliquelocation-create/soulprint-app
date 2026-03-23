@@ -9,4 +9,13 @@ export default defineConfig({
     watch: { usePolling: true, interval: 800 },
   },
   legacy: { skipWebSocketTokenCheck: true },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+        },
+      },
+    },
+  },
 })

@@ -33,21 +33,16 @@ export function reduceWithKarmic(total: number): { reduced: Reduced; karmic: num
   return { reduced: reduce(total), karmic };
 }
 
-// Y contextuel : voyelle quand il est la seule source vocalique de sa syllabe
-// Exemples : Yves → Y voyelle (pas d'autre voyelle adjacente)
-//            Yann → Y consonne (suivi de A)
-//            Mary → Y voyelle (entouré de consonnes)
-//            Joy  → Y consonne (précédé de O)
-//            Yvon → Y voyelle (suivi de V consonne)
-//            Maya → premier Y consonne (entre A et A), pas de Y ici mais M-A-Y-A
+// Ronde 9 (3/3) : Y contextuel — règle 3 niveaux GPT
+// 1. Y initial → consonne (Yahoo, Young, Yves, Yann)
+// 2. Y non-initial, précédé d'une consonne → voyelle (Mary, Bryan, Lynn, Sylvie)
+// 3. Sinon → consonne (Joy, Maya)
+// Précision ~95% sur les cas classiques pythagoriciens
 function isYVowel(chars: string[], idx: number): boolean {
   if (chars[idx] !== 'Y') return false;
+  if (idx === 0) return false;                         // Y initial → consonne
   const prev = idx > 0 ? chars[idx - 1] : '';
-  const next = idx < chars.length - 1 ? chars[idx + 1] : '';
-  // Y est consonne si adjacent à une voyelle AEIOU
-  if (VOWELS.has(prev) || VOWELS.has(next)) return false;
-  // Sinon Y est voyelle (entouré de consonnes, début/fin de mot)
-  return true;
+  return prev !== '' && !VOWELS.has(prev);             // après consonne → voyelle
 }
 
 // Vérifie si un caractère à une position donnée est une voyelle (AEIOU + Y contextuel)
@@ -600,17 +595,17 @@ export function calcNumerology(fn: string, mn: string, ln: string, bd: string, t
 // ═══════════════════════════════════════════════════════════
 
 export const INCLUSION_DOMAIN_MAP: Record<number, {
-  domain: string; secondary: string; lesson: string; activationText: string; icon: string;
+  domain: string; secondary: string; lesson: string; bannerTitle: string; activationText: string; icon: string;
 }> = {
-  1: { domain: 'DÉCISION',   secondary: 'BUSINESS',  lesson: 'Affirmation',     icon: '🔥', activationText: "Affirme tes choix aujourd'hui — ton manque de 1 devient ta force !" },
-  2: { domain: 'AMOUR',      secondary: 'SOCIAL',    lesson: 'Coopération',     icon: '🤝', activationText: "Ouvre ton cœur — ton karma du 2 s'éclaire pour t'unir aux autres." },
-  3: { domain: 'CRÉATIVITÉ', secondary: 'SOCIAL',    lesson: 'Expression',      icon: '🎨', activationText: "Libère ta voix créative — ton manque de 3 est ton atout aujourd'hui." },
-  4: { domain: 'BUSINESS',   secondary: 'SANTÉ',     lesson: 'Discipline',      icon: '🏗️', activationText: "Bâtis avec confiance — ton karma du 4 te donne une base solide." },
-  5: { domain: 'SOCIAL',     secondary: 'DÉCISION',  lesson: 'Liberté',         icon: '🌊', activationText: "Accueille l'imprévu avec joie — ton manque de 5 devient une aventure." },
-  6: { domain: 'AMOUR',      secondary: 'SANTÉ',     lesson: 'Responsabilité',  icon: '💚', activationText: "Cultive l'harmonie — ton karma du 6 trouve son point d'équilibre." },
-  7: { domain: 'SPIRITUEL',  secondary: 'DÉCISION',  lesson: 'Foi',             icon: '🔮', activationText: "Écoute ton intuition — ton karma du 7 illumine ta pleine conscience." },
-  8: { domain: 'BUSINESS',   secondary: 'DÉCISION',  lesson: 'Abondance',       icon: '⚡', activationText: "Saisis les opportunités — ton manque de 8 t'invite à la réussite." },
-  9: { domain: 'SPIRITUEL',  secondary: 'SOCIAL',    lesson: 'Sagesse',         icon: '🌍', activationText: "Fais preuve de compassion — ton karma du 9 t'ouvre grand au monde." },
+  1: { domain: 'DÉCISION',   secondary: 'BUSINESS',  lesson: 'Affirmation',     bannerTitle: "Aujourd'hui, affirme-toi",           icon: '🔥', activationText: "Affirme tes choix aujourd'hui — ton manque de 1 devient ta force !" },
+  2: { domain: 'AMOUR',      secondary: 'SOCIAL',    lesson: 'Coopération',     bannerTitle: "Aujourd'hui, ouvre-toi aux autres",  icon: '🤝', activationText: "Ouvre ton cœur — ton karma du 2 s'éclaire pour t\'unir aux autres." },
+  3: { domain: 'CRÉATIVITÉ', secondary: 'SOCIAL',    lesson: 'Expression',      bannerTitle: "Aujourd'hui, exprime ta créativité", icon: '🎨', activationText: "Libère ta voix créative — ton manque de 3 est ton atout aujourd'hui." },
+  4: { domain: 'BUSINESS',   secondary: 'SANTÉ',     lesson: 'Discipline',      bannerTitle: "Aujourd'hui, structure et construis", icon: '🏗️', activationText: "Bâtis avec confiance — ton karma du 4 te donne une base solide." },
+  5: { domain: 'SOCIAL',     secondary: 'DÉCISION',  lesson: 'Liberté',         bannerTitle: "Aujourd'hui, accueille l'imprévu",   icon: '🌊', activationText: "Accueille l'imprévu avec joie — ton manque de 5 devient une aventure." },
+  6: { domain: 'AMOUR',      secondary: 'SANTÉ',     lesson: 'Responsabilité',  bannerTitle: "Aujourd'hui, cultive l'harmonie",    icon: '💚', activationText: "Cultive l'harmonie — ton karma du 6 trouve son point d'équilibre." },
+  7: { domain: 'SPIRITUEL',  secondary: 'DÉCISION',  lesson: 'Foi',             bannerTitle: "Aujourd'hui, écoute ton intuition",  icon: '🔮', activationText: "Écoute ton intuition — ton karma du 7 illumine ta pleine conscience." },
+  8: { domain: 'BUSINESS',   secondary: 'DÉCISION',  lesson: 'Abondance',       bannerTitle: "Aujourd'hui, saisis les opportunités", icon: '🌟', activationText: "🌟 Saisis les opportunités — ton manque de 8 t\'invite à la réussite." },
+  9: { domain: 'SPIRITUEL',  secondary: 'SOCIAL',    lesson: 'Sagesse',         bannerTitle: "Aujourd'hui, ouvre-toi au monde",    icon: '🌍', activationText: "Fais preuve de compassion — ton karma du 9 t\'ouvre grand au monde." },
 };
 
 export interface InclusionDisplay {

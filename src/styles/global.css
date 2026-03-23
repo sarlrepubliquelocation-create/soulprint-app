@@ -34,3 +34,126 @@ input, select, button {
 .fade-in {
   animation: fadeIn 0.4s ease-out;
 }
+
+/* ═══ RESPONSIVE — Phase 3 ═══ */
+
+/* Utility: force 2-col on small screens when parent uses 3-col grid */
+.grid-responsive-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.grid-responsive-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+
+/* Mobile < 480px */
+@media (max-width: 480px) {
+  /* Main container padding */
+  .app-container {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  /* Tab bar: smaller text */
+  .sp-tabs-bar button {
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+    white-space: nowrap;
+  }
+
+  /* 3-col → 2-col */
+  .grid-responsive-3 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* 4-col → 2-col */
+  .grid-responsive-4 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Oracle type selector: 2-col on mobile */
+  .oracle-type-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Flex items: allow wrapping on mobile (IChingTab) */
+  .flex-wrap-mobile {
+    flex-wrap: wrap !important;
+  }
+  .flex-wrap-mobile > * {
+    min-width: 140px !important;
+  }
+
+  /* Profile 4-col grids → 2-col */
+  .grid-profile-4 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Score wheel scale down */
+  .score-wheel {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+
+  /* Cards: reduce padding on mobile */
+  .card-compact {
+    padding: 12px !important;
+  }
+
+  /* Header: smaller title on mobile */
+  .app-title {
+    font-size: 32px !important;
+    letter-spacing: 4px !important;
+  }
+
+  /* Temporal context: stack vertically */
+  .temporal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Hide text labels on very small tabs */
+  .tab-label-hide {
+    display: none;
+  }
+}
+
+/* Very small < 360px */
+@media (max-width: 360px) {
+  .app-container {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  .sp-tabs-bar button {
+    font-size: 10px !important;
+    padding: 5px 6px !important;
+    gap: 2px !important;
+  }
+
+  /* 3-col → 1-col */
+  .grid-responsive-3 {
+    grid-template-columns: 1fr !important;
+  }
+  /* 4-col → 2-col still OK at 360 */
+
+  .app-title {
+    font-size: 26px !important;
+    letter-spacing: 2px !important;
+  }
+}
+
+/* Focus visible for keyboard navigation — WCAG AA */
+:focus-visible {
+  outline: 2px solid #D4AF37;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible {
+  outline: 2px solid #D4AF37;
+  outline-offset: 2px;
+}
+input:focus-visible {
+  outline: 2px solid #D4AF37;
+  outline-offset: 1px;
+}

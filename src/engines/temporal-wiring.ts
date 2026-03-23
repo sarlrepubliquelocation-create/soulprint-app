@@ -9,9 +9,10 @@
 //   <TemporalTab data={temporalData} />
 
 import { type NumerologyProfile, calcPersonalYear } from './numerology';
+import { type TemporalCI, calcCIAtDays, calcTendanceScore } from './temporal-layers';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { type ConvergenceResult, calcDayPreview } from './convergence';
-import { getMercuryStatus, getRetroSchedule, getEclipseList } from './moon';
+import { getMercuryStatus, getRetroSchedule, getEclipseList, type RetroScheduleItem, type EclipseListItem } from './moon';
 import {
   type PinnacleInfo,
   type MomentumResult,
@@ -24,12 +25,14 @@ import {
   type PlanetaryRetro,
   type RetroPeriod,
   type EclipseInfo,
+  type MACDResult,
   calcMomentum,
   calcForecast,
   calcPastAnalysis,
   calcPresentContext,
   detectArc,
   generateTemporalNarrative,
+  calcMACD,
 } from './temporal';
 import { type TemporalData } from '../components/TemporalTab';
 
@@ -77,11 +80,11 @@ function adaptRetroSchedule(): RetroPeriod[] {
   try {
     const schedule = getRetroSchedule();
     // getRetroSchedule retourne un tableau avec { planet, start, end } ou similaire
-    return (schedule || []).map((r: any) => ({
+    return (schedule || []).map((r) => ({
       planet: r.planet || 'Mercure',
-      start: typeof r.start === 'string' ? r.start : r.start?.toISOString?.()?.slice(0, 10) || '',
-      end: typeof r.end === 'string' ? r.end : r.end?.toISOString?.()?.slice(0, 10) || '',
-    })).filter((r: RetroPeriod) => r.start && r.end);
+      start: r.start,
+      end: r.end,
+    })).filter((r): r is RetroPeriod => !!r.start && !!r.end);
   } catch {
     return [];
   }
@@ -91,10 +94,10 @@ function adaptRetroSchedule(): RetroPeriod[] {
 function adaptEclipseList(): EclipseInfo[] {
   try {
     const eclipses = getEclipseList();
-    return (eclipses || []).map((e: any) => ({
-      date: typeof e.date === 'string' ? e.date : e.date?.toISOString?.()?.slice(0, 10) || '',
+    return (eclipses || []).map((e) => ({
+      date: e.date,
       type: e.type || 'lunaire',
-    })).filter((e: EclipseInfo) => e.date);
+    })).filter((e): e is EclipseInfo => !!e.date);
   } catch {
     return [];
   }
@@ -197,11 +200,29 @@ export function computeTemporalData(
     mercuryStatus, activeRetrogrades
   );
 
-  // ── 5. ARC NARRATIF ──
+  // ── 5. MACD TREND INVERSION ──
+  const macd = calcMACD(getScore, today);
+
+  // ── 6. ARC NARRATIF ──
   const arc = detectArc(past, present, momentum, forecast);
 
-  // ── 6. NARRATIVE TEMPORELLE ──
-  const narrative = generateTemporalNarrative(past, present, momentum, forecast);
+  // ── 7. NARRATIVE TEMPORELLE (V2 — Template Factory) ──
+  // Utiliser conv.score (vrai score convergence) au lieu de getScore() (approximation)
+  // pour cohérence avec le Potentiel d'Action affiché dans TemporalTab
+  const todaySignalScore = conv.score;
+  const todayTrendScore = calcTendanceScore(calcPY(today), calcPM(today));
+  const narrative = generateTemporalNarrative(past, present, momentum, forecast, todaySignalScore, todayTrendScore);
 
-  return { momentum, forecast, past, present, arc, narrative };
+  // ── 8. CI(t) FIABILITÉ DES PRÉVISIONS ──
+  // Calcul au point médian de chaque horizon, avec sigma réel du momentum
+  const sigma7j = momentum.scores.length > 1
+    ? Math.sqrt(momentum.scores.reduce((s, v) => s + (v - momentum.avgLast7) ** 2, 0) / momentum.scores.length)
+    : 10;
+  const forecastCI = {
+    ci7:  calcCIAtDays(4, 0.7, sigma7j),   // milieu 7j
+    ci30: calcCIAtDays(15, 0.7, sigma7j),   // milieu 30j
+    ci90: calcCIAtDays(45, 0.7, sigma7j),   // milieu 90j
+  };
+
+  return { momentum, forecast, past, present, arc, narrative, macd, forecastCI };
 }

@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { generateForecast36Months, type MonthForecast, type LifeDomain } from '../engines/convergence';
+import { useState, useMemo } from 'react';
+import { type MonthForecast, type LifeDomain } from '../engines/convergence';
 import { calcTemporalLayers, calcCI } from '../engines/temporal-layers';
 import { type SoulData } from '../App';
 import { Cd, P } from './ui';
+import { useForecastWorker } from '../hooks/useForecastWorker';
 
 // ══════════════════════════════════════════════════════════════════
 // ═══ HORIZON 36 MOIS — V4.5 MOMENTUM ═══
@@ -13,10 +14,10 @@ import { Cd, P } from './ui';
 
 const DOMAIN_ICONS: Record<LifeDomain, string> = {
   BUSINESS: '💼', AMOUR: '❤️', RELATIONS: '🤝',
-  CREATIVITE: '✨', INTROSPECTION: '🧘', VITALITE: '⚡',
+  CREATIVITE: '✨', INTROSPECTION: '🧘', VITALITE: '🌟',
 };
 const DOMAIN_LABELS: Record<LifeDomain, string> = {
-  BUSINESS: 'Business', AMOUR: 'Amour', RELATIONS: 'Relations',
+  BUSINESS: 'Affaires', AMOUR: 'Amour', RELATIONS: 'Relations',
   CREATIVITE: 'Créativité', INTROSPECTION: 'Introspection', VITALITE: 'Vitalité',
 };
 const MONTH_FULL = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -40,27 +41,27 @@ const TIER_CONFIG: Record<MomentumTier, {
   acceleration: {
     icon: '🚀', label: 'Accélération',
     color: '#FFD700', bg: '#FFD70012', border: '#FFD70035',
-    advice: 'Période rare et puissante. Lancez vos projets, signez, décidez. Le vent souffle fort dans votre sens.',
+    advice: 'Période rare et puissante. Lance tes projets, signe, décide. Le vent souffle fort dans ton sens.',
   },
   elan: {
     icon: '✅', label: 'Élan',
     color: '#4ade80', bg: '#4ade8012', border: '#4ade8030',
-    advice: 'Bonne dynamique. Avancez sur vos objectifs prioritaires et profitez des fenêtres d\'action du mois.',
+    advice: 'Bonne dynamique. Avance sur tes objectifs prioritaires et profite des fenêtres d\'action du mois.',
   },
   continuite: {
     icon: '➡', label: 'Continuité',
     color: '#71717a', bg: '#71717a10', border: '#71717a25',
-    advice: 'Période normale — c\'est la majorité du temps. Avancez régulièrement, sans forcer ni ralentir.',
+    advice: 'Période normale — c\'est la majorité du temps. Avance régulièrement, sans forcer ni ralentir.',
   },
   repli: {
     icon: '⏸', label: 'Repli',
     color: '#a78bfa', bg: '#a78bfa0c', border: '#a78bfa25',
-    advice: 'Période de consolidation. Préparez le terrain, réfléchissez stratégiquement. Reportez les grandes décisions.',
+    advice: 'Période de consolidation. Prépare le terrain, réfléchis stratégiquement. Reporte les grandes décisions.',
   },
   protection: {
     icon: '🛡', label: 'Protection',
     color: '#3b82f6', bg: '#3b82f60c', border: '#3b82f625',
-    advice: 'Période de friction. Protégez vos acquis, économisez votre énergie. Les phases basses préparent les rebonds.',
+    advice: 'Période de friction. Protège tes acquis, économise ton énergie. Les phases basses préparent les rebonds.',
   },
 };
 
@@ -111,15 +112,15 @@ function calcMomentum(scores: number[]): MomentumData[] {
 
 function rankText(rank: number, total: number): string {
   const pct = Math.round(((total - rank) / (total - 1)) * 100);
-  if (rank === 1) return '✦ Votre meilleur mois des 3 ans';
+  if (rank === 1) return '✦ Ton meilleur mois des 3 ans';
   if (rank === 2) return '✦ 2ᵉ meilleur mois des 3 ans';
   if (rank === 3) return '✦ 3ᵉ meilleur mois des 3 ans';
-  if (pct >= 90) return 'Parmi vos meilleurs mois';
-  if (pct >= 75) return 'Bien au-dessus de votre normale';
-  if (pct >= 50) return 'Au-dessus de votre normale';
-  if (pct >= 25) return 'Dans votre normale';
-  if (pct >= 10) return 'En dessous de votre normale';
-  return 'Parmi vos mois les plus calmes';
+  if (pct >= 90) return 'Parmi tes meilleurs mois';
+  if (pct >= 75) return 'Bien au-dessus de ton normale';
+  if (pct >= 50) return 'Au-dessus de ton normale';
+  if (pct >= 25) return 'Dans ton normale';
+  if (pct >= 10) return 'En dessous de ton normale';
+  return 'Parmi tes mois les plus calmes';
 }
 
 // Zone de Mutation : dégradé opacité mois 19 → 36
@@ -137,25 +138,11 @@ function mutationOpacity(idx: number): number {
 export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
 
-  // Sprint AH — Déférer le calcul lourd (1080 calcDayPreview) hors du premier paint.
-  // Le cache Phase 2 rend les re-renders suivants quasi-instantanés.
-  const [forecast, setForecast] = useState<MonthForecast[]>([]);
-  const [forecastLoading, setForecastLoading] = useState(true);
-
-  const computeForecast = useCallback(() => {
-    try { return generateForecast36Months(bd, data.num, data.cz, new Date(), 0, data.astro); }
-    catch (e) { console.error('Horizon error:', e); return []; }
-  }, [bd, data.num, data.cz, data.astro]);
-
-  useEffect(() => {
-    setForecastLoading(true);
-    const timer = setTimeout(() => {
-      const result = computeForecast();
-      setForecast(result);
-      setForecastLoading(false);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [computeForecast]);
+  // Sprint AH — Web Worker pour calcul lourd (1080 calcDayPreview).
+  // Fallback automatique sur main thread si Worker indisponible.
+  const { forecast, loading: forecastLoading, durationMs, workerUsed } = useForecastWorker(
+    bd, data.num, data.cz, data.astro, 0,
+  );
 
   const temporalCtx = useMemo(() => {
     try {
@@ -187,7 +174,7 @@ export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }
     return (
       <Cd>
         <div style={{ textAlign: 'center', color: P.textDim, padding: 40 }}>
-          Impossible de calculer les tendances. Vérifiez votre date de naissance.
+          Impossible de calculer les tendances. Vérifiez ton date de naissance.
         </div>
       </Cd>
     );
@@ -222,8 +209,8 @@ export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }
           🔭 Horizon 36 mois — Momentum
         </div>
         <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, lineHeight: 1.6 }}>
-          La <b style={{ color: P.text }}>forme de vos 3 prochaines années</b> — quand le vent souffle dans votre sens, quand il ralentit.
-          Les barres indiquent votre position <b style={{ color: P.text }}>par rapport à votre propre normale</b>, pas à une échelle universelle.
+          La <b style={{ color: P.text }}>forme de tes 3 prochaines années</b> — quand le vent souffle dans ton sens, quand il ralentit.
+          Les barres indiquent ta position <b style={{ color: P.text }}>par rapport à ta propre normale</b>, pas à une échelle universelle.
         </div>
       </div>
 
@@ -506,10 +493,10 @@ export default function ForecastTab({ data, bd }: { data: SoulData; bd: string }
           <div style={{ padding: '12px 14px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
             <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
               {selMom.tier === 'protection'
-                ? 'Mois calme — pas de fenêtre d\'action identifiée. Conservez votre énergie, observez, préparez. Le rebond vient après.'
+                ? 'Mois calme — pas de fenêtre d\'action identifiée. Conserve ton énergie, observe, prépare. Le rebond vient après.'
                 : selMom.tier === 'repli'
                 ? 'Pas de fenêtre d\'action ce mois-ci. Bon moment pour réfléchir, planifier, et poser les bases des prochains mois porteurs.'
-                : 'Pas de fenêtre d\'action spécifique — avancez régulièrement sur vos projets en cours.'}
+                : 'Pas de fenêtre d\'action spécifique — avance régulièrement sur tes projets en cours.'}
             </div>
           </div>
         )}

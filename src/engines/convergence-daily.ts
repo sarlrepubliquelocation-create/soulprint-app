@@ -7,7 +7,7 @@
 // ══════════════════════════════════════
 
 import { type NumerologyProfile, getNumberInfo, isMaster, getActivePinnacleIdx } from './numerology';
-import { type AstroChart, PLANET_FR, SIGN_FR, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
+import { type AstroChart, PLANET_FR, SIGN_FR, SIGNS, calcPersonalTransits, getPlanetLongitudeForDate } from './astrology';
 import { type IChingReading, getHexTier } from './iching';
 import { getMoonPhase, getLunarEvents, getMoonTransit, getMercuryStatus, getLunarNodeTransit, type LunarNodeTransit, getVoidOfCourseMoon, type VoidOfCourseMoon } from './moon'; // Sprint AO P6: getPlanetaryRetroScore retiré
 import { calcBaZiDaily, calc10Gods, calcDayMaster, getMonthPillar, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ShenShaResult } from './bazi'; // Sprint AS P1 : getElementRelation + ChangshengResult retirés (zéro usage dans ce fichier)
@@ -29,7 +29,7 @@ import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, typ
 // ══════════════════════════════════════
 
 const DAY_TYPES: Record<DayType, Omit<DayTypeInfo, 'type'>> = {
-  decision:      { label: 'Décision',      icon: '⚡', desc: 'Énergie favorable aux choix importants et engagements',      color: '#FFD700' },
+  decision:      { label: 'Décision',      icon: '🌟', desc: 'Énergie favorable aux choix importants et engagements',      color: '#FFD700' },
   observation:   { label: 'Observation',   icon: '🔍', desc: "Énergie tournée vers l'analyse et la compréhension",          color: '#60a5fa' },
   communication: { label: 'Communication', icon: '🤝', desc: 'Énergie propice aux échanges, contacts et négociations',     color: '#4ade80' },
   retrait:       { label: 'Retrait',       icon: '🧘', desc: 'Énergie de repos stratégique et de recentrage',              color: '#9370DB' },
@@ -145,7 +145,7 @@ export interface DailyModuleResult {
   pyv: number;
   moonPhaseRawPhase: number;  // moonPhaseRaw.phase
   // Needed for R21/R27 scoring in L2
-  _transitBreakdown: Array<{ transitPlanet: string; score: number; aspectType?: string }>;
+  _transitBreakdown: Array<{ transitPlanet: string; natalPoint?: string; score: number; aspectType?: string }>;
   planetaryHour: PlanetaryHour | null; // V9 Sprint 4 — heure planétaire chaldéenne courante
   // Z2-B — deltas de groupe pour observabilité L3 (Ronde Z consensus 3/3)
   baziGroupDelta: number;   // C_BAZI capé ±15
@@ -304,103 +304,142 @@ function enrichDomainScoresWithHouses(
   }
 }
 
-// ══════════════════════════════════════
-// ═══ CALC DAILY MODULES — L1 ═══
-// Contient tous les modules quotidiens de calcConvergence (L1518-L2177)
-// Option A : breakdown[], signals[], alerts[] passés par référence
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// ═══ Ronde Transit Fix — calcTransitsLite (consensus 3/3 Option B) ═══
+// Recalcule les transits personnels pour une date quelconque en utilisant
+// getPlanetLongitudeForDate (Meeus) au lieu de astro.tr figé au jour J.
+// Mêmes planètes lentes (5), mêmes points nataux (7), mêmes orbes,
+// même gaussienne σ=1.2° que calcPersonalTransits.
+// Pas de filtre natal (natalAspects), dignités, stelliums — ces modifiers
+// sont structurels et ne changent pas le diagnostic (biais ±0.3 pts max).
+// ══════════════════════════════════════════════════════════════════════
 
-export function calcDailyModules(
-  params: {
-    num: NumerologyProfile;
-    astro: AstroChart | null;
-    iching: IChingReading;
-    bd: string;
-    todayStr: string;
-  },
-  breakdown: SystemBreakdown[],
-  signals: string[],
-  alerts: string[]
-): DailyModuleResult {
-  const { num, astro, iching, bd, todayStr } = params;
+// Amplitudes identiques à TRANSIT_AMPLITUDES dans astrology.ts
+const _LITE_AMPLITUDES: Record<string, { harmonic: number; tense: number; conjunction: number }> = {
+  jupiter:  { harmonic:  6, tense: -2, conjunction:  6 },
+  saturn:   { harmonic:  4, tense: -8, conjunction: -6 },
+  uranus:   { harmonic:  6, tense: -6, conjunction:  5 },
+  neptune:  { harmonic:  5, tense: -5, conjunction:  3 },
+  pluto:    { harmonic: 10, tense: -10, conjunction: -8 },
+};
+const _LITE_NATAL_MULTS: Record<string, number> = { sun: 1.5, moon: 1.5, asc: 1.2 };
+const _LITE_SLOW = ['jupiter', 'saturn', 'uranus', 'neptune', 'pluto'] as const;
+const _LITE_NATAL_TARGETS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'] as const;
+// Aspects : { angle, maxOrb }
+const _LITE_ASPECTS = [
+  { name: 'conjunction', angle: 0, orb: 3 },
+  { name: 'opposition', angle: 180, orb: 3 },
+  { name: 'trine', angle: 120, orb: 3 },
+  { name: 'square', angle: 90, orb: 3 },
+  { name: 'sextile', angle: 60, orb: 2 },
+] as const;
+const _LITE_HARMONIC = new Set(['trine', 'sextile']);
+const _LITE_TENSE = new Set(['square', 'opposition']);
 
-  let delta = 0;
-  const pdv = num.ppd.v;
-  const pdInfo = getNumberInfo(pdv);
+function calcTransitsLite(
+  natalPlanets: Array<{ k: string; s: string; d: number }>,
+  targetDate: string,
+): number {
+  const sigma = 1.2;
+  const sigmaSq2 = 2 * sigma * sigma;
+  const gaussian = (orb: number) => Math.exp(-(orb * orb) / sigmaSq2);
+  const targetD = new Date(targetDate + 'T12:00:00');
 
-  // ═══════════════════════════════════
-  // 1. NUMÉROLOGIE (±14) — V4.4b: ±13→±14
-  // PD ±7, PM ±3, PY ±3, Pinnacle ±1
-  // ═══════════════════════════════════
+  let total = 0;
 
-  const numSignals: string[] = [];
-  const numAlerts: string[] = [];
-  const numDetail: string[] = [];
+  for (const tp of _LITE_SLOW) {
+    const transitLon = getPlanetLongitudeForDate(tp, targetD);
+    const ampTable = _LITE_AMPLITUDES[tp];
+    if (!ampTable) continue;
 
-  // ── PD (±7) ──
-  let pdPts = 0;
-  if (pdv === num.lp.v)        { pdPts = 7; numDetail.push(`PD=CdV(+7)`); numSignals.push(`Jour ${pdv} = Chemin de Vie → alignement majeur`); }
-  else if (pdv === num.expr.v) { pdPts = 5; numDetail.push(`PD=Expr(+5)`); numSignals.push(`Jour ${pdv} = Expression → talents amplifiés`); }
-  else if (pdv === num.soul.v) { pdPts = 4; numDetail.push(`PD=Âme(+4)`); numSignals.push(`Jour ${pdv} = Âme → désirs profonds activés`); }
-  else if (pdv === num.pers.v) { pdPts = 3; numDetail.push(`PD=Perso(+3)`); numSignals.push(`Jour ${pdv} = Personnalité → charisme renforcé`); }
-  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); numDetail.push(`Maître(+2)`); numSignals.push(`Jour Maître ${pdv} → énergie spirituelle`); }
-  if (num.kl.includes(pdv))    { pdPts = Math.min(7, pdPts + 1); numDetail.push(`Leçon(+1)`); }
-  pdPts = Math.max(-7, Math.min(7, pdPts));
+    for (const np of natalPlanets) {
+      if (!(_LITE_NATAL_TARGETS as readonly string[]).includes(np.k)) continue;
+      const natalLon = np.d + SIGNS.indexOf(np.s) * 30;
 
-  // ── PY — V6.2: narratif pur, delta supprimé (R18 final) ──
-  const pyv = num.py.v;
-  const pyPts = 0; // plus d'impact sur le score
+      const diff = Math.abs(transitLon - natalLon);
+      const normDiff = diff > 180 ? 360 - diff : diff;
 
-  // ── PM (±3) ──
-  const pmv = num.pm.v;
-  let pmPts = 0;
-  if (pmv === num.lp.v)               pmPts = 3;
-  else if ([1, 3, 8].includes(pmv))   pmPts = 2;
-  else if ([4, 7].includes(pmv))      pmPts = -2;
-  else if ([2, 6].includes(pmv))      pmPts = 1;
-  pmPts = Math.max(-3, Math.min(3, pmPts));
-  // PM narratif supprimé V6.2 (exclu du delta)
+      for (const asp of _LITE_ASPECTS) {
+        const orbVal = Math.abs(normDiff - asp.angle);
+        if (orbVal > asp.orb) continue;
 
-  // ── Pinnacle (±1) ──
-  const pinnIdx = getActivePinnacleIdx(bd, todayStr, num.lp);
-  const activePinnacle = num.pinnacles[pinnIdx];
-  const activeChallenge = num.challenges[pinnIdx];
-  let pinnPts = 0;
-  if (activePinnacle && pdv === activePinnacle.v) { pinnPts = 1; } // Pinnacle narratif supprimé V6.2
-  if (activeChallenge && pdv === activeChallenge.v) { pinnPts = -1; } // Défi narratif supprimé V6.2
+        let amplitude: number;
+        if (asp.name === 'conjunction') amplitude = ampTable.conjunction;
+        else if (_LITE_HARMONIC.has(asp.name)) amplitude = ampTable.harmonic;
+        else if (_LITE_TENSE.has(asp.name)) amplitude = ampTable.tense;
+        else continue;
 
-  // Sprint AO P6 — Numérologie : delta=0 depuis V8, breakdown supprimé
-  // Sprint AR P3 : numTotal=0 stub supprimé (Ronde 11 consensus 3/3)
-  // Karmic debt signals conservés (valeur narrative)
-  if ((num as any).hasKarmicDebt && (num as any).karmicDebt) {
-    const kd = (num as any).karmicDebt as number;
-    const kdMsg = kd === 13 ? 'effort & discipline' : kd === 14 ? 'liberté & excès' : kd === 16 ? 'ego & humilité' : 'puissance & abus';
-    signals.push(`⚖️ Dette karmique ${kd} — ${kdMsg}`);
+        const natalMult = _LITE_NATAL_MULTS[np.k] ?? 1.0;
+        const intensity = gaussian(orbVal);
+        total += amplitude * natalMult * intensity;
+      }
+    }
   }
-  signals.push(...numSignals);
-  alerts.push(...numAlerts);
 
-  // ═══════════════════════════════════
-  // 2. BaZi FAMILLE (±18 groupé) — V4.4b
-  // ═══════════════════════════════════
+  return Math.max(-15, Math.min(15, +total.toFixed(2)));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ═══ GROUP RESULT INTERFACES — Refactoring Step 5b ═══
+// Chaque sous-fonction retourne ses propres arrays (pur, pas de mutation)
+// ══════════════════════════════════════════════════════════════════════
+
+interface GroupOutput {
+  breakdowns: SystemBreakdown[];
+  signals: string[];
+  alerts: string[];
+}
+
+interface BaziGroupOutput extends GroupOutput {
+  baziFamilyTotal: number;
+  baziResult: DayMasterDailyResult | null;
+  tenGodsResult: TenGodsResult | null;
+  shenShaResult: ShenShaResult | null;
+  profectionResult: ProfectionResult | undefined;
+  directDomainBonuses: Partial<Record<LifeDomain, number>>;
+  dmS: number;
+}
+
+interface LuneGroupOutput extends GroupOutput {
+  luneGroupCapped: number;
+  nakshatraData: NakshatraData | undefined;
+  vocResult: VoidOfCourseMoon | null;
+  panchangaResult: PanchangaResult | null;
+  natalMoonSidForNak: number | null;
+}
+
+interface EphemGroupOutput extends GroupOutput {
+  ephemGroupCapped: number;
+  _transitBreakdown: Array<{ transitPlanet: string; natalPoint?: string; score: number; aspectType?: string }>;
+  planetaryHour: PlanetaryHour | null;
+}
+
+interface IndivGroupOutput extends GroupOutput {
+  indivGroupCapped: number;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ═══ _calcBaziGroup — C_BAZI ±15 ═══
+// BaZi DM + 10 Gods + Shen Sha + Jian Chu + Profections + Domaines
+// ══════════════════════════════════════════════════════════════════════
+
+function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null): BaziGroupOutput {
+  const breakdowns: SystemBreakdown[] = [];
+  const signals: string[] = [];
+  const alerts: string[] = [];
 
   let baziResult: DayMasterDailyResult | null = null;
   let tenGodsResult: TenGodsResult | null = null;
   let baziDMPts = 0;
   let tenGodsPts = 0;
-  let dmS = 0; // Sprint AJ — facteur DM Strength s ∈ [-1,+1], utilisé aussi par Shen Sha
-  // Sprint AN — C_INDIV hoisted variables (Ronde 6 P2 : individuels groupés cap ±8)
-  let indivTLG = 0;      // Tithi Lord Gochara
-  let indivDrishti = 0;  // Graha Drishti
-  let indivKartari = 0;  // Yoga Kartari
+  let dmS = 0;
   const baziSignals: string[] = [];
   const baziAlerts: string[] = [];
 
-  const birthDate = safeParseDateLocal(bd) ?? new Date(bd + 'T12:00:00'); // Sprint AG: validated
-  const todayDate = safeParseDateLocal(todayStr) ?? new Date(todayStr + 'T12:00:00'); // Sprint AG
+  const birthDate = safeParseDateLocal(bd) ?? new Date(bd + 'T12:00:00');
+  const todayDate = safeParseDateLocal(todayStr) ?? new Date(todayStr + 'T12:00:00');
 
   try {
-
     baziResult = calcBaZiDaily(birthDate, todayDate, 50);
     baziDMPts = Math.max(-6, Math.min(6, Math.round(baziResult.totalScore * 2)));
     if (baziDMPts > 0) {
@@ -410,14 +449,11 @@ export function calcDailyModules(
     }
 
     tenGodsResult = calc10Gods(birthDate, todayDate);
-    // Sprint AI — Modulation DM Strength sur 10 Gods (±20%)
-    // Le DM Strength est statique (natal), calculé une fois
     let dmResult: DMStrengthResult | null = null;
     try {
-      dmResult = calcDMStrength(birthDate, null); // null = pas d'heure pour l'instant
+      dmResult = calcDMStrength(birthDate, null);
     } catch { /* DM strength fail silently */ }
     dmS = dmResult?.s ?? 0;
-    // Appliquer le multiplicateur DM au score total des 10 Gods
     const rawTenGods = tenGodsResult.totalScore;
     const dominantGod = tenGodsResult.dominant?.god;
     const dmMult = dominantGod ? getDMMultiplier(dominantGod, dmS) : 1.0;
@@ -431,7 +467,7 @@ export function calcDailyModules(
     }
   } catch { /* BaZi/10Gods fail silently */ }
 
-  // Peach Blossom (+2, Amour domain only — pas dans le score global)
+  // Peach Blossom (+2, Amour domain only)
   let peachBlossomActive = false;
   try {
     const peachBirthDate = new Date(bd + 'T12:00:00');
@@ -440,12 +476,12 @@ export function calcDailyModules(
     peachBlossomActive = peachResult.active;
   } catch { /* silent */ }
 
-  const baziCorePts = Math.max(-8, Math.min(8, baziDMPts + tenGodsPts)); // Sprint AN — sub-cap ±8 (Ronde 6 P3 : fusion colinéarité DM+10Gods)
+  const baziCorePts = Math.max(-8, Math.min(8, baziDMPts + tenGodsPts));
 
   signals.push(...baziSignals);
   alerts.push(...baziAlerts);
 
-  breakdown.push({
+  breakdowns.push({
     system: 'BaZi', icon: '干',
     value: baziResult ? `${baziResult.dailyStem.chinese} ${baziResult.dailyStem.pinyin}` : 'N/A',
     points: baziDMPts,
@@ -454,7 +490,7 @@ export function calcDailyModules(
   });
 
   if (tenGodsResult) {
-    breakdown.push({
+    breakdowns.push({
       system: '10 Gods', icon: '神',
       value: tenGodsResult.dominant ? tenGodsResult.dominant.label : 'Neutre',
       points: tenGodsPts,
@@ -465,7 +501,7 @@ export function calcDailyModules(
   }
 
   if (peachBlossomActive) {
-    breakdown.push({
+    breakdowns.push({
       system: 'Peach Blossom', icon: '🌸',
       value: '桃花 Active', points: 2,
       detail: 'Peach Blossom du jour → charme amplifié',
@@ -473,12 +509,7 @@ export function calcDailyModules(
     });
   }
 
-  // Sprint AR P3 : changshengResult + changshengPts stubs supprimés (Ronde 11 consensus 3/3)
-
-  // ═══════════════════════════════════
-  // 2c. SHEN SHA 神煞 (0-4 global) — V4.3
-  // ═══════════════════════════════════
-
+  // ── Shen Sha 神煞 (0-4 global) ──
   let shenShaResult: ShenShaResult | null = null;
   let shenShaPts = 0;
   try {
@@ -486,24 +517,15 @@ export function calcDailyModules(
     const ssTodayDate = new Date(todayStr + 'T12:00:00');
     shenShaResult = checkShenSha(ssBirthDate, ssTodayDate);
 
-    // Sprint AJ — Chantier 5 : scoring anti-stack cap ±4
-    // Consensus 3/3 IAs (GPT R2 + Grok R2 + Gemini R2)
-    // 1. Trier par |global| décroissant
-    // 2. Poids dégressifs [1, 0.6, 0.4, 0.3, 0.25, 0.2, 0.2, ...]
-    // 3. Interaction DM : étoiles négatives ×(1+0.25×(-s)), protectrices ×(1+0.20×(-s))
-    // 4. Cap final ±4
     const ANTI_STACK_WEIGHTS = [1, 0.6, 0.4, 0.3, 0.25, 0.2];
     const sorted = [...shenShaResult.active].sort((a, b) => Math.abs(b.global) - Math.abs(a.global));
     let rawShenSha = 0;
     for (let i = 0; i < sorted.length; i++) {
       const star = sorted[i];
       let pts = star.global;
-      // Interaction DM × Shen Sha (dmS provient du calcul DM Strength plus haut)
       if (pts < 0) {
-        // Étoiles négatives : amplifiées si DM faible (s < 0 → -s > 0)
         pts = pts * (1 + 0.25 * Math.max(0, -dmS));
       } else if (pts > 0) {
-        // Étoiles protectrices/positives : amplifiées si DM faible
         pts = pts * (1 + 0.20 * Math.max(0, -dmS));
       }
       const w = ANTI_STACK_WEIGHTS[Math.min(i, ANTI_STACK_WEIGHTS.length - 1)];
@@ -516,7 +538,7 @@ export function calcDailyModules(
       else if (star.global < 0) alerts.push(`${star.chinese} ${star.label_fr}`);
     }
     if (shenShaResult.active.length > 0) {
-      breakdown.push({
+      breakdowns.push({
         system: 'Shen Sha', icon: '⭐',
         value: shenShaResult.active.map(s => s.chinese).join(' '),
         points: shenShaPts,
@@ -527,57 +549,34 @@ export function calcDailyModules(
     }
   } catch { /* Shen Sha fail silently */ }
 
-  // Sprint AO P6 — NaYin supprimé (code mort depuis V6.2, if(false))
-
-  // ═══════════════════════════════════
-  // 2f. JIAN CHU 建除 (12 Officers) — V8.9 T1
-  // Timing BaZi : qualité journalière via Branche Jour × Branche Mois
-  // Formule : officerIdx = (dayBranchIdx - monthBranchIdx + 12) % 12
-  // Amplitude ±2 conservatrice — signal pur, anti-bruit
-  // ═══════════════════════════════════
-
-  // Sprint AT : refactorisé — utilise calcJianChuPts() partagé (Ronde 13 consensus 3/3)
+  // ── Jian Chu 建除 ──
   const jianChuResult = calcJianChuPts(todayStr);
   const jianchuPts = jianChuResult.pts;
   const jianchuOfficer = jianChuResult.officer;
   if (jianchuOfficer) {
-    const officerLabel  = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
+    const officerLabel = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
     if (jianchuOfficer.pts > 0) signals.push(`${officerLabel} — officier favorable`);
     else if (jianchuOfficer.pts < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
-    breakdown.push({
+    breakdowns.push({
       system: 'Jian Chu', icon: '建',
-      value:  officerLabel,
-      points: jianchuOfficer.pts, // valeur brute affichée (débias appliqué au delta, pas à l'affichage)
+      value: officerLabel,
+      points: jianchuOfficer.pts,
       detail: `Officer Jian Chu`,
       signals: jianchuOfficer.pts > 0 ? [`${officerLabel} → timing favorable`] : [],
-      alerts:  jianchuOfficer.pts < 0 ? [`${officerLabel} → timing difficile`]  : [],
+      alerts: jianchuOfficer.pts < 0 ? [`${officerLabel} → timing difficile`] : [],
     });
   }
 
-  // ═══════════════════════════════════
-  // 2d. BaZi FAMILLE GROUPÉE (±18) — V4.4
-  // ═══════════════════════════════════
+  // ── BaZi Family Total ──
+  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts));
 
-  // Sprint AR P3 : changshengPts (=0) retiré de la somme (Ronde 11 consensus 3/3)
-  // Sprint AV P4 : shenShaPts sorti du scoring → narratif UI uniquement (Ronde 16 vote 4, consensus 3/3)
-  // Shen Sha conservé dans breakdown/signals/alerts pour enrichissement narratif
-  const baziFamilyTotal = Math.max(-15, Math.min(15, baziCorePts + jianchuPts)); // C_BAZI ±15 — shenShaPts retiré Sprint AV
-  delta += baziFamilyTotal;
-
-  // Direct domain bonuses (Changsheng retiré Sprint AP P5)
-  // Sprint AX P1 : Shen Sha retiré des directDomainBonuses — cohérence avec Sprint AV P4
-  // Shen Sha = narratif partout (scoring global ET contextuels), plus de points numériques
-  // Ronde 19 consensus 3/3 : Constat 4 "Shen Sha incohérent" → résolu
+  // ── Direct domain bonuses ──
   const directDomainBonuses: Partial<Record<LifeDomain, number>> = {};
-  // Sprint AN — Peach Blossom hors score global, domaine Amour uniquement (Ronde 6 P5 : consensus 3/3)
   if (peachBlossomActive) {
     directDomainBonuses.AMOUR = (directDomainBonuses.AMOUR || 0) + 2;
   }
 
-  // ═══════════════════════════════════
-  // 2e. PROFECTIONS ANNUELLES (V4.7)
-  // ═══════════════════════════════════
-
+  // ── Profections annuelles ──
   let profectionResult: ProfectionResult | undefined;
   try {
     const sunSignFR = astro ? (SIGN_FR[astro.b3.sun] ?? undefined) : undefined;
@@ -605,9 +604,8 @@ export function calcDailyModules(
     if (profectionResult.activeHouse !== 1) {
       signals.push(`🏠 Maison ${profectionResult.activeHouse} en profection — ${profectionResult.timeLord} domine l'année`);
     }
-    breakdown.push({
-      system: 'Profections',
-      icon: '🏠',
+    breakdowns.push({
+      system: 'Profections', icon: '🏠',
       value: `Maison ${profectionResult.activeHouse} (${profectionResult.activeSign})`,
       points: 0,
       detail: `${profectionResult.timeLord} — domaine ${profectionResult.domain} ×${profectionResult.domainMultiplier.toFixed(2)}`,
@@ -616,66 +614,35 @@ export function calcDailyModules(
     });
   } catch { /* profections fail silently */ }
 
-  // V8.4 : Maisons planétaires → enrichissement domaines (R29 Grok)
-  // Impact sur directDomainBonuses uniquement, pas sur delta global.
+  // V8.4 : Maisons planétaires → enrichissement domaines
   if (astro) {
     enrichDomainScoresWithHouses(astro, directDomainBonuses, profectionResult?.activeHouse);
   }
 
-  // ═══════════════════════════════════
-  // 3. I CHING — V8: consultation séparée (R25 GPT : non calendaire sans question posée)
-  // ichRes calculé pour display, interactions et calcDayType.
-  // Sprint U2 — réintroduit avec soft-clamp tanh (V10, était supprimé V8 pour bruit brut)
-  // ═══════════════════════════════════
+  return {
+    baziFamilyTotal, baziResult, tenGodsResult, shenShaResult,
+    profectionResult, directDomainBonuses, dmS,
+    breakdowns, signals, alerts,
+  };
+}
 
-  const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
-  const ichingCapped = Math.round(3 * Math.tanh(ichRes.pts / 6)); // Sprint AM — tanh ±3 (Ronde 5 : compromis orthogonalité vs tradition, était ±6)
-  // Sprint AN — I Ching ajouté via C_INDIV (plus d'ajout direct au delta)
-  // if (ichingCapped !== 0) delta += ichingCapped;
+// ══════════════════════════════════════════════════════════════════════
+// ═══ _calcLuneGroup — C_LUNE ±12 ═══
+// Nakshatra + Tarabala/Chandrabala + VoC + Ashtakavarga + Panchanga
+// ══════════════════════════════════════════════════════════════════════
 
-  const ichingSignals: string[] = [];
-  const ichingAlerts: string[] = [];
-  if (ichRes.pts > 0) ichingSignals.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'A' ? 'puissant' : 'favorable'} (narratif)`);
-  if (ichRes.pts < 0) ichingAlerts.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'E' ? 'épreuve' : 'tension'} (narratif)`);
-  signals.push(...ichingSignals);
-  alerts.push(...ichingAlerts);
+function _calcLuneGroup(bd: string, todayStr: string, astro: AstroChart | null): LuneGroupOutput {
+  const breakdowns: SystemBreakdown[] = [];
+  const signals: string[] = [];
+  const alerts: string[] = [];
 
-  breakdown.push({
-    system: 'I Ching', icon: '☰',
-    value: `#${iching.hexNum} ${iching.name}`,
-    points: 0, // V8 : narratif — consultation séparée (R25)
-    detail: `Tier ${ichRes.tier} · L${iching.changing + 1} · Yao ${ichRes.yao >= 0 ? '+' : ''}${ichRes.yao} / Dynamique cachée ${ichRes.nuclear >= 0 ? '+' : ''}${ichRes.nuclear}`,
-    signals: ichingSignals, alerts: ichingAlerts,
-  });
-
-  // ═══════════════════════════════════
-  // 4. PHASE LUNAIRE — V8: narratif visible (R25 — absorbée par Nakshatra)
-  // moonResult conservé pour eclipse exclusion mutuelle en L3. NON ajouté au delta.
-  // ═══════════════════════════════════
-
-  const dayType = calcDayType(pdv, iching, astro);
-  const moonResult = calcMoonScore(todayStr, dayType.type);
-  // delta += moonResult.points; // SUPPRIMÉ V8 — absorbée par Nakshatra (R25)
-  signals.push(...moonResult.signals);
-  alerts.push(...moonResult.alerts);
-
-  breakdown.push({
-    system: 'Lune', icon: '☽',
-    value: moonResult.phaseLabel,
-    points: 0, // V8 : narratif (R25)
-    detail: moonResult.detail,
-    signals: moonResult.signals, alerts: moonResult.alerts,
-  });
-
-  // ═══════════════════════════════════
-  // 4b+4c. NAKSHATRA COMPOSITE V5.5
-  // ═══════════════════════════════════
-
-  // V9.6 Sprint A2 — Groupe LUNE (Nakshatra + R31 + VoC) → cap ±11
   let luneGroupPts = 0;
-
   let nakshatraData: NakshatraData | undefined;
-  let natalMoonSidForNak: number | null = null; // Sprint J — hissé au scope fonction (utilisé aussi par Tithi Lord Gochara post-section)
+  let natalMoonSidForNak: number | null = null;
+  let vocResult: VoidOfCourseMoon | null = null;
+  let panchangaResult: PanchangaResult | null = null;
+
+  // ── Nakshatra Composite ──
   try {
     const todayD = new Date(todayStr + 'T12:00:00Z');
     const moonPhaseForNak = getMoonPhase(todayD);
@@ -693,130 +660,63 @@ export function calcDailyModules(
     nakshatraData = nakCompositeResult.transitNak;
 
     if (nakCompositeResult.total !== 0) {
-      luneGroupPts += nakCompositeResult.total; // Sprint A2: groupe LUNE
+      luneGroupPts += nakCompositeResult.total;
       signals.push(...nakCompositeResult.signals);
       alerts.push(...nakCompositeResult.alerts);
     }
 
-    breakdown.push({
+    breakdowns.push({
       system: 'Nakshatra', icon: '🌙',
       value: `${nakshatraData.name}${nakCompositeResult.natalNakName ? ` ↔ ${nakCompositeResult.natalNakName}` : ''}`,
       points: nakCompositeResult.total,
       detail: `${nakshatraData.quality} — ${nakCompositeResult.breakdown}`,
       signals: nakCompositeResult.signals,
-      alerts:  nakCompositeResult.alerts,
+      alerts: nakCompositeResult.alerts,
     });
 
-    // ── Sprint G : Tarabala + Chandrabala (additif, Ronde 11 consensus 2/3) ──
+    // ── Tarabala + Chandrabala ──
     if (natalMoonSidForNak !== null) {
-      let tarabalaPts = 0; // hissé pour R32
       try {
-        const tarabalaRes    = calcTarabala(moonLongSidereal, natalMoonSidForNak);
-        tarabalaPts = tarabalaRes.delta; // hissé pour R32
+        const tarabalaRes = calcTarabala(moonLongSidereal, natalMoonSidForNak);
         const chandrabalaRes = calcChandrabala(moonLongSidereal, natalMoonSidForNak);
 
-        // Sprint P — combinedBala · Sprint AM — cap ±2 combiné (Ronde 5 : réduction double-comptage Nak, était ±6)
         const combinedBalaVal = Math.max(-2, Math.min(2, combinedBala(tarabalaRes.delta, chandrabalaRes.delta)));
         luneGroupPts += combinedBalaVal;
 
-        if (tarabalaRes.delta > 0)    signals.push(tarabalaRes.label);
+        if (tarabalaRes.delta > 0) signals.push(tarabalaRes.label);
         else if (tarabalaRes.delta < 0) alerts.push(tarabalaRes.label);
-        if (chandrabalaRes.delta > 0)    signals.push(chandrabalaRes.label);
+        if (chandrabalaRes.delta > 0) signals.push(chandrabalaRes.label);
         else if (chandrabalaRes.delta < 0) alerts.push(chandrabalaRes.label);
 
-        breakdown.push({
+        breakdowns.push({
           system: 'Tarabala', icon: '⭐',
           value: `${tarabalaRes.name} (pos.${tarabalaRes.index})`,
           points: tarabalaRes.delta,
           detail: `Nakshatra transit vs natal — Muhurta Chintamani §12-18`,
           signals: tarabalaRes.delta > 0 ? [tarabalaRes.label] : [],
-          alerts:  tarabalaRes.delta < 0 ? [tarabalaRes.label] : [],
+          alerts: tarabalaRes.delta < 0 ? [tarabalaRes.label] : [],
         });
-        breakdown.push({
+        breakdowns.push({
           system: 'Chandrabala', icon: '🌙',
           value: `Position ${chandrabalaRes.position}/12`,
           points: chandrabalaRes.delta,
           detail: `Lune transit vs signe natal${chandrabalaRes.position === 8 ? ' — Astama Chandra ⚠️' : ''}`,
           signals: chandrabalaRes.delta > 0 ? [chandrabalaRes.label] : [],
-          alerts:  chandrabalaRes.delta < 0 ? [chandrabalaRes.label] : [],
+          alerts: chandrabalaRes.delta < 0 ? [chandrabalaRes.label] : [],
         });
       } catch { /* Tarabala/Chandrabala silently */ }
-
-      // Sprint AO — R32 Retour Nakshatra supprimé (Ronde 7 consensus 2/3 GPT+Gemini)
-      // Biais positif unilatéral (+3, ~13j/an), colinéaire avec Janma Tara (Tarabala pos.1)
     }
-
-    // Sprint AO P6 — R31 Cohérence lunaire supprimée (code mort depuis Sprint AM, delta < 2)
-
-    // Sprint AO P6 — Pada supprimé (code mort depuis Sprint AM, delta < 2)
 
   } catch { /* nakshatras fail silently */ }
 
-  // Sprint AO P6 — R33 BaZi×Védique supprimé (code mort depuis Sprint AM, syncrétisme arbitraire)
-
-  // ═══════════════════════════════════
-  // 5. MERCURE — V8: alerte narrative (R25 — bruit populaire, valeur commerciale d'acquisition)
-  // mercPts conservé comme variable (utilisé dans biasCorrection exclusion + getScoreLevel L3)
-  // NON ajouté au delta.
-  // ═══════════════════════════════════
-
-  const mercStatus = getMercuryStatus(new Date(todayStr + 'T12:00:00'));
-  const mercPts = Math.max(-3, mercStatus.points); // conservé pour L3 getScoreLevel (condition ⚡)
-  if (mercPts < 0) {
-    alerts.push(`☿ ${mercStatus.label} — ${mercStatus.conseil.split('.')[0]}`);
-    breakdown.push({
-      system: 'Mercure', icon: '☿',
-      value: mercStatus.label,
-      points: 0, // V8 : narratif (R25)
-      detail: mercStatus.conseil,
-      signals: [], alerts: [mercStatus.conseil],
-    });
-  }
-  // delta += mercPts; // SUPPRIMÉ V8 — bruit non prédictif (R25 GPT)
-
-  // ═══════════════════════════════════
-  // 6. TRANSIT LUNAIRE (±2)
-  // ═══════════════════════════════════
-
-  const moonTr = getMoonTransit(todayStr);
-  const isActDayMain = dayType.type === 'decision' || dayType.type === 'expansion';
-  const isRefDayMain = dayType.type === 'retrait' || dayType.type === 'observation';
-  const faMoon = moonTr.element === 'fire' || moonTr.element === 'air';
-  const weMoon = moonTr.element === 'water' || moonTr.element === 'earth';
-  let trLunPts = 0;
-  const trLunSignals: string[] = [];
-  const trLunAlerts: string[] = [];
-
-  if (faMoon && isActDayMain)       { trLunPts = 2;  trLunSignals.push(`Lune en ${moonTr.sign} → amplifie l'action`); }
-  else if (weMoon && isRefDayMain)  { trLunPts = 2;  trLunSignals.push(`Lune en ${moonTr.sign} → soutient l'introspection`); }
-  else if (faMoon && isRefDayMain)  { trLunPts = -2; trLunAlerts.push(`Lune en ${moonTr.sign} → agitation en jour de repos`); }
-  else if (weMoon && isActDayMain)  { trLunPts = -2; trLunAlerts.push(`Lune en ${moonTr.sign} → énergie ralentie`); }
-
-  trLunPts = Math.max(-2, Math.min(2, trLunPts));
-  // trLunPts déconnecté V6.2 (redondant Nakshatra — R15)
-  signals.push(...trLunSignals);
-  alerts.push(...trLunAlerts);
-
-  breakdown.push({
-    system: 'Transit Lunaire', icon: moonTr.icon,
-    value: `Lune en ${moonTr.sign}`,
-    points: 0, // V6.2: déconnecté
-    detail: `${moonTr.sign} (${moonTr.element})`,
-    signals: trLunSignals, alerts: trLunAlerts,
-  });
-
-  // ═══════════════════════════════════
-  // 6b. VOID OF COURSE MOON (V4.2) — -2 à 0
-  // ═══════════════════════════════════
-
-  let vocResult: VoidOfCourseMoon | null = null;
+  // ── VoC ──
   try {
     vocResult = getVoidOfCourseMoon(todayStr);
     if (vocResult.isVoC) {
       const vocPts = vocResult.intensity === 'forte' ? -2 : -1;
-      luneGroupPts += vocPts; // Sprint A2: groupe LUNE
+      luneGroupPts += vocPts;
       alerts.push(`🌙 ${vocResult.advice.split('.')[0]}`);
-      breakdown.push({
+      breakdowns.push({
         system: 'Lune Hors Cours', icon: '🌙',
         value: `VoC (${vocResult.degreesLeft}° restants)`,
         points: vocPts,
@@ -826,43 +726,34 @@ export function calcDailyModules(
     }
   } catch { /* VoC fail silently */ }
 
-  // ═══════════════════════════════════
-  // 4d. ASHTAKAVARGA LUNAIRE + SAV — Sprint AK Chantier 5
-  // Hybride Moon BAV + SAV : clamp(Lune_BAV_Score + SAV_Score, -5, +5)
-  // Consensus 3/3 IAs (GPT R2, Grok R2, Gemini R2)
-  // Remplace l'ancien delta Moon BAV pur (±2)
-  // ═══════════════════════════════════
-
+  // ── Ashtakavarga Lunaire + SAV ──
   if (astro) {
     try {
-      const todayD       = new Date(todayStr + 'T12:00:00Z');
-      const moonTropLon  = getMoonPhase(todayD).longitudeTropical;
-      const ayToday      = getAyanamsa(todayD.getFullYear());
-      const moonSidLon   = ((moonTropLon - ayToday) + 360) % 360;
-      const moonSignIdx  = Math.floor(((moonSidLon % 360) + 360) % 360 / 30);
+      const todayD = new Date(todayStr + 'T12:00:00Z');
+      const moonTropLon = getMoonPhase(todayD).longitudeTropical;
+      const ayToday = getAyanamsa(todayD.getFullYear());
+      const moonSidLon = ((moonTropLon - ayToday) + 360) % 360;
+      const moonSignIdx = Math.floor(((moonSidLon % 360) + 360) % 360 / 30);
 
-      // Construire BAV Lune natale pour obtenir les bindus
-      const donorIdx     = extractNatalSiderealSignIdx(astro, bd);
-      const ashMoon      = calcAshtakavarga('moon', moonSidLon, astro, bd);
-      const moonBindus   = ashMoon.bindus;
+      const donorIdx = extractNatalSiderealSignIdx(astro, bd);
+      const ashMoon = calcAshtakavarga('moon', moonSidLon, astro, bd);
+      const moonBindus = ashMoon.bindus;
 
-      // Construire SAV et lire la valeur du signe transitant
-      const sav          = buildSAV(donorIdx);
-      const savSign      = sav[moonSignIdx] ?? 28;
+      const sav = buildSAV(donorIdx);
+      const savSign = sav[moonSignIdx] ?? 28;
 
-      // Calcul hybride
-      const hybrid       = calcMoonBAVSAV(moonBindus, savSign);
-      const hybridDelta  = Math.round(hybrid.hybridDelta); // arrondir pour L1
+      const hybrid = calcMoonBAVSAV(moonBindus, savSign);
+      const hybridDelta = Math.round(hybrid.hybridDelta);
 
       if (hybridDelta !== 0) {
-        luneGroupPts += hybridDelta; // Sprint AK: remplace ancien ashMoon.delta
+        luneGroupPts += hybridDelta;
         const sign = hybridDelta > 0 ? '+' : '';
         const label = `⭕ Ashtakavarga ☽+SAV — ${ashMoon.signName} (${moonBindus}B, SAV=${savSign}) → ${sign}${hybridDelta}`;
         if (hybridDelta > 0) signals.push(label);
         else alerts.push(label);
-        breakdown.push({
+        breakdowns.push({
           system: 'Ashtakavarga ☽+SAV', icon: '⭕',
-          value:  `${ashMoon.signName} — ${moonBindus}B / SAV ${savSign}`,
+          value: `${ashMoon.signName} — ${moonBindus}B / SAV ${savSign}`,
           points: hybridDelta,
           detail: `Lune sidérale en ${ashMoon.signName} | BAV=${moonBindus}, SAV=${savSign} | Hybride ${sign}${hybridDelta}`,
           signals: hybridDelta > 0 ? [label] : [], alerts: hybridDelta < 0 ? [label] : [],
@@ -871,83 +762,82 @@ export function calcDailyModules(
     } catch { /* Ashtak Moon+SAV fail silently */ }
   }
 
-  // ═══════════════════════════════════
-  // 4e. PANCHANGA VÉDIQUE — Sprint D3
-  // Tithi (phase lunaire védique) + Yoga (Lune+Soleil siddéral) → ±5 capé
-  // Vara : narratif uniquement (delta=0, Ronde 7 consensus)
-  // ═══════════════════════════════════
-
-  let panchangaResult: PanchangaResult | null = null;
+  // ── Panchanga Védique ──
   try {
-    const todayDateP   = new Date(todayStr + 'T12:00:00Z');
-    const moonTropP    = getMoonPhase(todayDateP).longitudeTropical;
-    const sunTropP     = getPlanetLongitudeForDate('sun', todayDateP);
-    const ayanamsaP    = getAyanamsa(todayDateP.getFullYear());
-    panchangaResult    = calcPanchanga(moonTropP, sunTropP, ayanamsaP, todayDateP);
+    const todayDateP = new Date(todayStr + 'T12:00:00Z');
+    const moonTropP = getMoonPhase(todayDateP).longitudeTropical;
+    const sunTropP = getPlanetLongitudeForDate('sun', todayDateP);
+    const ayanamsaP = getAyanamsa(todayDateP.getFullYear());
+    panchangaResult = calcPanchanga(moonTropP, sunTropP, ayanamsaP, todayDateP);
     if (panchangaResult.total !== 0) {
-      luneGroupPts += Math.max(-4, Math.min(4, panchangaResult.total)); // Sprint U3 — cap ±4 (était ±6 implicite)
+      luneGroupPts += Math.max(-4, Math.min(4, panchangaResult.total));
       signals.push(...panchangaResult.signals);
       alerts.push(...panchangaResult.alerts);
     }
-    // Tithi breakdown
-    breakdown.push({
-      system: 'Panchanga',
-      icon:   '🪷',
-      value:  `${panchangaResult.tithi.name} · ${panchangaResult.yoga.name} · ${panchangaResult.vara.name}`,
+    breakdowns.push({
+      system: 'Panchanga', icon: '🪷',
+      value: `${panchangaResult.tithi.name} · ${panchangaResult.yoga.name} · ${panchangaResult.vara.name}`,
       points: panchangaResult.total,
       detail: `Tithi ${panchangaResult.tithi.tithi} (${panchangaResult.tithi.quality}) | Yoga ${panchangaResult.yoga.yoga} | ${panchangaResult.vara.icon} ${panchangaResult.vara.planet}`,
       signals: panchangaResult.signals,
-      alerts:  panchangaResult.alerts,
+      alerts: panchangaResult.alerts,
     });
   } catch { /* panchanga fail silently */ }
 
-  // Sprint AO — C_LUNE cap ±16 → ±12 (Ronde 7 consensus 2/3 GPT+Grok : surdominance lunaire)
-  // Max théo post-R32 supprimé : Nak(±8) + Tara/Chandra(±2) + VoC(-2) + BAV+SAV(±5) + Panchanga(±4) = ±21
+  // C_LUNE cap ±12
   const luneGroupCapped = Math.max(-12, Math.min(12, luneGroupPts));
-  delta += luneGroupCapped;
 
-  // Sprint AO P6 — Rétrogrades planétaires supprimées (code mort depuis V6.2, if(false))
+  return {
+    luneGroupCapped, nakshatraData, vocResult, panchangaResult, natalMoonSidForNak,
+    breakdowns, signals, alerts,
+  };
+}
 
-  // ═══════════════════════════════════
-  // 8. TRANSITS PERSONNELS GAUSSIENS (±15) V4.8
-  // ═══════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// ═══ _calcEphemGroup — C_EPHEM ±10 ═══
+// Transits personnels + Fixed stars + Kinetic shocks + sub-caps
+// ══════════════════════════════════════════════════════════════════════
 
-  // V9.6 Sprint A2 — Groupe EPHEM (Transits + Interactions + Heure planétaire) → cap ±12
+function _calcEphemGroup(
+  astro: AstroChart | null,
+  todayStr: string,
+  _liveDate: string | undefined,
+): EphemGroupOutput {
+  const breakdowns: SystemBreakdown[] = [];
+  const signals: string[] = [];
+  const alerts: string[] = [];
+
   let ephemGroupPts = 0;
-
   let astroPts = 0;
   const astroSignals: string[] = [];
   const astroAlerts: string[] = [];
-  // V6.0 : hoisted pour dashaLordTransitScore + profectionSignifiantScore (R21, R27)
-  let _transitBreakdown: Array<{ transitPlanet: string; score: number; aspectType?: string }> = [];
-  // Sprint F — vitesses planétaires pour stationFactor (°/j, outer planets)
-  // Calcul J vs J-1 (midi UTC) pour détecter stations (Vakra védique / Ptolémée)
+  let _transitBreakdown: Array<{ transitPlanet: string; natalPoint?: string; score: number; aspectType?: string }> = [];
+
+  // ── Planet speeds for stationFactor ──
   const planetSpeeds_F: Record<string, number> = {};
   try {
-    const todayD_spd     = new Date(todayStr + 'T12:00:00');
+    const todayD_spd = new Date(todayStr + 'T12:00:00');
     const yesterdayD_spd = new Date(todayD_spd.getTime() - 86400000);
     for (const pl of ['jupiter', 'saturn', 'uranus', 'neptune', 'pluto'] as const) {
       const lonT = getPlanetLongitudeForDate(pl, todayD_spd);
       const lonY = getPlanetLongitudeForDate(pl, yesterdayD_spd);
       let spd = lonT - lonY;
-      if (spd >  180) spd -= 360; // gestion passage 360°→0°
+      if (spd > 180) spd -= 360;
       if (spd < -180) spd += 360;
       planetSpeeds_F[pl] = spd;
     }
-  } catch { /* vitesses fail silently — stationFactor retourne 1.0 si absent */ }
+  } catch { /* vitesses fail silently */ }
 
-  if (astro && astro.tr.length) {
-    const personalTransits = calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl, astro.stelliums, planetSpeeds_F); // V8.4 stelliums · Sprint F stationFactor
+  const _isLiveDay = !_liveDate || _liveDate === todayStr;
+
+  if (_isLiveDay && astro && astro.tr.length) {
+    const personalTransits = calcPersonalTransits(astro.tr, 1.2, astro.as, astro.pl, astro.stelliums, planetSpeeds_F);
     _transitBreakdown = personalTransits.breakdown as typeof _transitBreakdown;
-    // Sprint R — Anti double-comptage Jupiter/Saturn → Lune natale
-    // Graha Drishti (Parāśari) prend ownership de ces aspects → neutralisation part gaussienne
-    // Jupiter ET Saturn sont les seules planètes présentes dans TRANSIT_AMPLITUDES ET GRAHA_DRISHTI_ASPECTS
-    // On soustrait leur contribution sur le point natal 'moon' avant le cap ±6
     const DRISHTI_SLOW_R = new Set(['jupiter', 'saturn']);
     const drOverlapR = personalTransits.breakdown
-      .filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && (b as any).natalPoint === 'moon')
+      .filter(b => DRISHTI_SLOW_R.has(b.transitPlanet) && b.natalPoint === 'moon')
       .reduce((s, b) => s + b.score, 0);
-    astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total - drOverlapR))); // V6.2+R: cap ±6, overlap Drishti neutralisé
+    astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total - drOverlapR)));
     if (astroPts > 0) {
       const top = personalTransits.breakdown.sort((a, b) => b.score - a.score)[0];
       astroSignals.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'harmonic' ? 'trigone/sextile' : 'conjonction'} favorable (+${astroPts})`);
@@ -955,12 +845,20 @@ export function calcDailyModules(
       const top = personalTransits.breakdown.sort((a, b) => a.score - b.score)[0];
       astroAlerts.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'tense' ? 'carré/opposition' : 'conjonction'} en tension (${astroPts})`);
     }
+  } else if (!_isLiveDay && astro && astro.pl.length) {
+    const liteTotal = calcTransitsLite(astro.pl, todayStr);
+    astroPts = Math.max(-6, Math.min(6, Math.round(liteTotal)));
+    if (astroPts > 0) {
+      astroSignals.push(`Transits personnels recalculés → favorable (+${astroPts})`);
+    } else if (astroPts < 0) {
+      astroAlerts.push(`Transits personnels recalculés → tension (${astroPts})`);
+    }
   }
-  ephemGroupPts += astroPts; // Sprint A2: groupe EPHEM
+  ephemGroupPts += astroPts;
   signals.push(...astroSignals);
   alerts.push(...astroAlerts);
 
-  breakdown.push({
+  breakdowns.push({
     system: 'Astrologie', icon: '☽',
     value: astro ? `${astro.tr.length} transits` : 'Non disponible',
     points: astroPts,
@@ -968,239 +866,36 @@ export function calcDailyModules(
     signals: astroSignals, alerts: astroAlerts,
   });
 
-  // ═══════════════════════════════════
-  // 8b. TITHI LORD GOCHARA — Sprint J (±2)
-  // Seigneur du Tithi en transit / Lune natale (Gochara védique)
-  // Post-section autonome : panchangaResult déjà calculé + getPlanetLongitudeForDate
-  // Coverage : 7 planètes (Rahu → neutre, delta = 0)
-  // ═══════════════════════════════════
-
-  if (panchangaResult !== null && natalMoonSidForNak !== null) {
-    try {
-      const tlgLord = getTithiLord(panchangaResult.tithi.tithi);
-      if (tlgLord !== 'rahu') {
-        const evalD_tlg = new Date(todayStr + 'T12:00:00');
-        const ay_tlg    = getAyanamsa(evalD_tlg.getFullYear());
-        // Safe cast : TITHI_LORDS_30 \ {'rahu'} ⊂ getPlanetLongitudeForDate param type
-        const tropLon   = getPlanetLongitudeForDate(
-          tlgLord as 'sun' | 'moon' | 'mars' | 'mercury' | 'jupiter' | 'venus' | 'saturn',
-          evalD_tlg,
-        );
-        const sidLon    = ((tropLon - ay_tlg) % 360 + 360) % 360;
-        const tlgRes    = calcTithiLordGochara(tlgLord, sidLon, natalMoonSidForNak);
-        const tlgDelta  = Math.max(-1, Math.min(1, tlgRes.delta)); // Sprint AN — ±2→±1 (Ronde 6 P4)
-        indivTLG = tlgDelta; // Sprint AN — C_INDIV
-        if (tlgDelta !== 0) {
-          // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
-          if (tlgDelta > 0) signals.push(tlgRes.label);
-          else              alerts.push(tlgRes.label);
-          breakdown.push({
-            system: 'Tithi Lord', icon: '🪐',
-            value:  `${tlgLord} M${tlgRes.houseFromMoon}`,
-            points: tlgDelta,
-            detail: `Gochara Tithi ${panchangaResult.tithi.tithi} — ${tlgLord} en maison ${tlgRes.houseFromMoon} Lune natale`,
-            signals: tlgDelta > 0 ? [tlgRes.label] : [],
-            alerts:  tlgDelta < 0 ? [tlgRes.label] : [],
-          });
-        }
-      }
-    } catch { /* Tithi Lord Gochara fail silently */ }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // 8c. GRAHA DRISHTI — Sprint L — V10.6 (post-section autonome)
-  // Aspects Parāśari : Mars/Jupiter/Saturn → Lune natale
-  // Formule : maison de la Lune natale DEPUIS la planète (Gemini)
-  // Direct delta (hors groupe LUNE) · Cap ±3 global · fail silently
-  // ═══════════════════════════════════════════════════════════
-  if (natalMoonSidForNak !== null) {
-    try {
-      const DRISHTI_PLANETS = ['mars', 'jupiter', 'saturn'] as const;
-      const evalD_dr = new Date(todayStr + 'T12:00:00');
-      const ay_dr    = getAyanamsa(evalD_dr.getFullYear());
-
-      const drResults: GrahaDrishtiResult[] = [];
-
-      for (const planet of DRISHTI_PLANETS) {
-        const tropLon = getPlanetLongitudeForDate(
-          planet as 'mars' | 'jupiter' | 'saturn',
-          evalD_dr,
-        );
-        const sidLon = ((tropLon - ay_dr) % 360 + 360) % 360;
-        const drRes  = calcGrahaDrishti(planet, sidLon, natalMoonSidForNak);
-        if (drRes.delta !== 0) drResults.push(drRes);
-      }
-
-      if (drResults.length > 0) {
-        const rawTotal  = drResults.reduce((s, r) => s + r.delta, 0);
-        const drCapped  = Math.max(-3, Math.min(3, rawTotal));
-        indivDrishti = drCapped; // Sprint AN — C_INDIV
-        // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
-
-        drResults.forEach(r => {
-          if (r.delta > 0) signals.push(r.label);
-          else             alerts.push(r.label);
-        });
-
-        const activeDesc = drResults.map(r => `${r.planet} M${r.houseFromPlanet}`).join(' · ');
-        const capNote    = rawTotal !== drCapped ? ` → capé ${drCapped > 0 ? '+' : ''}${drCapped}` : '';
-        breakdown.push({
-          system: 'Graha Drishti', icon: '🔭',
-          value:  activeDesc,
-          points: drCapped,
-          detail: `Aspects Parāśari BPHS Ch.26 — raw ${rawTotal > 0 ? '+' : ''}${rawTotal}${capNote}`,
-          signals: drResults.filter(r => r.delta > 0).map(r => r.label),
-          alerts:  drResults.filter(r => r.delta < 0).map(r => r.label),
-        });
-      }
-    } catch { /* Graha Drishti fail silently */ }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // 8d. YOGA KARTARI — Sprint M — V10.7 (post-section autonome)
-  // "Yoga des ciseaux" : Lune natale encadrée par planètes transitantes
-  // Bénéfiques : Jupiter, Vénus, Mercure · Maléfiques : Saturne, Mars, Soleil
-  // Scoring : ±2 complet · ±1 partiel · 0 mixed/vide · Cap ±2 · fail silently
-  // ═══════════════════════════════════════════════════════════
-  if (natalMoonSidForNak !== null) {
-    try {
-      const evalD_kt = new Date(todayStr + 'T12:00:00');
-      const ay_kt    = getAyanamsa(evalD_kt.getFullYear());
-
-      const KARTARI_PLANETS = ['sun', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'] as const;
-      const transitMap: Record<string, number> = {};
-      for (const planet of KARTARI_PLANETS) {
-        const tropLon = getPlanetLongitudeForDate(planet, evalD_kt);
-        transitMap[planet] = ((tropLon - ay_kt) % 360 + 360) % 360;
-      }
-
-      const ktRes    = calcYogaKartari(natalMoonSidForNak, transitMap);
-      if (ktRes.delta !== 0) {
-        const ktCapped = Math.max(-2, Math.min(2, ktRes.delta));
-        indivKartari = ktCapped; // Sprint AN — C_INDIV
-        // Sprint AN — ajouté via C_INDIV (plus d'ajout direct au delta)
-
-        if (ktRes.delta > 0) signals.push(ktRes.label);
-        else                 alerts.push(ktRes.label);
-
-        const sidesDesc = [
-          ktRes.sign12Planets.length ? `12e: ${ktRes.sign12Planets.join(',')}` : '',
-          ktRes.sign2Planets.length  ? `2e: ${ktRes.sign2Planets.join(',')}`   : '',
-        ].filter(Boolean).join(' · ');
-
-        breakdown.push({
-          system: 'Yoga Kartari', icon: '✂️',
-          value:  ktRes.shubha ? 'Shubha Kartari' : ktRes.papa ? 'Papa Kartari' : 'Kartari partiel',
-          points: ktCapped,
-          detail: `Lune encadrée — ${sidesDesc}`,
-          signals: ktRes.delta > 0 ? [ktRes.label] : [],
-          alerts:  ktRes.delta < 0 ? [ktRes.label] : [],
-        });
-      }
-    } catch { /* Yoga Kartari fail silently */ }
-  }
-
-  // ═══════════════════════════════════
-  // 9. NŒUDS LUNAIRES (annotation, pas de points)
-  // ═══════════════════════════════════
-
-  // Guard try-catch : calcNorthNodeLongitude peut retourner NaN si date invalide → crash silencieux
-  let nodeTransit: ReturnType<typeof getLunarNodeTransit> | null = null;
-  try { nodeTransit = getLunarNodeTransit(bd, todayStr); } catch { /* fail silently */ }
-  let nodePts = 0; // V5.5 : scoring supprimé
-  const nodeSignals: string[] = [];
-  const nodeAlerts: string[] = [];
-  if (nodeTransit) {
-    switch (nodeTransit.alignment) {
-      case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission karmique'); break;
-      case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux karmique'); break;
-      case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
-      case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
-    }
-    if (nodeTransit.isNodeReturn) { nodeSignals.push('⚡ Retour des Nœuds actif'); }
-    signals.push(...nodeSignals);
-    alerts.push(...nodeAlerts);
-    breakdown.push({
-      system: 'Nœuds Lunaires', icon: '☊',
-      value: `NN ${nodeTransit.natal.northNode.sign}`,
-      points: nodePts,
-      detail: nodeTransit.alignmentDesc.split('.')[0],
-      signals: nodeSignals, alerts: nodeAlerts,
-    });
-  }
-
-  // Sprint AO P6 — DayType Modifier : breakdown supprimé (delta=0 depuis Sprint AM)
-  // calcDayType conservé (utilisé par calcMoonScore + actionReco)
-
-  // Sprint AR P3 : trinityActive + interactionResult stubs supprimés (Ronde 11 consensus 3/3)
-  const moonPhaseRaw = getMoonPhase(new Date(todayStr + 'T12:00:00')); // conservé pour moonPhaseRawPhase
-
-  // ═══════════════════════════════════
-  // 12b. HEURE PLANÉTAIRE CHALDÉENNE — V9 Sprint 4
-  // Sprint D2 : retrait du scoring L1 (non-déterministe : varie chaque heure).
-  // L'heure planétaire reste affichée dans le widget UI (planetaryHour → retour).
-  // Aucun point injecté dans ephemGroupPts.
-  // ═══════════════════════════════════
-
-  const planetaryHour = getCurrentPlanetaryHour(new Date(todayStr + 'T12:00:00'));
-  // Breakdowninformatif uniquement (pts=0) — widget UI utilise la valeur courante
-  const planetaryHourNow = getCurrentPlanetaryHour();
-  if (planetaryHourNow) {
-    breakdown.push({
-      system: 'Heure Planétaire', icon: planetaryHourNow.icon,
-      value:  `${planetaryHourNow.label} ${planetaryHourNow.isDayHour ? '☀️' : '🌙'} H${planetaryHourNow.hourIndex}`,
-      points: 0, // Sprint D2 : retiré du score (non-déterministe)
-      detail: planetaryHourNow.keywords.join(' · '),
-      signals: [],
-      alerts:  [],
-    });
-  }
-
-  // ═══════════════════════════════════
-  // 12c. ÉTOILES FIXES — V9.6 Sprint A3
-  // 10 étoiles majeures, orbes ±0.5° (exacte) / ±1.5° (large), cap ±5 (Sprint U1 — était ±8)
-  // ═══════════════════════════════════
-
-  let fixedStarResult: FixedStarResult | null = null;
+  // ── Fixed stars ──
   try {
-    fixedStarResult = calcFixedStarScore(new Date(todayStr + 'T12:00:00'));
+    const fixedStarResult = calcFixedStarScore(new Date(todayStr + 'T12:00:00'));
     if (fixedStarResult.total !== 0) {
-      ephemGroupPts += Math.max(-4, Math.min(4, fixedStarResult.total)); // Sprint AM — cap ±4 (Ronde 5, était ±5)
+      ephemGroupPts += Math.max(-4, Math.min(4, fixedStarResult.total));
       signals.push(...fixedStarResult.signals);
       alerts.push(...fixedStarResult.alerts);
       if (fixedStarResult.hits.length > 0) {
-        breakdown.push({
+        breakdowns.push({
           system: 'Étoiles Fixes', icon: '⭐',
           value: fixedStarResult.hits.map(h => h.star).join(' · '),
           points: fixedStarResult.total,
           detail: fixedStarResult.hits.map(h => `${h.planet} ↔ ${h.star} (${h.orb.toFixed(1)}°)`).join(' · '),
           signals: fixedStarResult.signals,
-          alerts:  fixedStarResult.alerts,
+          alerts: fixedStarResult.alerts,
         });
       }
     }
   } catch { /* fixed stars fail silently */ }
 
-  // Sprint D4 : ASV ☉♂ retirés de L1 → migrés vers L2 (convergence-slow.ts)
-  // Rythme Soleil ~30j/signe, Mars ~45j/signe → signal lent ≠ signal quotidien
-
-  // ═══════════════════════════════════
-  // 7bis. KINETIC SHOCKS — Sprint AL (Chantier 5, Sprint 2)
-  // Ingress Soleil (-1) + Mars (-2) jour J + Station D↔R Mercure/Vénus/Mars (-2 + BAV×1.40)
-  // Consensus 3/3 IAs Ronde 4 confrontation
-  // ═══════════════════════════════════
-
-  // Sprint AV P3 — Kinetic Shocks réintégrés dans E_fast (Ronde 16 vote 3, consensus 2/3 GPT+Grok)
-  // Plus de wild card hors cap — intégrés dans le sub-cap E_fast ±7
+  // ── Kinetic shocks ──
   let kineticShockDelta = 0;
   try {
     const ksResult = calcKineticShocks(todayStr);
     if (ksResult.totalDelta !== 0) {
-      kineticShockDelta = Math.max(-3, Math.min(3, ksResult.totalDelta)); // cap individuel ±3
+      kineticShockDelta = Math.max(-3, Math.min(3, ksResult.totalDelta));
       for (const shock of ksResult.shocks) {
         if (shock.delta < 0) alerts.push(`⚡ ${shock.detail}`);
-        else signals.push(`⚡ ${shock.detail}`);
-        breakdown.push({
+        else signals.push(`🌟 ${shock.detail}`);
+        breakdowns.push({
           system: shock.type === 'ingress' ? `Ingress ${shock.planetFR}` : `Station ${shock.planetFR}`,
           icon: '⚡',
           value: shock.type === 'ingress' ? 'Changement de signe' : 'Station D↔R',
@@ -1213,61 +908,416 @@ export function calcDailyModules(
     }
   } catch { /* kinetic shocks fail silently */ }
 
-  // Sprint AV P2 — Sub-caps Éphéméride (Ronde 16 vote 2, consensus 3/3)
-  // E_fast = Transits personnels (astroPts ±6) + Kinetic Shocks (±3) → sub-cap ±7
-  // E_slow = Étoiles fixes (±4) → sub-cap ±5
-  // Stellium attenuation : réduit endogénéité transit↔stellium (Ronde 16 formule consensuelle)
-  // Stellium_eff = astroPts × (1 − 0.35 × min(1, |astroPts| / 6))
+  // ── Sub-caps Éphéméride ──
   const stelliumAttenuation = 1 - 0.35 * Math.min(1, Math.abs(astroPts) / 6);
   const astroPtsAttenuated = Math.round(astroPts * stelliumAttenuation * 10) / 10;
   const ephemFastRaw = astroPtsAttenuated + kineticShockDelta;
-  const ephemFastPts = Math.max(-7, Math.min(7, ephemFastRaw)); // E_fast sub-cap ±7
-  // ephemGroupPts contient astroPts + fixedStarsPts — on le reconstruit avec sub-caps
-  const ephemSlowPts = Math.max(-5, Math.min(5, ephemGroupPts - astroPts)); // E_slow = fixedStars, sub-cap ±5
-  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemFastPts + ephemSlowPts)); // C_EPHEM ±10 inchangé
-  delta += ephemGroupCapped;
+  const ephemFastPts = Math.max(-7, Math.min(7, ephemFastRaw));
+  const ephemSlowPts = Math.max(-5, Math.min(5, ephemGroupPts - astroPts));
+  const ephemGroupCapped = Math.max(-10, Math.min(10, ephemFastPts + ephemSlowPts));
 
-  // Sprint AN — C_INDIV cap ±8 (Ronde 6 P2 : individuels groupés)
-  // I Ching ±3 + Tithi Lord ±1 + Graha Drishti ±3 + Yoga Kartari ±2 = ±9 théorique → cap ±8
+  // ── Planetary hour (narrative, pts=0) ──
+  const planetaryHourNow = getCurrentPlanetaryHour();
+  if (planetaryHourNow) {
+    breakdowns.push({
+      system: 'Heure Planétaire', icon: planetaryHourNow.icon,
+      value: `${planetaryHourNow.label} ${planetaryHourNow.isDayHour ? '☀️' : '🌙'} H${planetaryHourNow.hourIndex}`,
+      points: 0,
+      detail: planetaryHourNow.keywords.join(' · '),
+      signals: [], alerts: [],
+    });
+  }
+
+  return {
+    ephemGroupCapped, _transitBreakdown,
+    planetaryHour: planetaryHourNow ?? null,
+    breakdowns, signals, alerts,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ═══ _calcIndivGroup — C_INDIV ±8 ═══
+// I Ching + Tithi Lord Gochara + Graha Drishti + Yoga Kartari
+// ══════════════════════════════════════════════════════════════════════
+
+function _calcIndivGroup(
+  iching: IChingReading,
+  natalMoonSidForNak: number | null,
+  panchangaResult: PanchangaResult | null,
+  todayStr: string,
+): IndivGroupOutput {
+  const breakdowns: SystemBreakdown[] = [];
+  const signals: string[] = [];
+  const alerts: string[] = [];
+
+  // ── I Ching score ──
+  const ichRes = ichingScoreV4(iching.hexNum, iching.changing);
+  const ichingCapped = Math.round(3 * Math.tanh(ichRes.pts / 6));
+
+  const ichingSignals: string[] = [];
+  const ichingAlerts: string[] = [];
+  if (ichRes.pts > 0) ichingSignals.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'A' ? 'puissant' : 'favorable'} (narratif)`);
+  if (ichRes.pts < 0) ichingAlerts.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'E' ? 'épreuve' : 'tension'} (narratif)`);
+  signals.push(...ichingSignals);
+  alerts.push(...ichingAlerts);
+
+  breakdowns.push({
+    system: 'I Ching', icon: '☰',
+    value: `#${iching.hexNum} ${iching.name}`,
+    points: 0,
+    detail: `Tier ${ichRes.tier} · L${iching.changing + 1} · Yao ${ichRes.yao >= 0 ? '+' : ''}${ichRes.yao} / Dynamique cachée ${ichRes.nuclear >= 0 ? '+' : ''}${ichRes.nuclear}`,
+    signals: ichingSignals, alerts: ichingAlerts,
+  });
+
+  // ── Tithi Lord Gochara ──
+  let indivTLG = 0;
+  if (panchangaResult !== null && natalMoonSidForNak !== null) {
+    try {
+      const tlgLord = getTithiLord(panchangaResult.tithi.tithi);
+      if (tlgLord !== 'rahu') {
+        const evalD_tlg = new Date(todayStr + 'T12:00:00');
+        const ay_tlg = getAyanamsa(evalD_tlg.getFullYear());
+        const tropLon = getPlanetLongitudeForDate(
+          tlgLord as 'sun' | 'moon' | 'mars' | 'mercury' | 'jupiter' | 'venus' | 'saturn',
+          evalD_tlg,
+        );
+        const sidLon = ((tropLon - ay_tlg) % 360 + 360) % 360;
+        const tlgRes = calcTithiLordGochara(tlgLord, sidLon, natalMoonSidForNak);
+        const tlgDelta = Math.max(-1, Math.min(1, tlgRes.delta));
+        indivTLG = tlgDelta;
+        if (tlgDelta !== 0) {
+          if (tlgDelta > 0) signals.push(tlgRes.label);
+          else alerts.push(tlgRes.label);
+          breakdowns.push({
+            system: 'Tithi Lord', icon: '🪐',
+            value: `${tlgLord} M${tlgRes.houseFromMoon}`,
+            points: tlgDelta,
+            detail: `Gochara Tithi ${panchangaResult.tithi.tithi} — ${tlgLord} en maison ${tlgRes.houseFromMoon} Lune natale`,
+            signals: tlgDelta > 0 ? [tlgRes.label] : [],
+            alerts: tlgDelta < 0 ? [tlgRes.label] : [],
+          });
+        }
+      }
+    } catch { /* Tithi Lord Gochara fail silently */ }
+  }
+
+  // ── Graha Drishti ──
+  let indivDrishti = 0;
+  if (natalMoonSidForNak !== null) {
+    try {
+      const DRISHTI_PLANETS = ['mars', 'jupiter', 'saturn'] as const;
+      const evalD_dr = new Date(todayStr + 'T12:00:00');
+      const ay_dr = getAyanamsa(evalD_dr.getFullYear());
+
+      const drResults: GrahaDrishtiResult[] = [];
+      for (const planet of DRISHTI_PLANETS) {
+        const tropLon = getPlanetLongitudeForDate(
+          planet as 'mars' | 'jupiter' | 'saturn',
+          evalD_dr,
+        );
+        const sidLon = ((tropLon - ay_dr) % 360 + 360) % 360;
+        const drRes = calcGrahaDrishti(planet, sidLon, natalMoonSidForNak);
+        if (drRes.delta !== 0) drResults.push(drRes);
+      }
+
+      if (drResults.length > 0) {
+        const rawTotal = drResults.reduce((s, r) => s + r.delta, 0);
+        const drCapped = Math.max(-3, Math.min(3, rawTotal));
+        indivDrishti = drCapped;
+
+        drResults.forEach(r => {
+          if (r.delta > 0) signals.push(r.label);
+          else alerts.push(r.label);
+        });
+
+        const activeDesc = drResults.map(r => `${r.planet} M${r.houseFromPlanet}`).join(' · ');
+        const capNote = rawTotal !== drCapped ? ` → capé ${drCapped > 0 ? '+' : ''}${drCapped}` : '';
+        breakdowns.push({
+          system: 'Graha Drishti', icon: '🔭',
+          value: activeDesc,
+          points: drCapped,
+          detail: `Aspects Parāśari BPHS Ch.26 — raw ${rawTotal > 0 ? '+' : ''}${rawTotal}${capNote}`,
+          signals: drResults.filter(r => r.delta > 0).map(r => r.label),
+          alerts: drResults.filter(r => r.delta < 0).map(r => r.label),
+        });
+      }
+    } catch { /* Graha Drishti fail silently */ }
+  }
+
+  // ── Yoga Kartari ──
+  let indivKartari = 0;
+  if (natalMoonSidForNak !== null) {
+    try {
+      const evalD_kt = new Date(todayStr + 'T12:00:00');
+      const ay_kt = getAyanamsa(evalD_kt.getFullYear());
+
+      const KARTARI_PLANETS = ['sun', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'] as const;
+      const transitMap: Record<string, number> = {};
+      for (const planet of KARTARI_PLANETS) {
+        const tropLon = getPlanetLongitudeForDate(planet, evalD_kt);
+        transitMap[planet] = ((tropLon - ay_kt) % 360 + 360) % 360;
+      }
+
+      const ktRes = calcYogaKartari(natalMoonSidForNak, transitMap);
+      if (ktRes.delta !== 0) {
+        const ktCapped = Math.max(-2, Math.min(2, ktRes.delta));
+        indivKartari = ktCapped;
+
+        if (ktRes.delta > 0) signals.push(ktRes.label);
+        else alerts.push(ktRes.label);
+
+        const sidesDesc = [
+          ktRes.sign12Planets.length ? `12e: ${ktRes.sign12Planets.join(',')}` : '',
+          ktRes.sign2Planets.length ? `2e: ${ktRes.sign2Planets.join(',')}` : '',
+        ].filter(Boolean).join(' · ');
+
+        breakdowns.push({
+          system: 'Yoga Kartari', icon: '✂️',
+          value: ktRes.shubha ? 'Shubha Kartari' : ktRes.papa ? 'Papa Kartari' : 'Kartari partiel',
+          points: ktCapped,
+          detail: `Lune encadrée — ${sidesDesc}`,
+          signals: ktRes.delta > 0 ? [ktRes.label] : [],
+          alerts: ktRes.delta < 0 ? [ktRes.label] : [],
+        });
+      }
+    } catch { /* Yoga Kartari fail silently */ }
+  }
+
+  // C_INDIV cap ±8
   const indivGroupPts = ichingCapped + indivTLG + indivDrishti + indivKartari;
   const indivGroupCapped = Math.max(-8, Math.min(8, indivGroupPts));
-  delta += indivGroupCapped;
 
-  // Sprint AO — biasCorrection supprimée (Ronde 7 consensus 2/3 Grok+Gemini)
-  // VoC est déjà dans C_LUNE, sa pénalité fait partie du signal légitime
-  // retroPts était fantôme (déconnecté V6.2), compensait un signal absent → bug
+  return { indivGroupCapped, breakdowns, signals, alerts };
+}
 
-  // V9.6 Sprint A2 — Cap global L1 ±30 (C_L1 anti double-comptage)
+
+// ══════════════════════════════════════
+// ═══ CALC DAILY MODULES — L1 ═══
+// Orchestrateur : appelle les 4 sous-groupes + sections narratives
+// ══════════════════════════════════════
+
+export function calcDailyModules(
+  params: {
+    num: NumerologyProfile;
+    astro: AstroChart | null;
+    iching: IChingReading;
+    bd: string;
+    todayStr: string;
+    _liveDate?: string;  // Ronde Transit Fix — si présent et ≠ todayStr, utilise calcTransitsLite
+  },
+  breakdown: SystemBreakdown[],
+  signals: string[],
+  alerts: string[]
+): DailyModuleResult {
+  const { num, astro, iching, bd, todayStr } = params;
+
+  let delta = 0;
+  const pdv = num.ppd.v;
+
+  // ═══════════════════════════════════
+  // 1. NUMÉROLOGIE — narrative (delta=0 depuis V8)
+  // ═══════════════════════════════════
+
+  const numSignals: string[] = [];
+  const numAlerts: string[] = [];
+
+  // ── PD (±7) ──
+  let pdPts = 0;
+  if (pdv === num.lp.v)        { pdPts = 7; numSignals.push(`Jour ${pdv} = Chemin de Vie → alignement majeur`); }
+  else if (pdv === num.expr.v) { pdPts = 5; numSignals.push(`Jour ${pdv} = Expression → talents amplifiés`); }
+  else if (pdv === num.soul.v) { pdPts = 4; numSignals.push(`Jour ${pdv} = Âme → désirs profonds activés`); }
+  else if (pdv === num.pers.v) { pdPts = 3; numSignals.push(`Jour ${pdv} = Personnalité → charisme renforcé`); }
+  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); numSignals.push(`Jour Maître ${pdv} → énergie spirituelle`); }
+  if (num.kl.includes(pdv))    { pdPts = Math.min(7, pdPts + 1); }
+  pdPts = Math.max(-7, Math.min(7, pdPts));
+
+  // ── PY — V6.2: narratif pur, delta supprimé (R18 final) ──
+  const pyv = num.py.v;
+  const pyPts = 0;
+
+  // ── PM (±3) ──
+  const pmv = num.pm.v;
+  let pmPts = 0;
+  if (pmv === num.lp.v)               pmPts = 3;
+  else if ([1, 3, 8].includes(pmv))   pmPts = 2;
+  else if ([4, 7].includes(pmv))      pmPts = -2;
+  else if ([2, 6].includes(pmv))      pmPts = 1;
+  pmPts = Math.max(-3, Math.min(3, pmPts));
+
+  // ── Pinnacle (±1) ──
+  const pinnIdx = getActivePinnacleIdx(bd, todayStr, num.lp);
+  const activePinnacle = num.pinnacles[pinnIdx];
+  const activeChallenge = num.challenges[pinnIdx];
+  let pinnPts = 0;
+  if (activePinnacle && pdv === activePinnacle.v) { pinnPts = 1; }
+  if (activeChallenge && pdv === activeChallenge.v) { pinnPts = -1; }
+
+  // Karmic debt signals conservés (valeur narrative)
+  if (num.hasKarmicDebt && num.karmicDebt) {
+    const kd = num.karmicDebt;
+    const kdMsg = kd === 13 ? 'effort & discipline' : kd === 14 ? 'liberté & excès' : kd === 16 ? 'ego & humilité' : 'puissance & abus';
+    signals.push(`⚖️ Dette karmique ${kd} — ${kdMsg}`);
+  }
+  signals.push(...numSignals);
+  alerts.push(...numAlerts);
+
+  // ═══════════════════════════════════
+  // 2. C_BAZI → _calcBaziGroup (±15)
+  // ═══════════════════════════════════
+
+  const bazi = _calcBaziGroup(bd, todayStr, astro);
+  delta += bazi.baziFamilyTotal;
+  breakdown.push(...bazi.breakdowns);
+  signals.push(...bazi.signals);
+  alerts.push(...bazi.alerts);
+
+  // ═══════════════════════════════════
+  // 3. dayType + NARRATIFS (Moon, Mercury, Transit lunaire)
+  // ═══════════════════════════════════
+
+  const dayType = calcDayType(pdv, iching, astro);
+
+  const moonResult = calcMoonScore(todayStr, dayType.type);
+  signals.push(...moonResult.signals);
+  alerts.push(...moonResult.alerts);
+  breakdown.push({
+    system: 'Lune', icon: '☽',
+    value: moonResult.phaseLabel,
+    points: 0, // V8 : narratif (R25)
+    detail: moonResult.detail,
+    signals: moonResult.signals, alerts: moonResult.alerts,
+  });
+
+  // ── Mercury narrative ──
+  const mercStatus = getMercuryStatus(new Date(todayStr + 'T12:00:00'));
+  const mercPts = Math.max(-3, mercStatus.points);
+  if (mercPts < 0) {
+    alerts.push(`☿ ${mercStatus.label} — ${mercStatus.conseil.split('.')[0]}`);
+    breakdown.push({
+      system: 'Mercure', icon: '☿',
+      value: mercStatus.label,
+      points: 0, // V8 : narratif (R25)
+      detail: mercStatus.conseil,
+      signals: [], alerts: [mercStatus.conseil],
+    });
+  }
+
+  // ── Transit lunaire narrative ──
+  const moonTr = getMoonTransit(todayStr);
+  const isActDayMain = dayType.type === 'decision' || dayType.type === 'expansion';
+  const isRefDayMain = dayType.type === 'retrait' || dayType.type === 'observation';
+  const faMoon = moonTr.element === 'fire' || moonTr.element === 'air';
+  const weMoon = moonTr.element === 'water' || moonTr.element === 'earth';
+  const trLunSignals: string[] = [];
+  const trLunAlerts: string[] = [];
+
+  if (faMoon && isActDayMain)       { trLunSignals.push(`Lune en ${moonTr.sign} → amplifie l'action`); }
+  else if (weMoon && isRefDayMain)  { trLunSignals.push(`Lune en ${moonTr.sign} → soutient l'introspection`); }
+  else if (faMoon && isRefDayMain)  { trLunAlerts.push(`Lune en ${moonTr.sign} → agitation en jour de repos`); }
+  else if (weMoon && isActDayMain)  { trLunAlerts.push(`Lune en ${moonTr.sign} → énergie ralentie`); }
+
+  signals.push(...trLunSignals);
+  alerts.push(...trLunAlerts);
+  breakdown.push({
+    system: 'Transit Lunaire', icon: moonTr.icon,
+    value: `Lune en ${moonTr.sign}`,
+    points: 0, // V6.2: déconnecté
+    detail: `${moonTr.sign} (${moonTr.element})`,
+    signals: trLunSignals, alerts: trLunAlerts,
+  });
+
+  // ═══════════════════════════════════
+  // 4. C_LUNE → _calcLuneGroup (±12)
+  // ═══════════════════════════════════
+
+  const lune = _calcLuneGroup(bd, todayStr, astro);
+  delta += lune.luneGroupCapped;
+  breakdown.push(...lune.breakdowns);
+  signals.push(...lune.signals);
+  alerts.push(...lune.alerts);
+
+  // ═══════════════════════════════════
+  // 5. C_EPHEM → _calcEphemGroup (±10)
+  // ═══════════════════════════════════
+
+  const ephem = _calcEphemGroup(astro, todayStr, params._liveDate);
+  delta += ephem.ephemGroupCapped;
+  breakdown.push(...ephem.breakdowns);
+  signals.push(...ephem.signals);
+  alerts.push(...ephem.alerts);
+
+  // ═══════════════════════════════════
+  // 6. C_INDIV → _calcIndivGroup (±8)
+  // ═══════════════════════════════════
+
+  const indiv = _calcIndivGroup(iching, lune.natalMoonSidForNak, lune.panchangaResult, todayStr);
+  delta += indiv.indivGroupCapped;
+  breakdown.push(...indiv.breakdowns);
+  signals.push(...indiv.signals);
+  alerts.push(...indiv.alerts);
+
+  // ═══════════════════════════════════
+  // 7. NŒUDS LUNAIRES — narrative
+  // ═══════════════════════════════════
+
+  let nodeTransit: LunarNodeTransit | null = null;
+  try { nodeTransit = getLunarNodeTransit(bd, todayStr); } catch { /* fail silently */ }
+  let nodePts = 0; // V5.5 : scoring supprimé
+  const nodeSignals: string[] = [];
+  const nodeAlerts: string[] = [];
+  if (nodeTransit) {
+    switch (nodeTransit.alignment) {
+      case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission karmique'); break;
+      case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux karmique'); break;
+      case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
+      case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
+    }
+    if (nodeTransit.isNodeReturn) { nodeSignals.push('🌟 Retour des Nœuds actif'); }
+    signals.push(...nodeSignals);
+    alerts.push(...nodeAlerts);
+    breakdown.push({
+      system: 'Nœuds Lunaires', icon: '☊',
+      value: `NN ${nodeTransit.natal.northNode.sign}`,
+      points: nodePts,
+      detail: nodeTransit.alignmentDesc.split('.')[0],
+      signals: nodeSignals, alerts: nodeAlerts,
+    });
+  }
+
+  // ═══════════════════════════════════
+  // 8. ASSEMBLAGE + RETOUR
+  // ═══════════════════════════════════
+
+  const moonPhaseRaw = getMoonPhase(new Date(todayStr + 'T12:00:00'));
+
+  // V9.6 Sprint A2 — Cap global L1 ±30
   const dailyDeltaSnapshot = Math.max(-30, Math.min(30, delta));
 
-  // ══════════════════════════════════════════════
-  // RETOUR — toutes les valeurs nécessaires à L2 + L3
-  // ══════════════════════════════════════════════
   return {
     dailyDeltaSnapshot,
     dayType,
     moonResult,
     moonTr,
     nodeTransit,
-    baziResult,
-    tenGodsResult,
-    shenShaResult,
-    profectionResult,
-    nakshatraData,
-    directDomainBonuses,
+    baziResult:         bazi.baziResult,
+    tenGodsResult:      bazi.tenGodsResult,
+    shenShaResult:      bazi.shenShaResult,
+    profectionResult:   bazi.profectionResult,
+    nakshatraData:      lune.nakshatraData,
+    directDomainBonuses: bazi.directDomainBonuses,
     mercPts,
-    vocResult,
+    vocResult:          lune.vocResult,
     pyPts,
     pmPts,
     pinnPts,
     pyv,
-    moonPhaseRawPhase: moonPhaseRaw.phase,
-    _transitBreakdown,
-    planetaryHour: planetaryHourNow ?? null,  // V9 Sprint 4
+    moonPhaseRawPhase:  moonPhaseRaw.phase,
+    _transitBreakdown:  ephem._transitBreakdown,
+    planetaryHour:      ephem.planetaryHour,
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
-    baziGroupDelta:  baziFamilyTotal,
-    luneGroupDelta:  luneGroupCapped,
-    ephemGroupDelta: ephemGroupCapped,
-    indivGroupDelta: indivGroupCapped, // Sprint AN — C_INDIV observabilité
+    baziGroupDelta:     bazi.baziFamilyTotal,
+    luneGroupDelta:     lune.luneGroupCapped,
+    ephemGroupDelta:    ephem.ephemGroupCapped,
+    indivGroupDelta:    indiv.indivGroupCapped,
   };
 }

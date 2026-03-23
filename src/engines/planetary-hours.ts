@@ -176,11 +176,15 @@ export function getCurrentPlanetaryHour(now: Date = new Date()): PlanetaryHour |
   return calcPlanetaryHours(now).find(h => ms >= h.startMs && ms < h.endMs) ?? null;
 }
 
-/** Prochaines heures favorables restant dans la journée (triées par pts desc). */
+/** Prochaines heures favorables restant dans la journée (triées par début).
+ *  Ronde Pilotage P5 : filtre heures raisonnables (7h–22h) — pas de créneaux à 01h du matin. */
 export function getBestHoursToday(now: Date = new Date(), topN = 3): PlanetaryHour[] {
   const ms = now.getTime();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const h7  = midnight + 7  * 3_600_000;  // 07:00
+  const h22 = midnight + 22 * 3_600_000;  // 22:00
   return calcPlanetaryHours(now)
-    .filter(h => h.quality === 'favorable' && h.endMs > ms)
-    .sort((a, b) => b.pts - a.pts)
+    .filter(h => h.quality === 'favorable' && h.endMs > ms && h.startMs >= h7 && h.startMs < h22)
+    .sort((a, b) => a.startMs - b.startMs)
     .slice(0, topN);
 }

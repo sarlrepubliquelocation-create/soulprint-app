@@ -18,16 +18,40 @@
 // Intégration : additionné à slowAstroDelta dans convergence.ts
 // ═══════════════════════════════════════════════════════════════
 
-import { getPlanetLongitudeForDate, SIGNS } from './astrology';
+import { getPlanetLongitudeForDate, calcAnglesForDate, SIGNS, SIGN_FR, findCity } from './astrology';
 import { planetPosToLong } from './returns';
 
 // ── Types ──
+
+// R25: Domaines par maison (pour interprétation ASC RS)
+const HOUSE_THEME: Record<number, string> = {
+  1: 'identité et image personnelle',
+  2: 'finances et ressources',
+  3: 'communication et entourage',
+  4: 'foyer et racines',
+  5: 'créativité et amour',
+  6: 'santé et travail quotidien',
+  7: 'relations et partenariats',
+  8: 'transformations profondes',
+  9: 'voyages et expansion',
+  10: 'carrière et statut',
+  11: 'projets et amitiés',
+  12: 'spiritualité et introspection',
+};
 
 export interface SolarReturnResult {
   srDate: Date | null;       // date exacte de la Révolution Solaire
   totalScore: number;        // cap ±6
   breakdown: string[];       // détails des règles actives
   hasActiveSR: boolean;      // SR dans fenêtre ±6 mois
+  // R25: ASC du Retour Solaire dans les maisons natales
+  srAsc: {
+    longitude: number;       // longitude écliptique 0-360
+    sign: string;            // signe zodiacal (english key)
+    degInSign: number;       // degré dans le signe
+    natalHouse: number;      // maison natale (1-12) où tombe l'ASC RS
+    theme: string;           // domaine de vie activé
+  } | null;
 }
 
 // ── Constantes ──
@@ -196,12 +220,14 @@ export function calcSolarReturn(
     ad?: number;
     mcSign?: string;
     mcDeg?: number;
+    hs?: string[];  // R25: cusps natales pour placer l'ASC RS
   } | null,
   birthDateStr: string,
   today: Date = new Date(),
+  birthCity?: string,  // R25: ville de naissance pour calculer l'ASC RS
 ): SolarReturnResult {
   if (!astro) {
-    return { srDate: null, totalScore: 0, breakdown: [], hasActiveSR: false };
+    return { srDate: null, totalScore: 0, breakdown: [], hasActiveSR: false, srAsc: null };
   }
 
   try {
@@ -225,7 +251,7 @@ export function calcSolarReturn(
     const natalMCLong  = astro.mcSign  ? planetPosToLong(astro.mcSign, astro.mcDeg ?? 0) : null;
 
     if (natalSunLong === null) {
-      return { srDate: null, totalScore: 0, breakdown: ['SR: Soleil natal introuvable'], hasActiveSR: false };
+      return { srDate: null, totalScore: 0, breakdown: ['SR: Soleil natal introuvable'], hasActiveSR: false, srAsc: null };
     }
 
     // 2. Trouver la SR la plus proche (année courante ou suivante)
@@ -240,7 +266,7 @@ export function calcSolarReturn(
     }
 
     if (!srDate) {
-      return { srDate: null, totalScore: 0, breakdown: ['SR: binary search échoué'], hasActiveSR: false };
+      return { srDate: null, totalScore: 0, breakdown: ['SR: binary search échoué'], hasActiveSR: false, srAsc: null };
     }
 
     // 3. Vérifier si la SR est dans la fenêtre active ±6 mois
@@ -248,7 +274,7 @@ export function calcSolarReturn(
     const hasActiveSR = timeDiff <= SR_WINDOW_MS;
 
     if (!hasActiveSR) {
-      return { srDate, totalScore: 0, breakdown: [], hasActiveSR: false };
+      return { srDate, totalScore: 0, breakdown: [], hasActiveSR: false, srAsc: null };
     }
 
     // 4. Scorer les 4 règles
@@ -263,10 +289,67 @@ export function calcSolarReturn(
       natalMarsLong,
     );
 
-    return { srDate, totalScore: score, breakdown, hasActiveSR };
+    // 5. R25: Calculer l'ASC du Retour Solaire et le placer dans les maisons natales
+    let srAsc: SolarReturnResult['srAsc'] = null;
+    if (birthCity) {
+      const cityCoords = findCity(birthCity);
+      if (cityCoords && astro.b3?.asc) {
+        const [lat, lon] = cityCoords;
+        const angles = calcAnglesForDate(srDate, lat, lon);
+        const srAscLon = angles.asc;
+        const srAscSign = angles.ascSign;
+        const srAscDeg = +(srAscLon % 30).toFixed(1);
+
+        // Déterminer dans quelle maison natale tombe l'ASC RS
+        // Méthode : comparer la longitude de l'ASC RS aux cusps natales
+        let natalHouse = 1;
+        if (astro.hs && astro.hs.length === 12) {
+          // Reconstruire les longitudes des cusps natales (approximation par signe)
+          // Pour WS: chaque cusp = début du signe
+          const natalAscIdx = SIGNS.indexOf(astro.b3.asc);
+          for (let i = 11; i >= 0; i--) {
+            const cuspSignIdx = SIGNS.indexOf(astro.hs[i]);
+            const cuspLon = cuspSignIdx * 30; // début du signe
+            const srAscNorm = ((srAscLon - cuspLon) % 360 + 360) % 360;
+            const nextCuspIdx = (i + 1) % 12;
+            const nextCuspSignIdx = SIGNS.indexOf(astro.hs[nextCuspIdx]);
+            const nextCuspLon = nextCuspSignIdx * 30;
+            const span = ((nextCuspLon - cuspLon) % 360 + 360) % 360;
+            if (srAscNorm >= 0 && srAscNorm < (span || 30)) {
+              natalHouse = i + 1;
+              break;
+            }
+          }
+          // Fallback simplifié: utiliser le signe
+          if (natalHouse === 1 && astro.hs) {
+            const srSignIdx = SIGNS.indexOf(srAscSign);
+            for (let i = 0; i < 12; i++) {
+              if (SIGNS.indexOf(astro.hs[i]) === srSignIdx) {
+                natalHouse = i + 1;
+                break;
+              }
+            }
+          }
+        }
+
+        const theme = HOUSE_THEME[natalHouse] || 'identité';
+        srAsc = {
+          longitude: srAscLon,
+          sign: srAscSign,
+          degInSign: srAscDeg,
+          natalHouse,
+          theme,
+        };
+
+        // Ajouter au breakdown narratif
+        breakdown.push(`SR ASC : ${SIGN_FR[srAscSign] || srAscSign} ${srAscDeg}° → Maison natale ${natalHouse} (${theme})`);
+      }
+    }
+
+    return { srDate, totalScore: score, breakdown, hasActiveSR, srAsc };
 
   } catch (e) {
     console.warn('[SolarReturn] Calcul échoué:', e);
-    return { srDate: null, totalScore: 0, breakdown: [], hasActiveSR: false };
+    return { srDate: null, totalScore: 0, breakdown: [], hasActiveSR: false, srAsc: null };
   }
 }

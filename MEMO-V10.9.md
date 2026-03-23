@@ -1,7 +1,7 @@
 # MEMO Kaironaute V10.9 — Sprints O → X + fixes infra
 > Moteur de scoring védique journalier TypeScript
 > Protocole : zéro initiative · diff avant/après · 3 options + choix explicite · oracles obligatoires
-> Dernière mise à jour : Sprints V/W/X + fix crash LunarNode + fix HMR dev — 61/61 oracles
+> Dernière mise à jour : Ronde 9 Oracle/Compatibilité (20 correctifs · 4 sprints · conformité 100%)
 
 ---
 
@@ -412,3 +412,63 @@ ephemGroupDelta?: number;  // C_EPHEM capé ±14 (après LuneGate)
 
 Propagation propre L1 → L3. Zéro impact sur score, zéro modification modules L1/L2.
 Utilisables pour monitoring futur si un groupe domine la distribution.
+
+---
+
+## Ronde 9 — Audit doctrinal Oracle + Compatibilité (20 correctifs)
+
+> Processus : Ronde 9 / 9bis (confrontation croisée) / 9ter (arbitrage final)
+> 3 IAs : GPT (Dr. Chen numérologie) / Grok (Dr. Patel BaZi) / Gemini (Pr. Suzuki Yi Jing)
+> Résultat : 20 décisions verrouillées — conformité 100% (audit croisé vérifié)
+
+### Sprint 1 — Corrections simples (8 edits)
+
+| # | Correctif | Fichier | Détail |
+|---|-----------|---------|--------|
+| 1 | Bug Master Bébé | `oracle.ts` | CdV parent préservé (11≠2) |
+| 2 | 7 chinois neutre | `oracle.ts` | CHINESE_DIGIT_BONUS[7] : -2 → 0 |
+| 3 | Voyage sensible Mercure | `oracle.ts` | `mercurySensitive: true` |
+| 4 | Présentation sensible Mercure | `oracle.ts` | `mercurySensitive: true` |
+| 5 | Mercure malus graduel | `oracle.ts` | Remplace cap dur 71 → malus -6 à -12 par catégorie |
+| 6 | A+B=65 supprimé | `compatibility.ts` | Heuristique arithmétique sans base Yi Jing |
+| 7 | Même hexagramme +2 | `compatibility.ts` | Résonance profonde au lieu de malus |
+| 8 | PB retirée BaZi | `bazi.ts` | +8 → 0, module séparé dans compatibility |
+| 9 | BaZi scoring recalibré | `bazi.ts` | 天合+18, Liu He+12, San He+14, Clash-13, Harm-11 |
+| 10 | PB gradation | `compatibility.ts` | Ancien 30/100 → 50/80 (inactive/active) |
+| 11 | BaZi normalisation | `compatibility.ts` | `(score+34)/78×100` nouveau range [-34,+44] |
+
+### Sprint 2 — Formules nouvelles (3 edits)
+
+| # | Correctif | Fichier | Détail |
+|---|-----------|---------|--------|
+| 1 | Y contextuel GPT 3 niveaux | `oracle.ts` + `numerology.ts` | Y initial→cons, après cons→voy, sinon→cons |
+| 2 | DATE Oracle 3 composantes | `oracle.ts` | `0.40×vibDate + 0.30×compat(date,CdV) + 0.30×cycle` |
+| 3 | I Ching 4 trigrammes croisés | `compatibility.ts` | bas↔bas + haut↔haut (fort) + croisés (léger) + Roi Wen +3 |
+
+### Sprint 3 — Calibration (6 edits)
+
+| # | Correctif | Fichier | Détail |
+|---|-----------|---------|--------|
+| 1 | Poids modes | `compatibility.ts` | Amour 45/25/20/10 · Pro 35/30/25/10 · Famille 40/30/30/0 |
+| 2 | Sous-poids numérologie | `compatibility.ts` | LP/Expr/Soul par mode (40/25/35 · 30/45/25 · 40/30/30) |
+| 3 | NUM_COMPAT 9×9 | `compatibility.ts` | Nouvelle matrice consensus (1-5=9, 2-6=9, 3-9=9, 4-8=9) |
+| 4 | Maîtres Nombres | `compatibility.ts` | 11×22: 10→6, 11×11: 9→8, 22×22: 8→7, 22×33: 9→7 |
+| 5 | BUSINESS_NUMBERS | `oracle.ts` | 4: 2→7, 7: 1→3, 8: 9→10, 1: 7→8 |
+| 6 | Hex famille +2 max | `compatibility.ts` | Séparé du score doctrinal, "Résonance Archétypale" |
+
+### Sprint 4 — Polish (1 edit)
+
+| # | Correctif | Fichier | Détail |
+|---|-----------|---------|--------|
+| 1 | Bonus 168 Yi Lu Fa | `oracle.ts` | 一六八 "chemin vers la fortune" +10 chineseBonus |
+
+### Fichiers de référence Ronde 9
+
+```
+Ronde9-brief-unique.txt              — Brief audit initial
+Ronde9-Confrontation.txt             — Première confrontation
+Ronde9bis-confrontation-croisee.txt  — Confrontation croisée
+Ronde9bis-Synthese-Finale.txt        — 20 décisions + matrices
+Ronde9ter-5points-friction.txt       — 5 points friction arbitrés
+Ronde9ter-Decisions-Verrouillees.txt — Décisions finales verrouillées
+```

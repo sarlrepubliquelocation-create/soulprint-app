@@ -27,12 +27,16 @@ x_i = clamp(d_i / cap_P95_i, -1, +1)
 ## Paramètres formule unifiée tanh
 
 ```typescript
-A    = 36.0      // amplitude delta
-k    = 0.840     // pente tanh
-bias = +5        // offset positif (P50 cible = 55, pas 50)
+// ── Ronde 29 V3 (remplace anciens A=36, k=0.840) ──
+A    = 44.0      // amplitude delta (Ronde 29 V3)
+k    = 0.65      // pente tanh (Ronde 29 V3)
+bias = 0         // supprimé (P50 = 50 exact)
 
-Δ     = A × tanh(k × X_total)
-score = clamp(50 + Δ × terrain + bias, 0, 100)
+X_core      = clamp(XL + XE + XB + XI, -2.80, +2.80)   // ex ±1.6
+X           = clamp(X_core + C4, -3.15, +3.15)          // ex ±2.0
+X_total     = X + β × baseSignal
+eff_terrain = exp(tanh(X_total / 0.35) × ln(terrain_sq)) // lissage Vasquez C¹
+score       = clamp(round(50 + A × tanh(k × X_total × eff_terrain)), 0, 100)
 ```
 
 ### Distribution résultante (N=50 000)
@@ -153,6 +157,26 @@ delta_final += harmony;
 | AJ ✅ | Sprint AJ — Shen Sha complets + scoring actif (Chantier 5 · 10 nouvelles étoiles : YangRen KongWang TaoHua TianXi JieSha ZaiSha GuChen GuaSu XueRen FuXing · anti-stack poids [1,0.6,0.4,0.3,0.25,0.2] cap ±4 · interaction DM×ShenSha : négatives ×(1+0.25×(-s)), protectrices ×(1+0.20×(-s)) · intégré dans C_BAZI ±15) | `bazi.ts`, `convergence-daily.ts` |
 | AK ✅ | Sprint AK — SAV Ashtakavarga hybride (Chantier 5 · buildSAV somme 7 BAV par signe · deltaSAV=clamp((SAV-28)×0.22,-2.8,+2.8) · hybride Moon BAV+SAV : clamp(Lune_BAV×0.75 + SAV_delta, -5, +5) · remplace ancien Moon BAV pur ±2) | `ashtakavarga.ts`, `convergence-daily.ts` |
 | AL ✅ | Sprint AL — Kinetic Shocks (Chantier 5 Sprint 2 · consensus 3/3 IAs R4 confrontation · Ingress Soleil -1 jour J · Ingress Mars -2 jour J · Station D↔R Mercure/Vénus/Mars -2 additif + BAV×1.40 jour J seul · pas de rétro continu ni shadow · dans C_EPHEM ±14) | `kinetic-shocks.ts` (nouveau), `convergence-daily.ts` |
+| AM-AX ✅ | Sprints AM→AX — Consolidation UX + Shapley + Rondes 13→19 (vectorEngine, pattern-detection, strategic-reading, shapley contributions, momentum, rarity index, etc.) | Multiples |
+| AY ✅ | Sprint AY — Ronde 20 UX (3 postures AGIR/AJUSTER/RALENTIR · Triade FORCE/ALIGNEMENT/VIGILANCE · moonPhaseAction · Shapley bars · Compact blocks · FeedbackWidget repositionné) | `convergence.ts`, `ConvergenceTab.tsx` |
+| R21B ✅ | Ronde 21-bis — Consensus 3 IAs (2 écrans + tiroir "Explorer le détail" · Override moteur : 4 signaux pause ≥3 → force AGIR→AJUSTER · Micro-ligne "Score élevé — contexte prudent" · dayTypeHuman() J+1 · moonPhaseAction() tiroir · tenGodHuman() 10 Dieux BaZi · H8/12→Cycle diurne/nocturne · Heure Planétaire enrichie (horaire en cours, conseil contextuel, tri chronologique) · "Précision 0%"→"Calibration en apprentissage" · "Vimshottari/jyotish" supprimé · Arcane de Saison→Arcane de Cycle de Vie · Shapley élargi + sous-labels (BaZi=Astrologie chinoise) · "Pics de fluidité"→"Meilleurs créneaux" · Bug "Dans -12 jour"→"Depuis 12 jours" · %→/100 dans conseils domaines · Tarot narrative 160 chars) | `convergence.ts`, `ConvergenceTab.tsx`, `FeedbackWidget.tsx`, `validation-tracker.ts`, `planetary-hours.ts` |
+| R22 ✅ | Ronde 22/22b/22c — Fix Cosmic/Gold calendrier · R22 consensus 3/3 : Option A (terrain_sq) — insuffisant seul car ctxMult clampé [0.95,1.05] · R22b consensus 3/3 : time-decay D3 cosinus · R22c consensus 3/3 : Option G (baseSignal) — insuffisant car baseSignal ≈ 0 pour certains profils | `convergence.ts`, `CalendarTab.tsx` |
+| R23 ⚠️ | Ronde 23 — Fusion H+K (intermédiaire, remplacée par R24) · Ratio adaptatif live/preview — fonctionnel MAIS instable : calendrier fluctuait selon le jour de connexion | `convergence.ts`, `CalendarTab.tsx` |
+| R24 ⚠️ | Ronde 24/24bis — K-signal symétrique (intermédiaire, remplacée par R25) · K_STRUCT multiplicatif alignait les pics mais pas les jours moyens · Écart 7 pts entre calendrier et pilotage pour le jour J | `convergence.ts` |
+| R25 ⚠️ | Ronde 25 — **L-lite : unification formules** (consensus 3/3 GPT+Grok+Gemini) · `scoreFromGroups()` partagée live/preview · Formule unifiée MAIS preview avait ~60% moins de signal (3 modules vs ~20 dans le live) → scores effondrés, 0 Cosmique · **Bug 2 fix** : CalendarTab initialisé au mois courant | `convergence.ts`, `CalendarTab.tsx` |
+| R26 ⚠️ | Ronde 26 — **Réactivation modules preview** (consensus 2/3 GPT+Gemini) · Réactivé 9 modules manuellement · Insuffisant : écart 5pts (77 vs 82) · Bug découvert R27 : pdPts/moonScore/mercPts ajoutés aux groupes alors qu'ils sont narratifs-only dans le live | `convergence.ts` |
+| R27 ✅ | Ronde 27 — **Single Source of Truth** (consensus 3/3 GPT+Gemini+Grok) · **calcDayPreview appelle désormais calcDailyModules** — plus de pipeline séparé · Supprimé ~200 lignes de calcul dupliqué · Les 4 group deltas viennent directement du moteur live · Fix bug R25 : ordre paramètres scoreFromGroups (bazi↔lune inversés) · Fix bug R26 : pdPts/moonScore/mercPts retirés des groupes · Bundle -4 KB · **GAP=0 confirmé par diagnostic** (scoreMainScore ≡ scoreSfG pour le jour J) | `convergence.ts` |
+| R28 ✅ | Ronde 28 — **L2-lite : dashaMult + baseSignal par jour** (consensus 3/3 GPT+Gemini+Grok) · Cause racine "0 Cosmic" identifiée : dashaMult=0.8 fixe → plafond théorique ~81 · `buildNatalDashaCtx()` construit le contexte natal UNE FOIS · `calcDashaMultLite()` recalcule dashaMult par jour (arithmétique Vimshottari pure ≈ 0.01ms) · `calcBaseSignalLite()` recalcule baseSignal par jour · ctxMult reste fixe (quasi-constant sur 1 an) · **Garde GAP=0** : si targetDate === today → terrain live inchangé · CalendarTab passe `bt` pour heure naissance · Bundle +1 KB | `convergence-slow.ts`, `convergence.ts`, `CalendarTab.tsx`, `App.tsx` |
+| R29 ✅ | Ronde 29 (5 sous-rondes : 29/29bis/29ter/29-final/29-ultime) — **Recalibration formule V3** (consensus 2/3→3/3) · **2 verrous structurels** : X_core cap ±1.6 jetait 51% du signal + terrain_sq multiplicatif HORS tanh = plafond absolu · **V3 finale** : A=36→44 · k=0.840→0.65 · X_core ±1.6→±2.80 · X ±2.0→±3.15 · terrain DANS tanh avec lissage Vasquez `eff_terrain=exp(tanh(X_total/0.35)×ln(terrain_sq))` — C¹ continu, asymétrique (bon terrain amplifie jours+, amortit jours−) · **Experts** : GPT (Dr. Vasquez maths), Grok (Pr. Yamamoto systèmes), Gemini (Pr. Sharma stats) · Faille "Double Peine Inversée" trouvée en 29ter et corrigée · 3 fonctions modifiées : `scoreFromGroups`, `calcMainScore`, `computeShapley4` · Diagnostics R28-AUDIT supprimés | `convergence.ts` |
+| R30 ✅ | Ronde 30 (3 sous-rondes : 30/30bis/30ter) — **Déblocage dashaMult plancher** (consensus 3/3) · **Verrou** : dashaMult=0.80 (hard-clamp) identique 5 ans (2026-2030), Antardasha invisible · **Formule B'** : poids 50/50 (ex 65/35) · clamp dur → smooth `tanh(z/0.25)` · `core=1+0.225t` · certainty shrink vers 1.0 (ex multiplicatif) · Range [0.775, 1.225] asymptotique · Cas critique M=-4/A=+2 : 0.80→**0.858** (+0.058) · Faille "saturation z/0.14" trouvée en 30bis (unanime 3/3) et corrigée (diviseur 0.25) · `composeDashaMultipliers` + `calcSandhiSmoothing` + `calcDashaMultLite` modifiés | `vimshottari.ts`, `convergence-slow.ts` |
+| R31 ❌ | Ronde 31 — **Orthogonalisation S_dasha** — **REVERT** · Tentative d'éliminer la double peine (dashaTotal dans dashaMult ET S_dasha) · Résultat : supprimait trop de différenciation inter-années · Inflation massive bonnes années (2037: 80 Cosmic) · 2030 toujours 0 Cosmic · Cause : résidu ≈ pratyantar seul → S_dasha quasi-identique toutes années | REVERT complet |
+| R31bis ❌ | Ronde 31bis — **Soft-sign asymétrique** — **REVERT** · Pente soft-sign à l'origine (1/6) > linéaire (1/9) → régression 2026/2027 pour dashaTotal entre -1 et -3 | REVERT |
+| R32 ❌ | Ronde 32 — **Raccord C1 Rationnel S_dasha** (consensus Gemini) · Formule trop conservatrice : d=-7 → S_dasha=-0.568, impact score +0.7pt seulement · 2030 Pic=87% → toujours 0 Cosmique · Remplacé par R33 | `convergence-slow.ts` |
+| R33 ❌ | Ronde 33 — **Atténuation linéaire facteur 0.25** · 2030 passe à 1 Cosmique (Pic 88%) mais déséquilibre global persiste : 2035=0 Cosmic vs 2037=104 · Ne traitait que S_dasha, pas dashaMult · Remplacé par R34 | `convergence-slow.ts` |
+| R34 ❌ | Ronde 34 — **Équilibrage global double peine** (synthèse Gemini) · dashaMult asymétrique 0.15/0.225 + S_dasha=`8d/(63+9|d|)` · 2037 descend 104→74 Cosmic ✓ mais 2035 reste à 0 Cosmic ❌ · Amplitude négative 0.225 inchangée → dashaMult mauvaises années pas aidé · Remplacé par R35 | `vimshottari.ts`, `convergence-slow.ts` |
+| R35 ❌ | Ronde 35 — **Amplitude (0.12/0.18)** (consensus Grok) · 2037 72 Cosmiques (ex 74, -2 seulement) · 2035 toujours 0 Cosmique (Pic 87%) · Insuffisant, remplacé par R36 | `vimshottari.ts` |
+| R36 ❌ | Ronde 36 — **Synthèse GPT×Gemini** · amplitude (0.06/0.15) + S_dasha=`d/(6+3|d|)` · 2032: 0→3 Cosmiques ✓ · 2037: 72→55 ✓ · Mais 2035 reste 0 Cosmique (Pic 87% inchangé) · Gain S_dasha d=-3 insuffisant (+0.067 → +0.6pt seulement) · Remplacé par R37 | `vimshottari.ts`, `convergence-slow.ts` |
+| R37 ✅ | Ronde 37 (2 sous-rondes : analyse + confrontation) — **Bump local d=-3** (consensus GPT, Grok trop grossier, Gemini collatéraux d=-5/-7) · Correction C¹ à support compact centrée d=-3, rayon 1.25 : `u=(d+3)/1.25; bump=max(0,1-u²); S_dasha += 0.12×bump²` · d=-3→-0.080 (ex -0.200, gain +0.120 → ~+1pt score) · d=-1→-0.111 exact (bump=0) · d=-5→inchangé (bump=0) · d=-9→inchangé (bump=0) · Amplitude R36 inchangée (0.06/0.15) | `convergence-slow.ts` (2 sites) |
 
 ---
 

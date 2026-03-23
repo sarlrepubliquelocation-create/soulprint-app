@@ -140,7 +140,9 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
         }}>
           {stats.spearman && stats.spearman.n >= 10 ? (
             <div style={{ fontWeight: 700, marginBottom: 4, color: P.text }}>
-              {stats.spearman.icon} Précision : {stats.spearman.precision}% — {stats.spearman.label}
+              {stats.spearman.icon} {stats.spearman.precision > 0
+                ? `Précision : ${stats.spearman.precision}% — ${stats.spearman.label}`
+                : `Calibration en apprentissage — ${stats.spearman.label}`}
               <span style={{ fontWeight: 400, fontSize: 10, color: P.textDim, marginLeft: 6 }}>
                 ({stats.spearman.n} jours{stats.spearman.significant ? ' · ✓ fiable' : ''})
               </span>

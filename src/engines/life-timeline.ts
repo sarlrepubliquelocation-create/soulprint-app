@@ -72,19 +72,19 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 17, ageMax: 19, name: 'Premier retour Nœuds Lunaires',
     planet: 'Nœuds', theme: 'karma',
-    phrase: 'Vers 18-19 ans, un nouveau cycle karmique a commencé — premières décisions qui engagent ta vraie direction de vie.',
+    phrase: 'Vers 18-19 ans, un nouveau cycle karmique s\'est ouvert — un sentiment de direction, de choix engageant, de bifurcation intérieure.',
     force: 'forte',
   },
   {
     ageMin: 20, ageMax: 22, name: 'Premier retour Jupiter',
     planet: 'Jupiter', theme: 'expansion',
-    phrase: 'Vers 21-22 ans, une opportunité d\'expansion majeure s\'est présentée — une porte s\'est ouverte vers quelque chose de plus grand.',
+    phrase: 'Vers 21-22 ans, un élan d\'expansion t\'a traversé — un horizon plus large s\'est ouvert, une envie de voir grand.',
     force: 'moyenne',
   },
   {
     ageMin: 28, ageMax: 30, name: 'Retour de Saturne',
     planet: 'Saturne', theme: 'audit',
-    phrase: 'Entre 28 et 30 ans, le Retour de Saturne : audit brutal de ta vie. Tout ce qui n\'était pas aligné avec ta vraie nature s\'est effondré pour te reconstruire sur des bases authentiques.',
+    phrase: 'Entre 28 et 30 ans, le Retour de Saturne : tes fondations ont été testées. Ce qui n\'était pas aligné avec ta vraie nature a été remis en question — un réalignement profond s\'est opéré.',
     force: 'très forte',
   },
   {
@@ -102,7 +102,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 40, ageMax: 43, name: 'Opposition Uranus',
     planet: 'Uranus', theme: 'crise',
-    phrase: 'Entre 40 et 43 ans, l\'opposition d\'Uranus — un besoin irrésistible de liberté et de changement radical. Les structures que tu avais bâties sont devenues insupportables.',
+    phrase: 'Entre 40 et 43 ans, l\'opposition d\'Uranus — un besoin irrésistible de liberté et de rupture interne. Ce que tu avais construit a commencé à te peser autrement.',
     force: 'très forte',
   },
   {
@@ -114,7 +114,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 48, ageMax: 51, name: 'Retour de Chiron',
     planet: 'Chiron', theme: 'guérison',
-    phrase: 'Vers 50 ans, le Retour de Chiron : tu as enfin compris ta blessure originelle et commencé à la transformer en sagesse et en force de guérison.',
+    phrase: 'Vers 50 ans, le Retour de Chiron : ta blessure originelle s\'est éclairée d\'un sens nouveau — un potentiel de sagesse et de guérison a émergé.',
     force: 'très forte',
   },
   {
@@ -139,36 +139,97 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
 
 // ── Thèmes des Années Personnelles ──
 
-const PY_THEMES: Record<number, { theme: string; keyword: string; action: string }> = {
-  1:  { theme: 'nouveau départ',       keyword: 'Initiative',     action: 'Tu as lancé quelque chose de neuf — nouveau projet, nouvelle identité, nouveau territoire.' },
-  2:  { theme: 'partenariat',          keyword: 'Patience',       action: 'L\'année de la diplomatie et des alliances. Tu as appris à attendre et à écouter.' },
-  3:  { theme: 'expansion créative',   keyword: 'Expression',     action: 'Explosion créative et visibilité. Beaucoup de gens t\'ont découvert à cette période.' },
-  4:  { theme: 'construction',         keyword: 'Structure',      action: 'Année de travail de fond. Tu as posé des fondations solides, sans raccourcis.' },
-  5:  { theme: 'changement majeur',    keyword: 'Liberté',        action: 'Année de transformation : déménagement, rupture constructive, changement radical de direction.' },
-  6:  { theme: 'responsabilité',       keyword: 'Engagement',     action: 'Année des engagements : famille, foyer, responsabilités assumées pleinement.' },
-  7:  { theme: 'introspection',        keyword: 'Analyse',        action: 'Année de recul stratégique. Tu as pris du temps pour analyser, méditer, comprendre en profondeur.' },
-  8:  { theme: 'récolte et pouvoir',   keyword: 'Puissance',      action: 'Les efforts des années précédentes ont porté leurs fruits. Année de reconnaissance et de pouvoir matériel.' },
-  9:  { theme: 'fin de cycle',         keyword: 'Clôture',        action: 'Grand nettoyage : tu as laissé partir ce qui ne te servait plus pour préparer le renouveau.' },
-  11: { theme: 'illumination',         keyword: 'Vision',         action: 'Année d\'intuitions fulgurantes et de tension nerveuse extrême. Tu as vu plus loin que les autres.' },
-  22: { theme: 'bâtisseur cosmique',   keyword: 'Vision à grande échelle', action: 'Année de construction majeure — un projet qui te dépasse, une vision à long terme posée.' },
-  33: { theme: 'guérison collective',  keyword: 'Impact',         action: 'Ton impact a dépassé ta sphère personnelle — guérison, enseignement, transmission.' },
+// V5.1: Out-clause systématique — dynamiques internes, jamais de faits externes (Ronde #2 consensus 3/3)
+// Chaque PY a 3 variantes pour éviter la répétition quand le même cycle revient tous les 9 ans
+const PY_THEMES: Record<number, { theme: string; keyword: string; actions: string[] }> = {
+  1:  { theme: 'nouveau départ',       keyword: 'Initiative',     actions: [
+    'Une impulsion de renouveau t\'a traversé — besoin de repartir de zéro, de te réinventer, de marquer un territoire.',
+    'Un élan d\'initiative s\'est imposé — quelque chose de neuf demandait à naître.',
+    'Un besoin de repartir à zéro, de te réinventer, de marquer un territoire.',
+  ]},
+  2:  { theme: 'partenariat',          keyword: 'Patience',       actions: [
+    'Un besoin profond de connexion et de patience a émergé. Tu as dû apprendre à écouter avant d\'agir.',
+    'Les alliances et la diplomatie ont pris le dessus — apprendre à ne pas forcer.',
+    'Un appel à la patience et au partenariat s\'est fait sentir.',
+  ]},
+  3:  { theme: 'expansion créative',   keyword: 'Expression',     actions: [
+    'Un élan d\'expression t\'a porté — besoin de rayonner, de créer, de te rendre visible.',
+    'Ta voix intérieure a demandé à sortir — créativité, visibilité, expansion.',
+    'Un besoin de te montrer et de créer s\'est imposé.',
+  ]},
+  4:  { theme: 'construction',         keyword: 'Structure',      actions: [
+    'Un appel à la structure s\'est imposé. Tes fondations intérieures ont été consolidées, sans raccourci possible.',
+    'Le besoin de construire du solide t\'a rattrapé — rigueur, effort, fondations.',
+    'Un travail de fond s\'est imposé — poser des bases qui durent.',
+  ]},
+  5:  { theme: 'changement majeur',    keyword: 'Liberté',        actions: [
+    'Un besoin de rupture et de liberté t\'a traversé — quelque chose devait bouger, se reconfigurer, lâcher.',
+    'Une envie de mouvement et de changement a secoué tes structures.',
+    'Quelque chose devait lâcher — un appel à la liberté et à la reconfiguration.',
+  ]},
+  6:  { theme: 'responsabilité',       keyword: 'Engagement',     actions: [
+    'Un poids de responsabilité s\'est posé sur tes épaules — engagement, protection, rôle structurant à assumer.',
+    'Les engagements et les responsabilités sont devenus centraux.',
+    'Un rôle de protection et de guidance s\'est imposé à toi.',
+  ]},
+  7:  { theme: 'introspection',        keyword: 'Analyse',        actions: [
+    'Un recul stratégique s\'est imposé. Besoin de comprendre en profondeur avant de repartir.',
+    'Le silence et l\'analyse sont devenus tes alliés — période de recul nécessaire.',
+    'Un besoin de ralentir pour mieux comprendre s\'est manifesté.',
+  ]},
+  8:  { theme: 'récolte et pouvoir',   keyword: 'Puissance',      actions: [
+    'Les efforts passés ont mûri. Un sentiment de puissance et de reconnaissance a émergé, que tu l\'aies saisi ou non.',
+    'Une période de récolte — ce que tu avais semé a commencé à porter ses fruits.',
+    'Un sentiment de puissance et de maîtrise a émergé.',
+  ]},
+  9:  { theme: 'fin de cycle',         keyword: 'Clôture',        actions: [
+    'Un grand lâcher-prise s\'est imposé — le besoin de fermer des chapitres, de nettoyer, de préparer le vide pour le renouveau.',
+    'Un cycle s\'est refermé — le besoin de clôturer avant de recommencer.',
+    'Le besoin de fermer des chapitres, de nettoyer, de préparer le vide pour le renouveau.',
+  ]},
+  11: { theme: 'illumination',         keyword: 'Vision',         actions: [
+    'Des intuitions fulgurantes ont traversé cette période — une tension nerveuse intense, le sentiment de percevoir plus loin que d\'habitude.',
+    'Une vision plus grande que toi s\'est imposée — intensité rare, perception aiguisée.',
+    'Un sentiment de mission et d\'illumination intérieure t\'a traversé.',
+  ]},
+  22: { theme: 'bâtisseur cosmique',   keyword: 'Vision à grande échelle', actions: [
+    'Une vision plus grande que toi s\'est imposée — un appel à construire quelque chose qui te dépasse.',
+    'Un appel à construire quelque chose qui te dépasse s\'est manifesté.',
+    'Le besoin de bâtir à grande échelle, au-delà de toi-même, s\'est imposé.',
+  ]},
+  33: { theme: 'guérison collective',  keyword: 'Impact',         actions: [
+    'Ton impact a débordé ta sphère personnelle — un rôle de transmission, de guérison ou d\'élévation collective s\'est manifesté.',
+    'Un rôle de transmission et d\'élévation collective s\'est révélé.',
+    'Ton influence a dépassé ton cercle — un appel à guérir et transmettre.',
+  ]},
 };
+
+// V5.1: Compteur d'occurrences pour varier les formulations
+const _pyOccurrenceCount: Record<number, number> = {};
+function getPYAction(pyValue: number): string {
+  const theme = PY_THEMES[pyValue];
+  if (!theme) return '';
+  const count = _pyOccurrenceCount[pyValue] || 0;
+  _pyOccurrenceCount[pyValue] = count + 1;
+  return theme.actions[count % theme.actions.length];
+}
 
 // ── Thèmes des Pinnacles ──
 
+// V5.1: Out-clause — dynamiques internes (Ronde #2)
 const PINNACLE_THEMES: Record<number, string> = {
-  1: 'indépendance et initiative — tu as dû apprendre à te tenir debout seul',
-  2: 'diplomatie et patience — tu as appris l\'art de l\'écoute et du partenariat',
-  3: 'créativité et expression — tu as rayonné, communiqué, créé',
-  4: 'travail et structure — tu as bâti des fondations solides par l\'effort',
-  5: 'liberté et changement — tu as vécu l\'instabilité comme moteur de croissance',
-  6: 'responsabilité et famille — tu as assumé des rôles de guide et de protecteur',
-  7: 'introspection et spécialisation — tu as développé une expertise et une vie intérieure puissante',
-  8: 'pouvoir et récolte matérielle — tu as occupé des rôles de leadership et d\'autorité',
-  9: 'humanisme et achèvement — tu as touché un public large et accompli quelque chose de grand',
-  11: 'vision et illumination — tu as porté une mission plus grande que toi, avec une intensité rare',
-  22: 'bâtisseur cosmique — tu as posé les fondations d\'un projet qui dépasse ta génération',
-  33: 'maître enseignant — ton rôle était de guérir, transmettre et élever les autres',
+  1: 'indépendance et initiative — un besoin de te tenir debout seul s\'est imposé',
+  2: 'diplomatie et patience — une nécessité d\'écouter et de tisser des alliances t\'a structuré',
+  3: 'créativité et expression — un élan d\'expression et de visibilité t\'a traversé',
+  4: 'travail et structure — un appel à bâtir des fondations solides par l\'effort s\'est fait sentir',
+  5: 'liberté et changement — un besoin d\'instabilité et de mouvement t\'a fait évoluer',
+  6: 'responsabilité et famille — un poids de protection et de guidance s\'est posé sur toi',
+  7: 'introspection et spécialisation — un besoin de profondeur et de vie intérieure t\'a recentré',
+  8: 'pouvoir et reconnaissance — une énergie de leadership et d\'autorité s\'est manifestée',
+  9: 'humanisme et achèvement — un appel à quelque chose de plus grand que toi t\'a porté',
+  11: 'vision et illumination — une mission plus grande que toi s\'est imposée avec une intensité rare',
+  22: 'bâtisseur cosmique — un projet qui dépasse ta génération a commencé à germer en toi',
+  33: 'maître enseignant — une vocation de transmission et d\'élévation s\'est révélée',
 };
 
 // ── Thèmes des Challenges ──
@@ -260,94 +321,133 @@ function generatePeriodInsights(
 
   if (isLived) {
     insights.push(
-      `Durant cette période (${period.ageStart}-${period.ageEnd} ans), le Pinnacle ${period.pinnacle.v} (${pInfo.k}) a orienté ta vie vers ${pinnTheme}. Le Challenge ${period.challenge.v} (${cInfo.k}) t'a imposé le défi de ${challTheme}.`
+      `Durant cette période (${period.ageStart}-${period.ageEnd} ans), ta ${period.pinnacleIdx + 1}e grande phase de vie (phase ${period.pinnacle.v} — ${pInfo.k}) a orienté ta vie vers ${pinnTheme}. Le défi associé ${period.challenge.v} (${cInfo.k}) t\'a imposé de travailler ${challTheme}.`
     );
-    sources.push('Pinnacle ' + (period.pinnacleIdx + 1), 'Challenge ' + (period.pinnacleIdx + 1));
+    sources.push('Phase de vie ' + (period.pinnacleIdx + 1), 'Défi ' + (period.pinnacleIdx + 1));
   } else if (isCurrent) {
     insights.push(
-      `Tu es actuellement dans le Pinnacle ${period.pinnacle.v} (${pInfo.k}) — énergie de ${pinnTheme}. Le Challenge ${period.challenge.v} (${cInfo.k}) t'oblige à travailler sur ${challTheme}.`
+      `Tu es actuellement dans ta ${period.pinnacleIdx + 1}e grande phase de vie (phase ${period.pinnacle.v} — ${pInfo.k}) — énergie de ${pinnTheme}. Le défi associé ${period.challenge.v} (${cInfo.k}) t\'oblige à travailler sur ${challTheme}.`
     );
-    sources.push('Pinnacle actif', 'Challenge actif');
+    sources.push('Phase de vie', 'Défi de vie');
   }
 
-  // 2. Insights Transits majeurs
-  transits.forEach(tr => {
-    if (tr.ageMax <= currentAge + 2) { // Vécu ou imminent
-      insights.push(tr.phrase);
-      sources.push(tr.name);
-    }
-  });
+  // ── Collecte de TOUS les événements datés pour tri chronologique ──
+  // V5.2: Fix va-et-vient temporels — tout est collecté puis trié par âge
+  // order: 0=transit, 1=convergence, 2=PY — pour sub-sort à âge identique
+  type DatedInsight = { age: number; order: number; text: string; source: string };
+  const dated: DatedInsight[] = [];
 
-  // 3. Convergences Transit × Pinnacle × PY
-  // Quand un transit majeur coïncide avec une PY remarquable → phrase percutante
+  // 3. Convergences Transit × Pinnacle × PY (collectées AVANT pour savoir quels transits sont couverts)
+  const coveredTransitNames = new Set<string>();
   transits.forEach(tr => {
-    if (tr.ageMax > currentAge + 2) return; // Pas encore vécu
+    if (tr.ageMax > currentAge + 2) return;
     const coincidingPY = remarkableYears.find(ry =>
       ry.age >= tr.ageMin - 1 && ry.age <= tr.ageMax + 1
     );
     if (coincidingPY) {
       const pyTheme = PY_THEMES[coincidingPY.py.v];
       if (pyTheme) {
-        // V2.5: UNIVERSAL SHOCK — corrélation "fatale" (Gemini)
-        // Quand Transit majeur + PY 9 (fin de cycle) = TRANSFORMATION RADICALE
         const isShock = coincidingPY.py.v === 9 && tr.force === 'très forte';
         const shockPrefix = isShock
-          ? `⚡ TRANSFORMATION RADICALE à ${coincidingPY.age} ans (${coincidingPY.year}) : `
+          ? `🌟 TRANSFORMATION RADICALE à ${coincidingPY.age} ans (${coincidingPY.year}) : `
           : `À ${coincidingPY.age} ans (${coincidingPY.year}), triple convergence : `;
-
         const shockSuffix = isShock
-          ? ` Cette année-là, tu as probablement changé de carrière, de lieu de vie, ou de relation profonde.`
+          ? ` Ce portail a probablement provoqué une mutation profonde — fin d'un chapitre + début radical d'un autre.`
           : '';
-
-        insights.push(
-          `${shockPrefix}${tr.name} + Pinnacle ${period.pinnacle.v} + Année ${coincidingPY.py.v} (${pyTheme.keyword}). ${pyTheme.action}${shockSuffix}`
-        );
-        sources.push(isShock ? 'Universal Shock' : 'Convergence triple');
+        dated.push({
+          age: coincidingPY.age,
+          order: 1,
+          text: `${shockPrefix}${tr.name} + phase de vie ${period.pinnacle.v} + Année ${coincidingPY.py.v} (${pyTheme.keyword}). ${getPYAction(coincidingPY.py.v)}${shockSuffix}`,
+          source: isShock ? 'Universal Shock' : 'Convergence triple',
+        });
+        coveredTransitNames.add(tr.name); // Ce transit est couvert par la convergence
       }
     }
   });
 
-  // V2.5: Shock supplémentaire — PY 9 coïncide avec transition de Pinnacle
-  // C'est le moment le plus prédictif en numérologie (consensus Grok + GPT)
+  // 2. Transits majeurs — seulement ceux qui n'ont PAS de convergence associée
+  transits.forEach(tr => {
+    if (tr.ageMax <= currentAge + 2 && !coveredTransitNames.has(tr.name)) {
+      dated.push({ age: tr.ageMin, order: 0, text: tr.phrase, source: tr.name });
+    }
+  });
+
+  // Shock PY9 × transition Pinnacle
   remarkableYears.forEach(ry => {
     if (ry.age > currentAge) return;
     if (ry.py.v !== 9) return;
-    // Vérifier si c'est une année de transition de Pinnacle (±1 an)
     const isPinnacleTransition = Math.abs(ry.age - period.ageEnd) <= 1;
     if (isPinnacleTransition && period.ageEnd !== null) {
       const alreadyCoveredByTransit = transits.some(tr =>
         ry.age >= tr.ageMin - 1 && ry.age <= tr.ageMax + 1
       );
       if (!alreadyCoveredByTransit) {
-        insights.push(
-          `🔄 En ${ry.year} (${ry.age} ans), fin de cycle karmique (PY 9) synchronisée avec la transition de Pinnacle ${period.pinnacleIdx + 1}→${period.pinnacleIdx + 2}. Changement de direction majeur.`
-        );
-        sources.push('PY9 × Pinnacle Shift');
+        dated.push({
+          age: ry.age,
+          order: 1,
+          text: `🔄 En ${ry.year} (${ry.age} ans), fin de cycle karmique (Année Perso 9) synchronisée avec le changement de grande phase de vie ${period.pinnacleIdx + 1}→${period.pinnacleIdx + 2}. Changement de direction majeur.`,
+          source: 'AP9 × Changement de phase',
+        });
       }
     }
   });
 
-  // 4. Insights PY remarquables hors transits
+  // 4. PY remarquables hors transits
   remarkableYears.forEach(ry => {
-    if (ry.age > currentAge) return; // Pas encore vécu
+    if (ry.age > currentAge) return;
     const pyTheme = PY_THEMES[ry.py.v];
     if (!pyTheme) return;
-    // Éviter les doublons avec les convergences transit
     const alreadyCovered = transits.some(tr =>
       ry.age >= tr.ageMin - 1 && ry.age <= tr.ageMax + 1
     );
     if (!alreadyCovered && [9, 1, 22, 11].includes(ry.py.v)) {
-      insights.push(
-        `En ${ry.year} (${ry.age} ans), Année Personnelle ${ry.py.v} (${pyTheme.keyword}) : ${pyTheme.action}`
-      );
-      sources.push(`PY ${ry.py.v} (${ry.year})`);
+      dated.push({
+        age: ry.age,
+        order: 2,
+        text: `En ${ry.year} (${ry.age} ans), Année Personnelle ${ry.py.v} (${pyTheme.keyword}) : ${getPYAction(ry.py.v)}`,
+        source: `PY ${ry.py.v} (${ry.year})`,
+      });
     }
   });
 
-  // 5. Pinnacle maître → phrase spéciale
+  // ── TRI CHRONOLOGIQUE STRICT puis injection ──
+  // Sub-sort par order pour les âges identiques (transit avant convergence avant PY)
+  dated.sort((a, b) => a.age - b.age || a.order - b.order);
+
+  // V5.2: Fusionner les convergences au même âge pour éviter la répétition
+  // "À 35 ans (2012), triple convergence: X" + "À 35 ans (2012), triple convergence: Y"
+  // → une seule phrase avec les deux événements
+  const merged: typeof dated = [];
+  for (let i = 0; i < dated.length; i++) {
+    const cur = dated[i];
+    // Chercher les convergences consécutives au même âge (order === 1)
+    if (cur.order === 1 && i + 1 < dated.length && dated[i + 1].age === cur.age && dated[i + 1].order === 1) {
+      // Fusionner : garder le préfixe "À X ans (YYYY)" une seule fois
+      const agePrefix = `À ${cur.age} ans`;
+      let combinedText = cur.text;
+      let combinedSources = cur.source;
+      while (i + 1 < dated.length && dated[i + 1].age === cur.age && dated[i + 1].order === 1) {
+        i++;
+        // Retirer le préfixe "À X ans (YYYY), triple convergence : " du suivant
+        const nextText = dated[i].text.replace(/^À \d+ ans \(\d+\),?\s*/, '');
+        combinedText += ` ${nextText}`;
+        combinedSources += `, ${dated[i].source}`;
+      }
+      merged.push({ ...cur, text: combinedText, source: combinedSources });
+    } else {
+      merged.push(cur);
+    }
+  }
+
+  merged.forEach(d => {
+    insights.push(d.text);
+    sources.push(d.source);
+  });
+
+  // 5. Pinnacle maître → phrase spéciale (toujours en dernier, c'est un bilan)
   if (period.pinnacle.m && isLived) {
     insights.push(
-      `Le Pinnacle ${period.pinnacle.v} maître a été une période d'intensité exceptionnelle — visibilité accrue, tensions nerveuses, mais potentiel de réalisation hors norme.`
+      `Cette grande phase de vie (phase ${period.pinnacle.v}, nombre maître) a été une période d'intensité exceptionnelle — visibilité accrue, tensions nerveuses, mais potentiel de réalisation hors norme.`
     );
     sources.push('Nombre Maître');
   }
@@ -365,6 +465,9 @@ export function generateLifeTimeline(
   bd: string,
   today?: string,
 ): LifeTimeline {
+  // V5.1: Reset du compteur de variantes PY à chaque génération
+  for (const k in _pyOccurrenceCount) delete _pyOccurrenceCount[Number(k)];
+
   const t = today || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const birthYear = parseInt(bd.split('-')[0]);
   const currentYear = parseInt(t.split('-')[0]);
@@ -442,7 +545,7 @@ export function generateLifeTimeline(
     const saturnPY = remarkableYearAt(bd, birthYear, 29);
     const isFatalCorrelation = saturnPY && saturnPY.v === 9;
     keyMoments.push(
-      `⚡ Retour de Saturne (${birthYear + 29}) — Audit de vie à 29 ans` +
+      `🌟 Retour de Saturne (${birthYear + 29}) — Audit de vie à 29 ans` +
       (saturnPY ? `, Année ${saturnPY.v} (${PY_THEMES[saturnPY.v]?.keyword || '?'})` : '') +
       (isFatalCorrelation ? ' ⚠️ TRANSFORMATION RADICALE (Saturn Return × PY 9)' : '')
     );
@@ -453,7 +556,7 @@ export function generateLifeTimeline(
     if (pp.end !== null && pp.end <= currentAge && pp.end > 0) {
       const transYear = birthYear + pp.end;
       keyMoments.push(
-        `🔄 Transition Pinnacle ${idx + 1}→${idx + 2} (${transYear}, ${pp.end} ans) — passage de ${getNumberInfo(pinnacles[idx].v).k} à ${getNumberInfo(pinnacles[idx + 1]?.v || 0).k}`
+        `🔄 Changement de grande phase de vie ${idx + 1}→${idx + 2} (${transYear}, ${pp.end} ans) — passage de ${getNumberInfo(pinnacles[idx].v).k} à ${getNumberInfo(pinnacles[idx + 1]?.v || 0).k}`
       );
     }
   });
@@ -529,7 +632,7 @@ function buildIdentityPortrait(
     );
   } else {
     lines.push(
-      `Tu es né sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ton énergie est d\'initiative et d\'action' : 'Ton énergie est de réceptivité et de stratégie'}.`
+      `Tu es né sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ta énergie est d\'initiative et d\'action' : 'Ta énergie est de réceptivité et de stratégie'}.`
     );
   }
 
@@ -574,7 +677,7 @@ function buildIdentityPortrait(
   };
   const trait = animalTraits[cz.animal] || 'une capacité de transformation qui te rend imprévisible';
   lines.push(
-    `Ton ${cz.animal} de ${cz.elem} te donne ${trait}. ${cz.elem === 'Feu' ? 'Le Feu amplifie ton intensité naturelle.' : cz.elem === 'Eau' ? 'L\'Eau te donne profondeur et intuition.' : cz.elem === 'Bois' ? 'Le Bois nourrit ta croissance constante.' : cz.elem === 'Métal' ? 'Le Métal aiguise ta détermination.' : 'La Terre ancre ta vision dans le concret.'}`
+    `Ton ${cz.animal} de ${cz.elem} te donne ${trait}. ${cz.elem === 'Feu' ? 'Le Feu amplifie ta intensité naturelle.' : cz.elem === 'Eau' ? 'L\'Eau te donne profondeur et intuition.' : cz.elem === 'Bois' ? 'Le Bois nourrit ta croissance constante.' : cz.elem === 'Métal' ? 'Le Métal aiguise ta détermination.' : 'La Terre ancre ta vision dans le concret.'}`
   );
 
   // ── 5. Le guide qui doute ──
@@ -596,7 +699,7 @@ function buildIdentityPortrait(
   // ── 7. Yi King natal ──
   if (natalProfile) {
     lines.push(
-      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${natalProfile.archetype}) révèle que tu réussis mieux quand tu ${natalProfile.action?.toLowerCase() || 'écoutes ton instinct'}.`
+      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${natalProfile.archetype}) révèle que tu réussis mieux quand tu ${(natalProfile.action?.toLowerCase() || 'écoutes ton instinct').replace(/\.\s*$/, '')}.`
     );
   }
 
@@ -625,11 +728,11 @@ function buildIdentityPortrait(
   // Source: GPT phrase 10 — "ton défi n'est pas la réussite"
   if (masters.length >= 2 || cz.elem === 'Feu') {
     lines.push(
-      `Ton défi n'est pas la réussite — c'est la canalisation de ton intensité. Chaque fois que la vie t'a mis à terre, tu t'es relevé plus fort et plus stratégique.`
+      `Ton défi n'est pas la réussite — c'est la canalisation de ta intensité. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
     );
   } else {
     lines.push(
-      `Le ${cz.animal} de ${cz.elem} t'a donné une capacité de transformation hors norme. Chaque fois que la vie t'a mis à terre, tu t'es relevé plus fort et plus stratégique.`
+      `Le ${cz.animal} de ${cz.elem} t\'a donné une capacité de transformation hors norme. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
     );
   }
 
@@ -695,7 +798,7 @@ function buildIdentityPortrait(
   // ── 19. Animal Feu + CdV action (1/5/8) + Pinnacle maître → "Combustion productive"
   if (cz.elem === 'Feu' && [1, 5, 8].includes(num.lp.v) && num.pinnacles.some(p => p.m)) {
     lines.push(
-      `${cz.animal} de Feu + CdV ${num.lp.v} + Pinnacle maître = combustion productive permanente. Les autres te trouvent intense — c'est parce qu'ils ne fonctionnent pas à la même vitesse.`
+      `${cz.animal} de Feu + Chemin ${num.lp.v} + phase de vie maître = combustion productive permanente. Les autres te trouvent intense — c'est parce qu'ils ne fonctionnent pas à la même vitesse.`
     );
   }
 

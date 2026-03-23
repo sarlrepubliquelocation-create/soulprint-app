@@ -365,7 +365,7 @@ const RULES: Rule[] = [
   // Année 9 + retour Jupiter actif = récolte expansive en fin de cycle.
   {
     id: 25,
-    label: 'Couronnement — Finalisez et récoltez',
+    label: 'Couronnement — Finalise et récoltez',
     bonus: 4,
     domains: ['BUSINESS', 'RELATIONS'],
     tradition: 'Numérologie année 9 × Retours planétaires Jupiter',

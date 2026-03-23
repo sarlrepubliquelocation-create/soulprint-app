@@ -98,7 +98,7 @@ function calculateDashaCertainty(
   } else {
     if (nearBoundary) {
       certaintyLevel = 'LOW'; score = 0.85;
-      warning = "Heure de naissance inconnue + Lune proche d'une frontière — Mahadasha incertaine. Ajoutez votre heure de naissance.";
+      warning = "Heure de naissance inconnue + Lune proche d'une frontière — Mahadasha incertaine. Ajoute ton heure de naissance.";
     } else {
       certaintyLevel = 'MEDIUM'; score = 0.92;
       warning = 'Heure de naissance non fournie — certitude Dasha modérée.';
@@ -307,7 +307,7 @@ export function calcSlowModules(
         }
         const uranusConjMC = astro.tr.some(t => t.tp === 'uranus' && (t.np === 'mc' || t.np === 'midheaven') && t.t === 'conjunction');
         if (uranusConjMC && pyv === 1) {
-          signals.push('⚡ PIVOT URANIEN — Uranus sur ton MC + Année 1 : rupture et redéfinition professionnelle. Décide consciemment.');
+          signals.push('🌟 PIVOT URANIEN — Uranus sur ton MC + Année 1 : rupture et redéfinition professionnelle. Décide consciemment.');
         }
         const activeSLow = new Set(astro.tr.filter(t => SLOW_PLANETS.has(t.tp)).map(t => t.tp));
         if (activeSLow.size >= 3) {
@@ -405,16 +405,16 @@ export function calcSlowModules(
     '[Context] Multiplicateur hors limites:', ctx.multiplier
   );
 
-  // V9.0 P4 — composition géométrique Maha × Antar [0.80–1.25] + lissage Sandhi sigmoïdal
-  // Remplace (1.0 + dashaTotal/100) par √(mahaMult × antarMult) — produit karmique fidèle
-  // Range : pire (−4,−2) → 0.80 clamped | meilleur (+4,+2) → 1.25 clamped
-  const dashaMultiplierRaw = composeDashaMultipliers(dashaMahaScore, dashaAntarScore);
+  // Ronde 30 B' — smooth tanh 50/50, certainty shrink vers 1.0 (consensus 3/3)
+  // certainty intégré dans composeDashaMultipliers (plus de multiplication externe)
+  const _cert = dashaCertainityResult.score;
+  const dashaMultiplierRaw = composeDashaMultipliers(dashaMahaScore, dashaAntarScore, _cert);
   const dashaMultSmoothed  = currentDasha
-    ? calcSandhiSmoothing(currentDasha, dashaMultiplierRaw, params.evalDate ?? new Date())
+    ? calcSandhiSmoothing(currentDasha, dashaMultiplierRaw, params.evalDate ?? new Date(), _cert)
     : dashaMultiplierRaw;
-  const dashaMultiplier = dashaMultSmoothed * dashaCertainityResult.score;
+  const dashaMultiplier = dashaMultSmoothed;  // Ronde 30 : certainty déjà intégré dans composeDashaMult
   console.assert(
-    dashaMultiplier >= 0.64 && dashaMultiplier <= 1.25,
+    dashaMultiplier >= 0.64 && dashaMultiplier <= 1.30,
     '[Dasha] Multiplicateur hors limites après certitude:', dashaMultiplier
   );
 
@@ -588,7 +588,7 @@ export function calcSlowModules(
   // ═══════════════════════════════════
   try {
     if (astro) {
-      const rahuNatal    = astro.pl.find((p: any) => p.k === 'northNode');
+      const rahuNatal    = astro.pl.find(p => p.k === 'northNode');
       const houseRahu    = rahuNatal?.h ?? 0;
       const nodeLordScore = ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
       if (nodeLordScore > 0) {
@@ -641,10 +641,9 @@ export function calcSlowModules(
     // Garde AA-2 appliquée APRÈS le boost (ordre Grok R3)
     const S_nak = S_nak_boosted * (daily.luneGroupDelta > 0 ? 0.65 : 1.0);
 
-    // S_dasha : dashaTotal ∈ [-9, +9] → normalisation → [-1, +1]
-    // AB-R1 : si même seigneur → plafonner dashaTotal à 7 avant normalisation
+    // Ronde 36 — Formule S_dasha d/(6+3|d|) (synthèse GPT×Gemini, confrontation R36bis)
     const _dashaTotalCapped = _sameLord ? Math.min(dashaTotal, 7) : dashaTotal;
-    const S_dasha = Math.max(-1, Math.min(1, _dashaTotalCapped / 9));
+    const S_dasha = Math.max(-1.0, Math.min(1.0, _dashaTotalCapped / (6.0 + 3.0 * Math.abs(_dashaTotalCapped))));
 
     // S_tithi : calculé depuis la longitude tropicale Lune − Soleil
     const moonLonTrop = getMoonPhase(evalDay).longitudeTropical;
@@ -681,4 +680,99 @@ export function calcSlowModules(
   }
 
   return { delta: clampedDelta, ctxMult: ctx.multiplier, dashaMult: dashaMultiplier, dashaCertainty: dashaCertainityResult, shadowBaseSignal };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ═══ Ronde 28 — L2-LITE : dashaMult + baseSignal par jour (consensus 3/3) ═══
+// Fonctions légères extraites de calcSlowModules pour le calendrier.
+// Arithmétique pure Vimshottari (pas d'éphémérides lourdes).
+// Précomputer buildNatalDashaCtx() UNE FOIS, puis appeler
+// calcDashaMultLite() et calcBaseSignalLite() pour chaque jour (365×).
+// ══════════════════════════════════════════════════════════════════════
+
+/** Contexte natal Dasha — calculé UNE FOIS par profil (immuable). */
+export interface NatalDashaCtx {
+  natalMoonSid: number;
+  birthD: Date;
+  natalMoonIsWaxing: boolean;
+  dashaCertaintyScore: number;   // [0.85–1.00]
+}
+
+/** Construit le contexte natal Dasha (1 appel unique). */
+export function buildNatalDashaCtx(bd: string, bt?: string, astro?: AstroChart | null): NatalDashaCtx | null {
+  if (!astro) return null;  // pas de thème astral → impossible
+  try {
+    const birthTimeStr = bt && /^\d{1,2}:\d{2}$/.test(bt) ? bt : '12:00';
+    const birthD       = new Date(bd + 'T' + birthTimeStr + ':00');
+    const natalMoon    = getMoonPhase(birthD);
+    const natalAyanamsa = getAyanamsa(birthD.getFullYear());
+    const natalMoonSid  = ((natalMoon.longitudeTropical - natalAyanamsa) % 360 + 360) % 360;
+    const natalMoonIsWaxing = (natalMoon.phase ?? 0) <= 4;
+    const cert = calculateDashaCertainty(natalMoonSid, bt || null);
+    return { natalMoonSid, birthD, natalMoonIsWaxing, dashaCertaintyScore: cert.score };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calcule dashaMult pour une date cible (arithmétique pure ≈ 0.01ms).
+ * Même logique que calcSlowModules mais sans retours/progressions/ctx/breakdown.
+ */
+export function calcDashaMultLite(ctx: NatalDashaCtx, targetDate: Date): { dashaMult: number; dashaTotal: number } {
+  const dasha       = calcCurrentDasha(ctx.natalMoonSid, ctx.birthD, targetDate);
+  const dashaResult = calcDashaScore(dasha, { natalMoonIsWaxing: ctx.natalMoonIsWaxing });
+  // Note : transitLord non passé ici (edge case Rahu ≈ négligeable pour le calendrier)
+  // Ronde 30 B' : certainty intégré dans composeDashaMultipliers (shrink vers 1.0)
+  const _cert             = ctx.dashaCertaintyScore;
+  const dashaMultRaw      = composeDashaMultipliers(dashaResult.mahaScore, dashaResult.antarScore, _cert);
+  const dashaMultSmoothed = calcSandhiSmoothing(dasha, dashaMultRaw, targetDate, _cert);
+  const dashaMult         = dashaMultSmoothed;  // Ronde 30 : certainty déjà intégré
+
+  return { dashaMult, dashaTotal: dashaResult.total };
+}
+
+/**
+ * Calcule baseSignal pour une date cible.
+ * Nécessite le dashaTotal (de calcDashaMultLite) + le résultat L1 (nakshatraData, luneGroupDelta).
+ * S_tithi utilise getMoonPhase (caché LRU) + getPlanetLongitudeForDate (soleil = rapide).
+ */
+export function calcBaseSignalLite(
+  ctx: NatalDashaCtx,
+  targetDate: Date,
+  dashaTotal: number,
+  nakshatraGlobalBaseScore: number,
+  nakshatraLord: string | undefined,
+  luneGroupDelta: number,
+  antarLord: string | undefined,
+): number | undefined {
+  try {
+    const S_nak_raw = nakshatraGlobalBaseScore;
+    const _sameLord = !!antarLord && !!nakshatraLord && antarLord === nakshatraLord;
+    const S_nak_boosted = _sameLord ? S_nak_raw * 1.18 : S_nak_raw;
+    const S_nak = S_nak_boosted * (luneGroupDelta > 0 ? 0.65 : 1.0);
+
+    // Ronde 36 — S_dasha d/(6+3|d|) (synthèse GPT×Gemini, confrontation R36bis)
+    const _dashaTotalForS = _sameLord ? Math.min(dashaTotal, 7) : dashaTotal;
+    const S_dasha = Math.max(-1.0, Math.min(1.0, _dashaTotalForS / (6.0 + 3.0 * Math.abs(_dashaTotalForS))));
+
+    const moonLonTrop = getMoonPhase(targetDate).longitudeTropical;
+    const sunLonTrop  = getPlanetLongitudeForDate('sun', targetDate);
+    const tithiIndex  = Math.floor(((moonLonTrop - sunLonTrop + 360) % 360) / 12) + 1;
+
+    const TITHI_SCORES: Record<number, number> = {
+       1: +0.6,  2: +0.4,  3: +0.8,  4: -0.9,  5: +0.7,
+       6: +0.5,  7: +0.4,  8: +0.3,  9: -1.0, 10: +0.8,
+      11: +0.9, 12: +0.6, 13: +0.7, 14: -0.7, 15: +1.0,
+      16: -0.6, 17: -0.4, 18: -0.8, 19: +0.9, 20: -0.7,
+      21: -0.5, 22: -0.4, 23: -0.4, 24: -0.3, 25: +1.0,
+      26: -0.8, 27: -0.9, 28: -0.6, 29: -0.7, 30: -0.8,
+    };
+    const S_tithi = TITHI_SCORES[tithiIndex] ?? 0;
+
+    const raw = 0.55 * S_dasha + 0.30 * S_nak + 0.15 * S_tithi;
+    return Math.max(-1, Math.min(1, raw));
+  } catch {
+    return undefined;
+  }
 }

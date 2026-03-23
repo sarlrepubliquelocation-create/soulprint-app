@@ -99,14 +99,14 @@ const DASHA_TONE: Record<string, DashaTone> = {
  */
 export const DASHA_NARRATIVES: Record<string, string> = {
   Ketu:    "Une période où l'ancien se défait. Ce qui n'est plus aligné se dissout sans bruit. Les décisions gagnantes sont celles qui allègent.",
-  Vénus:   "Cycle d'attraction et de magnétisme. Les relations et la créativité deviennent vos leviers. La beauté ouvre des portes stratégiques.",
-  Soleil:  "Temps d'affirmation. Vous êtes appelé à occuper votre place, clairement. Les décisions doivent refléter votre autorité intérieure.",
-  Lune:    "Cycle de sensibilité accrue. Votre intuition devient un instrument stratégique. Avancez en respectant vos marées intérieures.",
+  Vénus:   "Cycle d'attraction et de magnétisme. Les relations et la créativité deviennent tes leviers. La beauté ouvre des portes stratégiques.",
+  Soleil:  "Temps d'affirmation. Tu es appelé à occuper ta place, clairement. Les décisions doivent refléter ton autorité intérieure.",
+  Lune:    "Cycle de sensibilité accrue. Ta intuition devient un instrument stratégique. Avance en respectant tes marées intérieures.",
   Mars:    "Période d'action directe. Les décisions courageuses portent plus que les hésitations. L'initiative compte davantage que la prudence.",
-  Rahu:    "Cycle d'ambition et de disruption. Vous sortez des chemins connus. Les décisions audacieuses peuvent redéfinir votre trajectoire.",
-  Jupiter: "Temps d'expansion structurée. Les opportunités s'ouvrent si vous pensez long terme. Investissez dans ce qui élargit votre vision.",
+  Rahu:    "Cycle d'ambition et de disruption. Tu sors des chemins connus. Les décisions audacieuses peuvent redéfinir ta trajectoire.",
+  Jupiter: "Temps d'expansion structurée. Les opportunités s'ouvrent si tu penses long terme. Investis dans ce qui élargit ta vision.",
   Saturne: "Cycle de consolidation profonde. Les décisions lentes mais solides construisent l'avenir. La patience devient stratégie.",
-  Mercure: "Période d'apprentissage et d'adaptation rapide. Votre intelligence stratégique est votre meilleur atout. Les décisions gagnent à être souples.",
+  Mercure: "Période d'apprentissage et d'adaptation rapide. Ta intelligence stratégique est ton meilleur atout. Les décisions gagnent à être souples.",
 };
 
 /**
@@ -129,7 +129,7 @@ export const PRATYANTAR_NARRATIVES: Record<string, string> = {
   Ketu:    "Cette semaine, coupe ce qui ralentit ta trajectoire : l'allègement est ton levier stratégique.",
   Vénus:   "Les alliances et l'attractivité deviennent ton accélérateur : avance par relation plutôt que par force.",
   Soleil:  "Clarifie ta position et assume-la : ta décision gagne à être visible.",
-  Lune:    "Ton intuition est plus rapide que tes tableaux Excel : écoute-la avant de trancher.",
+  Lune:    "Ta intuition est plus rapide que tes tableaux Excel : écoute-la avant de trancher.",
   Mars:    "Passe à l'action sans suranalyser : l'élan crée plus que la prudence.",
   Rahu:    "Ose un pivot ambitieux : le risque maîtrisé peut redéfinir ton cap.",
   Jupiter: "Investis dans une vision plus large : cette semaine favorise les décisions long terme.",
@@ -403,35 +403,42 @@ export function calcDashaScore(
 // ══════════════════════════════════════════════════════════════════
 
 /**
- * Composition log-pondérée Maha × Antar — V9.6 Sprint B1.
- * Remplace la moyenne géométrique 50/50 (√(m×a)) par une moyenne log-pondérée
- * wM=0.65, wA=0.35 : la Mahadasha (terrain 7-20 ans) pèse plus que l'Antardasha
- * (sous-période 7-20 mois), conformément à la doctrine Jyotish.
+ * Composition smooth Maha × Antar — Ronde 30 B' (consensus 3/3 GPT+Grok+Gemini).
  *
- * Formule : exp(0.65·ln(mahaMult) + 0.35·ln(antarMult))
- * Ancienne : √(mahaMult × antarMult) = exp(0.50·ln(m) + 0.50·ln(a))
+ * Remplace le clamp dur [0.80, 1.25] + poids 65/35 par :
+ *   - Poids 50/50 (l'Antardasha peut désormais relever un mauvais Maha)
+ *   - Smooth tanh au lieu de clamp dur → C¹ continu, pas de zone morte
+ *   - Certainty shrink vers 1.0 (heure inconnue → neutralise, pas aggrave)
  *
- * Scaling calibré pour remplir le range [0.80, 1.25] :
- *   mahaMult  = 1.0 + mahaScore  × 0.10  → mahaScore ±4 → [0.60, 1.40]
- *   antarMult = 1.0 + antarScore × 0.075 → antarScore ±2 → [0.85, 1.15]
+ * Formule : z = 0.50·ln(mahaMult) + 0.50·ln(antarMult)
+ *           t = tanh(z / 0.25)
+ *           core = 1.0 + 0.225·t
+ *           dashaMult = 1.0 + certainty·(core - 1.0)
  *
- * Vérification :
- *   Neutre  ( 0,  0) : exp(0)                             = 1.000
- *   Pire    (−4, −2) : exp(0.65·ln(0.60)+0.35·ln(0.85))  ≈ 0.678 → clamped 0.80
- *   Meilleur(+4, +2) : exp(0.65·ln(1.40)+0.35·ln(1.15))  ≈ 1.307 → clamped 1.25
- *   Sandhi  (any,  0) : exp(0.65·ln(mahaMult))            = mahaMult^0.65 ✓
+ * Vérification (certainty=1.0) :
+ *   Neutre  ( 0,  0) : z=0, t=0, core=1.000 → 1.000
+ *   Pire    (−4, −2) : z=-0.337, t=-0.874, core=0.803 → 0.803
+ *   Mixte   (−4, +2) : z=-0.186, t=-0.631, core=0.858 → 0.858 (ex 0.80 clamped)
+ *   Meilleur(+4, +2) : z=+0.238, t=+0.729, core=1.164 → 1.164
  *
- * Source : GPT Ronde IA 2 (2026-03-04).
+ * Range asymptotique : [0.775, 1.225] — smooth, pas de hard-clamp.
+ *
+ * Source : Ronde 30/30bis/30ter consensus 3/3 (2026-03-11).
  */
-export function composeDashaMultipliers(mahaScore: number, antarScore: number): number {
+export function composeDashaMultipliers(mahaScore: number, antarScore: number, certainty: number = 1.0): number {
   const mahaMult  = 1.0 + mahaScore  * 0.10;
   const antarMult = 1.0 + antarScore * 0.075;
-  // Log-pondéré wM=0.65, wA=0.35 — guard 1e-9 anti-ln(≤0) (valeurs toujours >0 en pratique)
-  const raw = Math.exp(
-    0.65 * Math.log(Math.max(1e-9, mahaMult)) +
-    0.35 * Math.log(Math.max(1e-9, antarMult))
-  );
-  return Math.max(0.80, Math.min(1.25, raw));
+  // Log-blend 50/50 — guard 1e-9 anti-ln(≤0)
+  const z = 0.50 * Math.log(Math.max(1e-9, mahaMult)) +
+            0.50 * Math.log(Math.max(1e-9, antarMult));
+  const t    = Math.tanh(z / 0.25);
+  // Ronde 36 — Synthèse GPT×Gemini (consensus 2/3, confrontation R36bis)
+  // Positif 0.06 : compression maximale 2037 (dashaMult → ~1.026)
+  // Négatif 0.15 : allège 2035 (dashaMult → ~0.936) + 2030 (→ ~0.869)
+  const _amplitude = (t > 0) ? 0.06 : 0.15;
+  const core = 1.0 + _amplitude * t;
+  // Certainty shrink : incertitude naissance → rapproche de 1.0 (neutre)
+  return 1.0 + certainty * (core - 1.0);
 }
 
 /**
@@ -444,18 +451,20 @@ export function composeDashaMultipliers(mahaScore: number, antarScore: number): 
  *   x = +30j : σ ≈ 0.95 → Dasha suivant quasi-complet
  *
  * nextMahaMult estimé depuis DASHA_QUALITY[nextMaha.lord] × 4 (antarMult = 0 : inconnu)
+ * Ronde 30 : certainty passé pour que le nextMult utilise aussi le shrink.
  */
 export function calcSandhiSmoothing(
   dasha: CurrentDasha,
   currentMult: number,
-  today: Date
+  today: Date,
+  certainty: number = 1.0,
 ): number {
   if (!dasha.maha.isTransition) return currentMult;
   const MS_PER_DAY  = 24 * 3600 * 1000;
   const daysFromEnd = (today.getTime() - dasha.maha.endDate.getTime()) / MS_PER_DAY;
   const sigma       = 1 / (1 + Math.exp(-daysFromEnd / 10));
   const nextMahaQ   = DASHA_QUALITY[dasha.nextMaha.lord] ?? 0;
-  const nextMult    = composeDashaMultipliers(nextMahaQ * 4, 0);
+  const nextMult    = composeDashaMultipliers(nextMahaQ * 4, 0, certainty);
   return currentMult * (1 - sigma) + nextMult * sigma;
 }
 

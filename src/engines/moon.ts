@@ -98,25 +98,25 @@ export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): 
     {
       name: 'Nouvelle Lune',
       emoji: '🌑',
-      tactical: 'Posez vos intentions. C\'est le moment idéal pour définir un objectif, lancer une idée, planter une graine. Rien de visible encore, mais tout commence ici.',
-      energy: 'Énergie de germination — introspection et intention. Le ciel vous invite à regarder en dedans avant de regarder en dehors.'
+      tactical: 'Pose tes intentions. C\'est le moment idéal pour définir un objectif, lancer une idée, planter une graine. Rien de visible encore, mais tout commence ici.',
+      energy: 'Énergie de germination — introspection et intention. Le ciel t\'invite à regarder en dedans avant de regarder en dehors.'
     },
     {
       name: 'Premier Croissant',
       emoji: '🌒',
-      tactical: 'Passez à l\'action initiale. Le doute peut surgir — c\'est normal. Avancez quand même, les premiers pas comptent plus que le plan parfait.',
+      tactical: 'Passe à l\'action initiale. Le doute peut surgir — c\'est normal. Avance quand même, les premiers pas comptent plus que le plan parfait.',
       energy: 'Énergie d\'élan — la graine a germé, elle pousse vers la lumière. Courage et détermination.'
     },
     {
       name: 'Premier Quartier',
       emoji: '🌓',
-      tactical: 'Moment de décision et d\'ajustement. Des obstacles peuvent apparaître — ne reculez pas, adaptez votre approche. La tension est productive.',
+      tactical: 'Moment de décision et d\'ajustement. Des obstacles peuvent apparaître — ne recule pas, adapte ton approche. La tension est productive.',
       energy: 'Énergie de confrontation constructive — mi-chemin entre l\'idée et la réalisation. Action et résolution.'
     },
     {
       name: 'Gibbeuse Croissante',
       emoji: '🌔',
-      tactical: 'Affinez et perfectionnez. Le résultat approche — peaufinez les détails, corrigez le tir, préparez-vous à récolter.',
+      tactical: 'Affine et perfectionne. Le résultat approche — peaufine les détails, corrige le tir, prépare-toi à récolter.',
       energy: 'Énergie de maturation — la patience paie. Derniers réglages avant la plénitude.'
     },
     {
@@ -128,19 +128,19 @@ export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): 
     {
       name: 'Gibbeuse Décroissante',
       emoji: '🌖',
-      tactical: 'Partagez et transmettez ce que vous avez appris. Gratitude et générosité ouvrent de nouvelles portes.',
+      tactical: 'Partage et transmet ce que tu as appris. Gratitude et générosité ouvrent de nouvelles portes.',
       energy: 'Énergie de diffusion — la lumière se partage. Enseignement, partage, rayonnement.'
     },
     {
       name: 'Dernier Quartier',
       emoji: '🌗',
-      tactical: 'Faites le tri. Lâchez ce qui ne fonctionne plus — habitudes, projets, relations. L\'espace libéré attire le nouveau.',
+      tactical: 'Fais le tri. Lâche ce qui ne fonctionne plus — habitudes, projets, relations. L\'espace libéré attire le nouveau.',
       energy: 'Énergie de réévaluation — crise constructive, tri nécessaire. Lâcher prise actif.'
     },
     {
       name: 'Dernier Croissant',
       emoji: '🌘',
-      tactical: 'Repos et lâcher-prise. Le cycle se termine — récupérez, rêvez, laissez l\'inconscient travailler. Le prochain cycle approche.',
+      tactical: 'Repos et lâcher-prise. Le cycle se termine — récupérez, rêvez, laisse l\'inconscient travailler. Le prochain cycle approche.',
       energy: 'Énergie de dissolution — transition vers le renouveau. Méditation, intuition, préparation silencieuse.'
     },
   ];
@@ -192,15 +192,15 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2025-03-29', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'La Lune cache partiellement le Soleil — disruption momentanée de l\'énergie solaire.',
-    effect: 'Fenêtre de reset identitaire. Questionnements sur votre direction — ne prenez pas de décision majeure pendant 48h, observez.',
+    effect: 'Fenêtre de reset identitaire. Questionnements sur ta direction — ne prends pas de décision majeure pendant 48h, observez.',
     intensity: 'modérée' },
   { date: '2025-09-07', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Seconde Lune de Sang de l\'année — la Lune entre dans l\'ombre complète de la Terre.',
-    effect: 'Clôture émotionnelle puissante. Un cycle qui traîne depuis 6 mois se termine — laissez-le partir.',
+    effect: 'Clôture émotionnelle puissante. Un cycle qui traîne depuis 6 mois se termine — laisse-le partir.',
     intensity: 'forte' },
   { date: '2025-09-21', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'La Lune cache partiellement le Soleil — disruption momentanée de l\'énergie solaire.',
-    effect: 'Invitation à réévaluer vos objectifs de l\'année. Ce qui semblait clair peut nécessiter un ajustement.',
+    effect: 'Invitation à réévaluer tes objectifs de l\'année. Ce qui semblait clair peut nécessiter un ajustement.',
     intensity: 'modérée' },
   { date: '2025-11-05', type: 'supermoon', name: 'Super Lune', icon: '🌕✨',
     description: 'La Lune est au plus près de la Terre (périgée) et apparaît 14% plus grande et 30% plus lumineuse.',
@@ -208,21 +208,21 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2025-12-04', type: 'supermoon', name: 'Super Lune', icon: '🌕✨',
     description: 'Seconde Super Lune consécutive — la Lune est encore proche du périgée.',
-    effect: 'L\'intensité émotionnelle reste élevée. Profitez de cette clarté pour boucler l\'année avec lucidité.',
+    effect: 'L\'intensité émotionnelle reste élevée. Profite de cette clarté pour boucler l\'année avec lucidité.',
     intensity: 'modérée' },
 
   // ═══ 2026 ═══
   { date: '2026-02-17', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'La Lune passe devant le Soleil mais ne le couvre pas entièrement — un anneau de feu reste visible.',
-    effect: 'Anneau de feu = illumination de vos angles morts. Ce que vous refusiez de voir devient évident. Période de vérité productive.',
+    effect: 'Anneau de feu = illumination de tes angles morts. Ce que tu refusais de voir devient évident. Période de vérité productive.',
     intensity: 'forte' },
   { date: '2026-03-03', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang — la Lune entre dans l\'ombre complète de la Terre.',
-    effect: 'Transformation émotionnelle profonde. Lâchez un attachement ancien — la place libérée attirera quelque chose de meilleur.',
+    effect: 'Transformation émotionnelle profonde. Lâche un attachement ancien — la place libérée attirera quelque chose de meilleur.',
     intensity: 'forte' },
   { date: '2026-08-12', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — le Soleil disparaît complètement pendant quelques minutes. Phénomène rare et puissant.',
-    effect: 'Reset total. Les éclipses solaires totales marquent des tournants de vie. Observez ce qui se termine et ce qui commence dans les 2 semaines qui suivent.',
+    effect: 'Reset total. Les éclipses solaires totales marquent des tournants de vie. Observe ce qui se termine et ce qui commence dans les 2 semaines qui suivent.',
     intensity: 'forte' },
   { date: '2026-08-28', type: 'eclipse_lunar', name: 'Éclipse lunaire partielle', icon: '🌒🟤',
     description: 'L\'ombre de la Terre couvre partiellement la Lune.',
@@ -232,7 +232,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
   // ═══ 2027 ═══
   { date: '2027-02-06', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu visible — la Lune ne couvre pas totalement le disque solaire.',
-    effect: 'Nouvelle fenêtre de clarté sur votre direction. Les intentions posées maintenant ont un potentiel de manifestation élevé.',
+    effect: 'Nouvelle fenêtre de clarté sur ta direction. Les intentions posées maintenant ont un potentiel de manifestation élevé.',
     intensity: 'forte' },
   { date: '2027-02-20', type: 'eclipse_lunar', name: 'Éclipse lunaire pénombrale', icon: '🌒⚪',
     description: 'La Lune traverse la pénombre de la Terre — assombrissement subtil.',
@@ -244,7 +244,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'subtile' },
   { date: '2027-08-02', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — occultation complète du Soleil. Événement astronomique majeur.',
-    effect: 'Tournant de vie potentiel. Les éclipses totales sont des catalyseurs de transformation — restez ouvert à l\'inattendu.',
+    effect: 'Tournant de vie potentiel. Les éclipses totales sont des catalyseurs de transformation — reste ouvert à l\'inattendu.',
     intensity: 'forte' },
 
   // ═══ 2028 (NASA/EclipseWise) ═══
@@ -254,29 +254,29 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'modérée' },
   { date: '2028-01-26', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu — la Lune ne couvre pas totalement le Soleil, laissant un cercle lumineux.',
-    effect: 'Vos angles morts deviennent visibles. Ce que vous ignoriez consciemment se révèle — utilisez cette clarté pour ajuster votre cap.',
+    effect: 'Tes angles morts deviennent visibles. Ce que tu ignorais consciemment se révèle — utilise cette clarté pour ajuster ton cap.',
     intensity: 'forte' },
   { date: '2028-07-06', type: 'eclipse_lunar', name: 'Éclipse lunaire partielle', icon: '🌒🟤',
     description: 'L\'ombre terrestre couvre partiellement la Lune en milieu d\'année.',
-    effect: 'Bilan émotionnel de mi-année. Les projets lancés en janvier révèlent leur vraie nature — ajustez sans hésiter.',
+    effect: 'Bilan émotionnel de mi-année. Les projets lancés en janvier révèlent leur vraie nature — ajuste sans hésiter.',
     intensity: 'modérée' },
   { date: '2028-07-22', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — occultation complète du Soleil. Phénomène rare visible en Australie et Nouvelle-Zélande.',
-    effect: 'Reset majeur. Les éclipses totales catalysent des tournants de vie. Observez les portes qui se ferment et celles qui s\'ouvrent.',
+    effect: 'Reset majeur. Les éclipses totales catalysent des tournants de vie. Observe les portes qui se ferment et celles qui s\'ouvrent.',
     intensity: 'forte' },
   { date: '2028-12-31', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang pour clôturer l\'année — la Lune entre dans l\'ombre complète de la Terre le soir du Nouvel An.',
-    effect: 'Clôture émotionnelle puissante. Le passage à la nouvelle année se fait sous le signe de la transformation intérieure. Lâchez ce qui doit partir.',
+    effect: 'Clôture émotionnelle puissante. Le passage à la nouvelle année se fait sous le signe de la transformation intérieure. Lâche ce qui doit partir.',
     intensity: 'forte' },
 
   // ═══ 2029 (NASA/EclipseWise) ═══
   { date: '2029-01-14', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'La Lune cache partiellement le Soleil — disruption légère de l\'énergie solaire.',
-    effect: 'Début d\'année en douceur. Une invitation à réévaluer vos priorités avant de vous lancer dans de nouveaux projets.',
+    effect: 'Début d\'année en douceur. Une invitation à réévaluer tes priorités avant de te lancer dans de nouveaux projets.',
     intensity: 'modérée' },
   { date: '2029-06-12', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'Éclipse solaire partielle de milieu d\'année.',
-    effect: 'Fenêtre de recalibrage. Vos objectifs de début d\'année nécessitent peut-être un ajustement — écoutez les signaux.',
+    effect: 'Fenêtre de recalibrage. Tes objectifs de début d\'année nécessitent peut-être un ajustement — écoute les signaux.',
     intensity: 'subtile' },
   { date: '2029-06-26', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang estivale — la Lune prend une teinte rouge cuivrée pendant plus d\'une heure.',
@@ -288,7 +288,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'modérée' },
   { date: '2029-12-05', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'Éclipse solaire partielle de fin d\'année.',
-    effect: 'Invitation à la réflexion avant la clôture annuelle. Préparez le terrain pour le prochain cycle.',
+    effect: 'Invitation à la réflexion avant la clôture annuelle. Prépare le terrain pour le prochain cycle.',
     intensity: 'subtile' },
   { date: '2029-12-20', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang hivernale — dernière éclipse de la décennie 2020.',
@@ -306,7 +306,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'modérée' },
   { date: '2030-11-25', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Australie, Afrique du Sud et océan Indien.',
-    effect: 'Tournant de fin d\'année. Les éclipses totales marquent des avant/après — restez ouvert aux changements inattendus.',
+    effect: 'Tournant de fin d\'année. Les éclipses totales marquent des avant/après — reste ouvert aux changements inattendus.',
     intensity: 'forte' },
   { date: '2030-12-09', type: 'eclipse_lunar', name: 'Éclipse lunaire pénombrale', icon: '🌒⚪',
     description: 'La Lune traverse la pénombre terrestre — assombrissement subtil.',
@@ -320,17 +320,17 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'subtile' },
   { date: '2031-05-21', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu printanier visible en Asie.',
-    effect: 'Fenêtre de clarté sur vos projets. Les zones floues se précisent — profitez-en pour trancher.',
+    effect: 'Fenêtre de clarté sur tes projets. Les zones floues se précisent — profite-en pour trancher.',
     intensity: 'forte' },
   { date: '2031-11-14', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Amérique du Nord et Pacifique.',
-    effect: 'Reset majeur de fin d\'année. Un chapitre se ferme définitivement — faites confiance au renouveau qui suit.',
+    effect: 'Reset majeur de fin d\'année. Un chapitre se ferme définitivement — fais confiance au renouveau qui suit.',
     intensity: 'forte' },
 
   // ═══ 2032 (NASA) ═══
   { date: '2032-04-25', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang printanière — la Lune entre dans l\'ombre complète de la Terre.',
-    effect: 'Révélation émotionnelle. Ce que vous portiez depuis l\'hiver se libère — accueillez la transformation.',
+    effect: 'Révélation émotionnelle. Ce que tu portais depuis l\'hiver se libère — accueille la transformation.',
     intensity: 'forte' },
   { date: '2032-05-09', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu — visible dans l\'hémisphère sud.',
@@ -354,11 +354,11 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
   // ═══ 2034 (NASA) ═══
   { date: '2034-03-20', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale à l\'équinoxe de printemps — alignement rare et symboliquement puissant.',
-    effect: 'L\'équinoxe + éclipse totale = portail de transformation majeur. Jour et nuit s\'équilibrent pendant que le Soleil disparaît. Restez centré.',
+    effect: 'L\'équinoxe + éclipse totale = portail de transformation majeur. Jour et nuit s\'équilibrent pendant que le Soleil disparaît. Reste centré.',
     intensity: 'forte' },
   { date: '2034-09-12', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu automnal visible en Amérique du Sud.',
-    effect: 'Bilan de mi-automne. Les projets lancés au printemps révèlent leur potentiel réel — ajustez ou amplifiez.',
+    effect: 'Bilan de mi-automne. Les projets lancés au printemps révèlent leur potentiel réel — ajuste ou amplifie.',
     intensity: 'forte' },
   { date: '2034-09-28', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang — la Lune prend une teinte rouge pendant la pleine lune de septembre.',
@@ -372,7 +372,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2035-03-09', type: 'eclipse_solar', name: 'Éclipse solaire annulaire', icon: '🌑💫',
     description: 'Anneau de feu de début de printemps — visible dans le Pacifique.',
-    effect: 'Clarté sur la direction à prendre. L\'énergie du printemps naissant amplifie la lucidité — posez vos intentions.',
+    effect: 'Clarté sur la direction à prendre. L\'énergie du printemps naissant amplifie la lucidité — pose tes intentions.',
     intensity: 'forte' },
   { date: '2035-09-02', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Asie orientale.',
@@ -437,8 +437,8 @@ function predictEclipsesForYear(year: number): LunarEvent[] {
               ? 'Éclipse solaire majeure — alignement précis Soleil-Lune-Terre. Phénomène astronomique puissant.'
               : 'Éclipse solaire partielle — la Lune cache une portion du Soleil.',
             effect: isTotalOrAnnular
-              ? 'Tournant potentiel. Les éclipses solaires majeures catalysent des changements de direction — restez ouvert à l\'inattendu.'
-              : 'Fenêtre de recalibrage. Réévaluez vos priorités — ce qui semblait acquis peut nécessiter un ajustement.',
+              ? 'Tournant potentiel. Les éclipses solaires majeures catalysent des changements de direction — reste ouvert à l\'inattendu.'
+              : 'Fenêtre de recalibrage. Réévalue tes priorités — ce qui semblait acquis peut nécessiter un ajustement.',
             intensity: isTotalOrAnnular ? 'forte' : 'modérée',
           });
         }
@@ -462,8 +462,8 @@ function predictEclipsesForYear(year: number): LunarEvent[] {
             effect: isTotal
               ? 'Libération émotionnelle profonde. Ce qui était retenu ou nié remonte — accueillez la vérité avec courage.'
               : isPartial
-              ? 'Ajustement émotionnel. Les tensions accumulées trouvent une voie de résolution — restez à l\'écoute.'
-              : 'Signal subtil. Les intuitions de cette période méritent attention — écoutez votre voix intérieure.',
+              ? 'Ajustement émotionnel. Les tensions accumulées trouvent une voie de résolution — reste à l\'écoute.'
+              : 'Signal subtil. Les intuitions de cette période méritent attention — écoute ton voix intérieure.',
             intensity: isTotal ? 'forte' : isPartial ? 'modérée' : 'subtile',
           });
         }
@@ -690,7 +690,7 @@ function getMercuryEventsForYear(year: number): LunarEvent[] {
       name: '☿ Mercure Rétrograde',
       icon: '☿🔄',
       description: `Mercure apparaît reculer dans le ciel jusqu'au ${endDay} ${endMonth}. Communications, contrats, technologie et transports sont perturbés.`,
-      effect: 'Relisez tout avant de signer. Sauvegardez vos données. Évitez les lancements et les achats tech importants. Période idéale pour REvisiter, REpenser, REcontacter.',
+      effect: 'Relis tout avant de signer. Sauvegarde tes données. Évite les lancements et les achats tech importants. Période idéale pour REvisiter, REpenser, REcontacter.',
       intensity: 'forte' as const,
     };
   });
@@ -856,7 +856,7 @@ export function getMercuryStatus(date: Date = new Date()): MercuryStatus {
       return {
         phase: 'stationary-direct', points: -3,
         label: 'Mercure Stationnaire Direct ☿↑',
-        conseil: 'Mercure reprend sa marche directe — la clarté revient. Finalisez les révisions avant de relancer.',
+        conseil: 'Mercure reprend sa marche directe — la clarté revient. Finalise les révisions avant de relancer.',
       };
     }
     // Post-ombre : 14 jours après la fin
@@ -1051,133 +1051,133 @@ export interface NatalMoon {
   sign: string;
   needs: string;         // Besoins émotionnels
   instinct: string;      // Réaction instinctive
-  security: string;      // Ce qui vous sécurise
+  security: string;      // Ce qui te sécurise
   qualities: string;     // Forces émotionnelles
   vigilance: string;     // Ombre émotionnelle
   hack: string;          // Conseil concret pour entrepreneurs
-  darkGift: string;      // Ce que votre ombre vous donne de spécial
+  darkGift: string;      // Ce que ton ombre te donne de spécial
 }
 
 const MOON_SIGNS: Record<string, NatalMoon> = {
   Aries: {
     sign: 'Bélier',
-    needs: 'Vous avez besoin d\'action, de spontanéité et de défis pour vous sentir vivant émotionnellement.',
-    instinct: 'Face au stress, vous foncez tête baissée. Votre première réaction est toujours l\'action — réfléchir vient après.',
-    security: 'L\'indépendance et la liberté de mouvement. Vous étouffez si on vous contraint.',
-    qualities: 'Courage émotionnel, réactivité, capacité à rebondir vite après un choc. Vous ne restez jamais longtemps à terre.',
-    vigilance: 'L\'impatience émotionnelle peut blesser vos proches. Apprenez à compter jusqu\'à 3 avant de réagir.',
-    hack: 'Planifiez vos décisions importantes le matin — votre Lune Bélier a son pic de clarté au réveil, avant que l\'agitation du jour ne brouille le signal.',
-    darkGift: 'Votre impatience est en réalité un détecteur d\'urgence : quand vous vous agacez, c\'est souvent que quelque chose attend trop longtemps d\'être traité.'
+    needs: 'Tu as besoin d\'action, de spontanéité et de défis pour te sentir vivant émotionnellement.',
+    instinct: 'Face au stress, tu fonces tête baissée. Ta première réaction est toujours l\'action — réfléchir vient après.',
+    security: 'L\'indépendance et la liberté de mouvement. Tu étouffes si on te contraint.',
+    qualities: 'Courage émotionnel, réactivité, capacité à rebondir vite après un choc. Tu ne restes jamais longtemps à terre.',
+    vigilance: 'L\'impatience émotionnelle peut blesser tes proches. Apprends à compter jusqu\'à 3 avant de réagir.',
+    hack: 'Planifie tes décisions importantes le matin — ta Lune Bélier a son pic de clarté au réveil, avant que l\'agitation du jour ne brouille le signal.',
+    darkGift: 'Ton impatience est en réalité un détecteur d\'urgence : quand tu t\'agaces, c\'est souvent que quelque chose attend trop longtemps d\'être traité.'
   },
   Taurus: {
     sign: 'Taureau',
-    needs: 'Vous avez besoin de stabilité, de confort sensoriel et de routines rassurantes.',
-    instinct: 'Face au stress, vous vous ancrez et résistez au changement. Votre force est aussi votre rigidité.',
-    security: 'La sécurité matérielle et affective. Vous avez besoin de savoir que le sol sous vos pieds est solide.',
+    needs: 'Tu as besoin de stabilité, de confort sensoriel et de routines rassurantes.',
+    instinct: 'Face au stress, tu t\'ancres et résistes au changement. Ta force est aussi ta rigidité.',
+    security: 'La sécurité matérielle et affective. Tu as besoin de savoir que le sol sous tes pieds est solide.',
     qualities: 'Loyauté émotionnelle profonde, patience, capacité à offrir un amour stable et constant.',
-    vigilance: 'La possessivité et la résistance au changement. Ce que vous tenez, vous avez du mal à le lâcher — même quand il le faut.',
-    hack: 'Vos meilleures décisions financières viennent après un bon repas — votre Lune Taureau pense mieux quand le corps est nourri. Ne négociez jamais le ventre vide.',
-    darkGift: 'Votre possessivité est un instinct de préservation précieux : vous sentez avant les autres quand quelque chose de valeur est menacé.'
+    vigilance: 'La possessivité et la résistance au changement. Ce que tu tiens, tu as du mal à le lâcher — même quand il le faut.',
+    hack: 'Tes meilleures décisions financières viennent après un bon repas — ta Lune Taureau pense mieux quand le corps est nourri. Ne négociez jamais le ventre vide.',
+    darkGift: 'Ta possessivité est un instinct de préservation précieux : tu sentis avant les autres quand quelque chose de valeur est menacé.'
   },
   Gemini: {
     sign: 'Gémeaux',
-    needs: 'Vous avez besoin de stimulation intellectuelle et de variété pour nourrir votre monde intérieur.',
-    instinct: 'Face au stress, vous analysez, verbalisez, rationalisez. Parler vous aide à comprendre ce que vous ressentez.',
-    security: 'La communication et le mouvement. L\'ennui est votre pire ennemi émotionnel.',
+    needs: 'Tu as besoin de stimulation intellectuelle et de variété pour nourrir ton monde intérieur.',
+    instinct: 'Face au stress, tu analyses, verbalises, rationalises. Parler t\'aide à comprendre ce que tu ressens.',
+    security: 'La communication et le mouvement. L\'ennui est ton pire ennemi émotionnel.',
     qualities: 'Adaptabilité émotionnelle, humour comme soupape, capacité à voir plusieurs angles d\'un même problème.',
-    vigilance: 'La superficialité émotionnelle. Vous pouvez intellectualiser vos émotions au lieu de les vivre vraiment.',
-    hack: 'Écrivez vos idées immédiatement — votre Lune Gémeaux génère des connexions brillantes qui s\'évaporent en minutes. Un carnet ou une note vocale est votre meilleur allié.',
-    darkGift: 'Votre intellectualisation émotionnelle vous permet d\'analyser les crises à froid pendant que les autres paniquent — c\'est un superpouvoir en négociation.'
+    vigilance: 'La superficialité émotionnelle. Tu peux intellectualiser tes émotions au lieu de les vivre vraiment.',
+    hack: 'Écris tes idées immédiatement — ta Lune Gémeaux génère des connexions brillantes qui s\'évaporent en minutes. Un carnet ou une note vocale est ton meilleur allié.',
+    darkGift: 'Ton intellectualisation émotionnelle te permet d\'analyser les crises à froid pendant que les autres paniquent — c\'est un superpouvoir en négociation.'
   },
   Cancer: {
     sign: 'Cancer',
-    needs: 'Vous avez besoin d\'un nid émotionnel sûr — famille, foyer, racines. L\'appartenance est vitale.',
-    instinct: 'Face au stress, vous vous repliez dans votre coquille pour vous protéger. Votre sensibilité est votre radar.',
-    security: 'Les liens familiaux et les souvenirs. Le passé vous ancre, la nostalgie vous nourrit.',
-    qualities: 'Empathie profonde, mémoire émotionnelle, capacité à nourrir et protéger ceux que vous aimez.',
+    needs: 'Tu as besoin d\'un nid émotionnel sûr — famille, foyer, racines. L\'appartenance est vitale.',
+    instinct: 'Face au stress, tu te replies dans ta coquille pour te protéger. Ta sensibilité est ton radar.',
+    security: 'Les liens familiaux et les souvenirs. Le passé t\'ancre, la nostalgie te nourrit.',
+    qualities: 'Empathie profonde, mémoire émotionnelle, capacité à nourrir et protéger ceux que tu aimes.',
     vigilance: 'La tendance à s\'accrocher au passé et à prendre les choses trop personnellement. Tout n\'est pas une attaque.',
-    hack: 'Faites vos présentations et vos pitchs dans un lieu familier — votre Lune Cancer performe quand elle se sent « chez elle ». Transformez votre bureau en cocon.',
-    darkGift: 'Votre hypersensibilité aux critiques est un radar de fidélité : vous détectez instantanément qui est sincère et qui joue un rôle.'
+    hack: 'Fais tes présentations et tes pitchs dans un lieu familier — ta Lune Cancer performe quand elle se sent « chez elle ». Transforme ton bureau en cocon.',
+    darkGift: 'Ton hypersensibilité aux critiques est un radar de fidélité : tu détectes instantanément qui est sincère et qui joue un rôle.'
   },
   Leo: {
     sign: 'Lion',
-    needs: 'Vous avez besoin d\'être vu, reconnu et apprécié. La chaleur émotionnelle est votre oxygène.',
-    instinct: 'Face au stress, vous cherchez à reprendre le contrôle par l\'action et la générosité. Donner vous restaure.',
-    security: 'L\'admiration et l\'amour. Vous brillez quand on vous regarde briller.',
-    qualities: 'Générosité émotionnelle, loyauté, capacité à réchauffer une pièce entière par votre présence.',
-    vigilance: 'Le besoin d\'être au centre peut masquer une fragilité : la peur de ne pas être assez. Vous l\'êtes.',
-    hack: 'Avant une décision difficile, demandez-vous « est-ce que ça me rend fier ? » — votre Lune Lion a un compas interne calibré sur l\'honneur, pas sur le profit.',
-    darkGift: 'Votre ego n\'est pas un défaut — c\'est votre moteur. Il vous pousse à viser l\'excellence là où d\'autres se contentent de la moyenne.'
+    needs: 'Tu as besoin d\'être vu, reconnu et apprécié. La chaleur émotionnelle est ton oxygène.',
+    instinct: 'Face au stress, tu cherches à reprendre le contrôle par l\'action et la générosité. Donner te restaure.',
+    security: 'L\'admiration et l\'amour. Tu brilles quand on te regarde briller.',
+    qualities: 'Générosité émotionnelle, loyauté, capacité à réchauffer une pièce entière par ta présence.',
+    vigilance: 'Le besoin d\'être au centre peut masquer une fragilité : la peur de ne pas être assez. Tu l\'es.',
+    hack: 'Avant une décision difficile, demande-toi « est-ce que ça me rend fier ? » — ta Lune Lion a un compas interne calibré sur l\'honneur, pas sur le profit.',
+    darkGift: 'Ton ego n\'est pas un défaut — c\'est ton moteur. Il te pousse à viser l\'excellence là où d\'autres se contentent de la moyenne.'
   },
   Virgo: {
     sign: 'Vierge',
-    needs: 'Vous avez besoin d\'ordre, d\'utilité et de sentiment de compétence pour être en paix.',
-    instinct: 'Face au stress, vous organisez, triez, nettoyez. Remettre de l\'ordre à l\'extérieur calme l\'intérieur.',
-    security: 'Le contrôle par le détail et la préparation. L\'imprévu vous déstabilise.',
+    needs: 'Tu as besoin d\'ordre, d\'utilité et de sentiment de compétence pour être en paix.',
+    instinct: 'Face au stress, tu organises, tries, nettoyais. Remettre de l\'ordre à l\'extérieur calme l\'intérieur.',
+    security: 'Le contrôle par le détail et la préparation. L\'imprévu te déstabilise.',
     qualities: 'Fiabilité émotionnelle, sens pratique du soin, capacité à aider concrètement plutôt qu\'avec des mots vides.',
-    vigilance: 'L\'autocritique excessive. Vous êtes votre juge le plus sévère — accordez-vous la même bienveillance qu\'aux autres.',
-    hack: 'Quand vous êtes bloqué, rangez votre espace de travail — votre Lune Vierge débloque la pensée en ordonnant le physique. Le tri extérieur crée la clarté intérieure.',
-    darkGift: 'Votre perfectionnisme est un filtre qualité intégré : ce que vous livrez est toujours plus fiable que ce que les autres considèrent comme « fini ».'
+    vigilance: 'L\'autocritique excessive. Tu es ton juge le plus sévère — accorde-toi la même bienveillance qu\'aux autres.',
+    hack: 'Quand tu es bloqué, range ton espace de travail — ta Lune Vierge débloque la pensée en ordonnant le physique. Le tri extérieur crée la clarté intérieure.',
+    darkGift: 'Ton perfectionnisme est un filtre qualité intégré : ce que tu livres est toujours plus fiable que ce que les autres considèrent comme « fini ».'
   },
   Libra: {
     sign: 'Balance',
-    needs: 'Vous avez besoin d\'harmonie relationnelle et de beauté. Le conflit vous épuise physiquement.',
-    instinct: 'Face au stress, vous cherchez le compromis et l\'équilibre. Vous pesez le pour et le contre — parfois trop longtemps.',
-    security: 'Les relations équilibrées et un environnement esthétique. La laideur et l\'injustice vous blessent.',
+    needs: 'Tu as besoin d\'harmonie relationnelle et de beauté. Le conflit t\'épuise physiquement.',
+    instinct: 'Face au stress, tu cherches le compromis et l\'équilibre. Tu pèses le pour et le contre — parfois trop longtemps.',
+    security: 'Les relations équilibrées et un environnement esthétique. La laideur et l\'injustice te blessent.',
     qualities: 'Grâce émotionnelle, diplomatie naturelle, capacité à voir les deux côtés d\'une situation.',
-    vigilance: 'L\'indécision et la dépendance au regard de l\'autre. Votre avis compte — osez le donner même s\'il déplaît.',
-    hack: 'Ne prenez jamais de décision stratégique seul — votre Lune Balance a besoin d\'un sparring-partner pour cristalliser sa pensée. Un appel de 10 minutes suffit.',
-    darkGift: 'Votre indécision est en fait un processeur parallèle : vous voyez simultanément les conséquences de chaque option, là où les autres foncent à l\'aveugle.'
+    vigilance: 'L\'indécision et la dépendance au regard de l\'autre. Ton avis compte — ose le donner même s\'il déplaît.',
+    hack: 'Ne prends jamais de décision stratégique seul — ta Lune Balance a besoin d\'un sparring-partner pour cristalliser sa pensée. Un appel de 10 minutes suffit.',
+    darkGift: 'Ton indécision est en fait un processeur parallèle : tu vois simultanément les conséquences de chaque option, là où les autres foncent à l\'aveugle.'
   },
   Scorpio: {
     sign: 'Scorpion',
-    needs: 'Vous avez besoin d\'intensité, de vérité et de connexion émotionnelle profonde. Le superficiel vous ennuie.',
-    instinct: 'Face au stress, vous plongez dans l\'émotion plutôt que de la fuir. Votre radar détecte le mensonge instantanément.',
-    security: 'Le contrôle et la loyauté absolue. Vous donnez tout — et attendez la même chose en retour.',
-    qualities: 'Profondeur émotionnelle rare, résilience, capacité de transformation. Vous renaissez de vos cendres.',
-    vigilance: 'La rancune et la méfiance. Pardonner n\'est pas oublier — mais c\'est vous libérer.',
-    hack: 'Votre Lune Scorpion excelle en due diligence — fiez-vous à votre instinct quand quelque chose « sent mauvais » dans un deal, même si les chiffres sont bons.',
-    darkGift: 'Votre méfiance est un système immunitaire social : vous repérez les manipulateurs et les opportunistes avant tout le monde.'
+    needs: 'Tu as besoin d\'intensité, de vérité et de connexion émotionnelle profonde. Le superficiel t\'ennuie.',
+    instinct: 'Face au stress, tu plonges dans l\'émotion plutôt que de la fuir. Ton radar détecte le mensonge instantanément.',
+    security: 'Le contrôle et la loyauté absolue. Tu donnes tout — et attends la même chose en retour.',
+    qualities: 'Profondeur émotionnelle rare, résilience, capacité de transformation. Tu renaissais de tes cendres.',
+    vigilance: 'La rancune et la méfiance. Pardonner n\'est pas oublier — mais c\'est te libérer.',
+    hack: 'Ta Lune Scorpion excelle en due diligence — fie-toi à ton instinct quand quelque chose « sent mauvais » dans un deal, même si les chiffres sont bons.',
+    darkGift: 'Ta méfiance est un système immunitaire social : tu repères les manipulateurs et les opportunistes avant tout le monde.'
   },
   Sagittarius: {
     sign: 'Sagittaire',
-    needs: 'Vous avez besoin de sens, d\'aventure et de liberté. L\'horizon doit toujours rester ouvert.',
-    instinct: 'Face au stress, vous cherchez l\'évasion — voyage, philosophie, humour. Vous refusez de rester dans la lourdeur.',
-    security: 'La confiance en l\'avenir et la liberté de mouvement. L\'optimisme est votre armure.',
+    needs: 'Tu as besoin de sens, d\'aventure et de liberté. L\'horizon doit toujours rester ouvert.',
+    instinct: 'Face au stress, tu cherches l\'évasion — voyage, philosophie, humour. Tu refuses de rester dans la lourdeur.',
+    security: 'La confiance en l\'avenir et la liberté de mouvement. L\'optimisme est ton armure.',
     qualities: 'Optimisme contagieux, vision large, capacité à transformer les épreuves en apprentissages.',
     vigilance: 'La fuite émotionnelle déguisée en philosophie. Parfois, il faut rester et ressentir au lieu de relativiser.',
-    hack: 'Fixez-vous un « horizon motivant » chaque trimestre — votre Lune Sagittaire s\'éteint sans objectif ambitieux. Un voyage, un lancement, une conférence : il vous faut un cap.',
-    darkGift: 'Votre tendance à fuir est en réalité un instinct d\'exploration : vous trouvez des solutions dans des domaines que personne n\'a pensé à regarder.'
+    hack: 'Fixe-toi un « horizon motivant » chaque trimestre — ta Lune Sagittaire s\'éteint sans objectif ambitieux. Un voyage, un lancement, une conférence : il te faut un cap.',
+    darkGift: 'Ta tendance à fuir est en réalité un instinct d\'exploration : tu trouves des solutions dans des domaines que personne n\'a pensé à regarder.'
   },
   Capricorn: {
     sign: 'Capricorne',
-    needs: 'Vous avez besoin de structure, de respect et de sentiment d\'accomplissement.',
-    instinct: 'Face au stress, vous serrez les dents et vous travaillez plus dur. La discipline est votre refuge.',
-    security: 'La compétence et la reconnaissance de vos réalisations. Vous construisez pour durer.',
+    needs: 'Tu as besoin de structure, de respect et de sentiment d\'accomplissement.',
+    instinct: 'Face au stress, tu serres les dents et tu travailles plus dur. La discipline est ton refuge.',
+    security: 'La compétence et la reconnaissance de tes réalisations. Tu construis pour durer.',
     qualities: 'Endurance émotionnelle, maturité précoce, capacité à porter de lourdes responsabilités sans fléchir.',
-    vigilance: 'La froideur apparente cache une sensibilité profonde. Laissez les autres voir votre vulnérabilité — c\'est une force, pas une faiblesse.',
-    hack: 'Bloquez une heure « non négociable » par semaine sans productivité — votre Lune Capricorne a besoin de repos imposé, sinon elle ne s\'arrête jamais.',
-    darkGift: 'Votre froideur apparente est une armure fonctionnelle : elle vous permet de prendre des décisions rationnelles dans les moments où les émotions paralysent les autres.'
+    vigilance: 'La froideur apparente cache une sensibilité profonde. Laisse les autres voir ta vulnérabilité — c\'est une force, pas une faiblesse.',
+    hack: 'Bloque une heure « non négociable » par semaine sans productivité — ta Lune Capricorne a besoin de repos imposé, sinon elle ne s\'arrête jamais.',
+    darkGift: 'Ta froideur apparente est une armure fonctionnelle : elle te permet de prendre des décisions rationnelles dans les moments où les émotions paralysent les autres.'
   },
   Aquarius: {
     sign: 'Verseau',
-    needs: 'Vous avez besoin de liberté intellectuelle et d\'un espace pour être différent sans jugement.',
-    instinct: 'Face au stress, vous prenez du recul et observez avec détachement. L\'émotion brute vous met mal à l\'aise.',
-    security: 'L\'indépendance et l\'authenticité. Vous refusez de jouer un rôle pour plaire.',
-    qualities: 'Vision originale, tolérance, capacité à aimer sans posséder. Votre amour est libre et non-conventionnel.',
-    vigilance: 'Le détachement émotionnel peut ressembler à de la froideur. Vos proches ont parfois besoin que vous soyez présent, pas juste brillant.',
-    hack: 'Testez vos idées sur des gens « normaux » — votre Lune Verseau pense 3 ans en avance, mais vos clients vivent dans le présent. Traduisez votre vision en bénéfice immédiat.',
-    darkGift: 'Votre détachement est une vision panoramique : pendant que les autres sont noyés dans l\'émotion d\'un problème, vous voyez déjà la solution systémique.'
+    needs: 'Tu as besoin de liberté intellectuelle et d\'un espace pour être différent sans jugement.',
+    instinct: 'Face au stress, tu prends du recul et observes avec détachement. L\'émotion brute te met mal à l\'aise.',
+    security: 'L\'indépendance et l\'authenticité. Tu refuses de jouer un rôle pour plaire.',
+    qualities: 'Vision originale, tolérance, capacité à aimer sans posséder. Ton amour est libre et non-conventionnel.',
+    vigilance: 'Le détachement émotionnel peut ressembler à de la froideur. Tes proches ont parfois besoin que tu sois présent, pas juste brillant.',
+    hack: 'Teste tes idées sur des gens « normaux » — ta Lune Verseau pense 3 ans en avance, mais tes clients vivent dans le présent. Traduis ta vision en bénéfice immédiat.',
+    darkGift: 'Ton détachement est une vision panoramique : pendant que les autres sont noyés dans l\'émotion d\'un problème, tu vois déjà la solution systémique.'
   },
   Pisces: {
     sign: 'Poissons',
-    needs: 'Vous avez besoin de connexion spirituelle, de beauté et d\'un espace pour rêver.',
-    instinct: 'Face au stress, vous absorbez les émotions comme une éponge. Distinguer vos émotions de celles des autres est votre défi.',
+    needs: 'Tu as besoin de connexion spirituelle, de beauté et d\'un espace pour rêver.',
+    instinct: 'Face au stress, tu absorbes les émotions comme une éponge. Distinguer tes émotions de celles des autres est ton défi.',
     security: 'L\'amour inconditionnel et la possibilité de se retirer dans un monde intérieur riche.',
     qualities: 'Compassion infinie, créativité émotionnelle, capacité à comprendre la souffrance des autres sans jugement.',
-    vigilance: 'La fuite dans l\'imaginaire et la difficulté à poser des limites. Vous n\'êtes pas responsable des émotions de tout le monde.',
-    hack: 'Votre Lune Poissons capte l\'ambiance d\'une pièce en 30 secondes — utilisez cette antenne avant chaque réunion : si l\'énergie est « off », reportez les sujets sensibles.',
-    darkGift: 'Votre porosité émotionnelle est une intelligence sociale de haut niveau : vous comprenez les non-dits et les motivations cachées mieux que n\'importe quel test psychométrique.'
+    vigilance: 'La fuite dans l\'imaginaire et la difficulté à poser des limites. Tu n\'es pas responsable des émotions de tout le monde.',
+    hack: 'Ta Lune Poissons capte l\'ambiance d\'une pièce en 30 secondes — utilise cette antenne avant chaque réunion : si l\'énergie est « off », reporte les sujets sensibles.',
+    darkGift: 'Ta porosité émotionnelle est une intelligence sociale de haut niveau : tu comprends les non-dits et les motivations cachées mieux que n\'importe quel test psychométrique.'
   },
 };
 
@@ -1429,7 +1429,7 @@ export function getLunarNodeTransit(birthDate: string, today: string): LunarNode
 
   if (angle < 15) {
     alignment = 'conjoint';
-    alignmentDesc = '⚡ Retour des Nœuds — moment karmique majeur. Ta direction de vie est réactivée avec une intensité maximale.';
+    alignmentDesc = '🌟 Retour des Nœuds — moment karmique majeur. Ta direction de vie est réactivée avec une intensité maximale.';
   } else if (Math.abs(angle - 180) < 15) {
     alignment = 'opposé';
     alignmentDesc = '🔄 Inversion des Nœuds — tension entre passé et futur. Ce qui te retient (Nœud Sud) réclame ton attention avant d\'avancer.';
@@ -1818,8 +1818,8 @@ export function getEclipseNatalImpacts(
       hits.push(hit);
       total += score;
       const timing = deltaDays < -14 ? `dans ${Math.abs(Math.round(deltaDays))}j`
-                   : deltaDays < 0   ? `dans ${Math.abs(Math.round(deltaDays))}j ⚡`
-                   : deltaDays < 14  ? `il y a ${Math.round(deltaDays)}j ⚡`
+                   : deltaDays < 0   ? `dans ${Math.abs(Math.round(deltaDays))}j 🌟`
+                   : deltaDays < 14  ? `il y a ${Math.round(deltaDays)}j 🌟`
                    :                   `il y a ${Math.round(deltaDays)}j`;
       breakdown.push(`🌑 ${eclipse.name} (${timing}) sur ${point.toUpperCase()} natal (orbe ${orb.toFixed(1)}°, +${score.toFixed(1)})`);
     }
@@ -1831,4 +1831,140 @@ export function getEclipseNatalImpacts(
   console.assert(Math.abs(total) <= 6.1, '[EclipseNatal] Cap ±6 percé:', total);
 
   return { total, hits, breakdown };
+}
+
+// ═══ R26 Sprint 1 — Phases lunaires structurées (NL/PL) ═══
+// Trouve les prochaines Nouvelle Lune et Pleine Lune à partir d'une date
+// + calcule dans quel signe zodiacal elles tombent
+// + place dans la maison natale correspondante
+
+export interface UpcomingLunarPhase {
+  date: Date;                  // Date/heure exacte de la NL ou PL
+  type: 'new_moon' | 'full_moon';
+  sign: string;                // Signe zodiacal (clé anglaise : Aries, etc.)
+  signFr: string;              // Signe en français
+  degInSign: number;           // Degré dans le signe (0-30)
+  natalHouse: number | null;   // Maison natale (1-12) ou null si pas d'ASC
+  daysUntil: number;           // Jours restants
+}
+
+const SIGN_NAMES_EN = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+const SIGN_NAMES_FR = ['Bélier','Taureau','Gémeaux','Cancer','Lion','Vierge','Balance','Scorpion','Sagittaire','Capricorne','Verseau','Poissons'];
+
+/**
+ * Calcule la longitude du Soleil pour une date (formule simplifiée Meeus).
+ * Précision ~0.01° — suffisante pour déterminer le signe.
+ */
+function quickSunLong(date: Date): number {
+  const refJ2000 = Date.UTC(2000, 0, 1, 12, 0, 0); // J2000.0
+  const d = (date.getTime() - refJ2000) / 86400000;
+  const M = (357.5291 + 0.98560028 * d) % 360;
+  const Mr = M * Math.PI / 180;
+  const C = 1.9148 * Math.sin(Mr) + 0.0200 * Math.sin(2 * Mr) + 0.0003 * Math.sin(3 * Mr);
+  let lon = (M + C + 180 + 102.9372) % 360;
+  if (lon < 0) lon += 360;
+  return lon;
+}
+
+/**
+ * Longitude lunaire rapide (même formule que getMoonPhase/getMoonTransit).
+ */
+function quickMoonLong(date: Date): number {
+  const refJ2000 = Date.UTC(2000, 0, 1, 0, 0, 0);
+  const d = (date.getTime() - refJ2000) / 86400000;
+  let lon = (13.1763966 * d + 218.316547) % 360;
+  if (lon < 0) lon += 360;
+  return lon;
+}
+
+/**
+ * Trouve la prochaine Nouvelle Lune ou Pleine Lune après `fromDate`.
+ * Méthode : scan par pas de 6h puis affinement par bisection.
+ * NL = élongation Lune-Soleil ~0°, PL = ~180°.
+ */
+function findNextPhase(
+  fromDate: Date,
+  targetElongation: 0 | 180, // 0 = NL, 180 = PL
+  maxSearchDays: number = 35
+): Date | null {
+  const STEP_MS = 6 * 3600000; // 6h
+  const target = targetElongation;
+  let prev = fromDate.getTime();
+  let prevElong = normalizeElong(quickMoonLong(fromDate) - quickSunLong(fromDate), target);
+
+  for (let i = 1; i <= maxSearchDays * 4; i++) {
+    const t = fromDate.getTime() + i * STEP_MS;
+    const d = new Date(t);
+    const elong = normalizeElong(quickMoonLong(d) - quickSunLong(d), target);
+
+    // Détection de passage par le minimum (signe change de + à -)
+    if (prevElong > 0 && elong <= 0) {
+      // Bisection entre prev et t
+      let lo = prev, hi = t;
+      for (let j = 0; j < 20; j++) {
+        const mid = (lo + hi) / 2;
+        const midE = normalizeElong(quickMoonLong(new Date(mid)) - quickSunLong(new Date(mid)), target);
+        if (midE > 0) lo = mid; else hi = mid;
+      }
+      return new Date((lo + hi) / 2);
+    }
+    prev = t;
+    prevElong = elong;
+  }
+  return null;
+}
+
+/**
+ * Normalise l'élongation par rapport au target (0 ou 180) dans [-180, +180].
+ */
+function normalizeElong(rawElong: number, target: number): number {
+  let d = ((rawElong - target) % 360 + 360) % 360;
+  if (d > 180) d -= 360;
+  return d;
+}
+
+/**
+ * Trouve les prochaines NL et PL et les contextualise (signe, maison natale).
+ * @param fromDate  Date de départ (aujourd'hui)
+ * @param ascSign   Signe de l'Ascendant natal (pour calcul maison WS) — null si noTime
+ */
+export function getUpcomingLunarPhases(
+  fromDate: Date = new Date(),
+  ascSign: string | null = null
+): UpcomingLunarPhase[] {
+  const results: UpcomingLunarPhase[] = [];
+
+  const nlDate = findNextPhase(fromDate, 0);
+  const plDate = findNextPhase(fromDate, 180);
+
+  for (const [date, type] of [[nlDate, 'new_moon'], [plDate, 'full_moon']] as const) {
+    if (!date) continue;
+    // NL → longitude Soleil (conjonction), PL → longitude Lune (opposition)
+    const lon = type === 'new_moon' ? quickSunLong(date) : quickMoonLong(date);
+    const signIdx = Math.floor(lon / 30) % 12;
+    const degInSign = +(lon % 30).toFixed(1);
+
+    // Maison natale (Whole Sign) — si ASC disponible
+    let natalHouse: number | null = null;
+    if (ascSign) {
+      const ascIdx = SIGN_NAMES_FR.indexOf(ascSign);
+      if (ascIdx >= 0) {
+        natalHouse = ((signIdx - ascIdx + 12) % 12) + 1;
+      }
+    }
+
+    results.push({
+      date,
+      type,
+      sign: SIGN_NAMES_EN[signIdx],
+      signFr: SIGN_NAMES_FR[signIdx],
+      degInSign,
+      natalHouse,
+      daysUntil: Math.ceil((date.getTime() - fromDate.getTime()) / 86400000),
+    });
+  }
+
+  // Tri par date
+  results.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return results;
 }

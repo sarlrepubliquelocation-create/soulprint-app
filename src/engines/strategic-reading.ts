@@ -32,6 +32,16 @@ import { PY_TRANSITIONS, ECLIPSE_CONTEXTS, WOW_MOMENTS, NUCLEAR_INTERPRETATIONS 
 import { detectPatterns, type PatternDetectionResult, type Pattern } from './pattern-detection';
 import { calc10Gods, type TenGodsResult, calculateLuckPillars, getLuckPillarNarrative, calcFourPillars, type FourPillars } from './bazi';
 
+// ── Helpers ──
+
+const MOIS_FR_COURT = ['janv.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+/** Formate "2026-03-06" → "6 mars 2026" ou "6 mars" si même année */
+function fmtDateFR(iso: string, shortYear = false): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const moisFR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return shortYear ? `${d} ${moisFR[m - 1]}` : `${d} ${moisFR[m - 1]} ${y}`;
+}
+
 // ── Types ──
 
 export interface ReadingInsight {
@@ -71,11 +81,17 @@ export interface StrategicReading {
   actionPlan: ActionItem[];
   portrait: string;        // Portrait identitaire multi-lignes
   todayVerdict: string;    // Verdict du jour en 1 phrase
+  mirrorPhrase: string;    // V5.0: Phrase-miroir ultra-ciblée (levier émotionnel #1)
+  portraitOverlay: string; // V5.0: Portrait contextualisé au jour (bandeau dynamique)
   timeline: LifeTimeline;  // Timeline de vie par périodes (Life Timeline Engine)
   majorWindow: MajorWindow | null;  // V2.5: Fenêtre Majeure (quand score ≥75 ET 5+ systèmes)
   microDetails: MicroDetail[];      // V2.5: Micro-détails "c'est exactement moi"
   contradictions: Contradiction[];  // V2.9.1: Tensions inter-systèmes
   patterns: PatternDetectionResult; // V3.0: Pattern Detection Engine (cycles, échos, prédictions)
+  undercurrent: { text: string; name: string; hexNum: number } | null; // V5.1: Hu Gua promu — "Sous la surface"
+  probableFeeling: string | null; // V5.2: Ressenti probable (Ronde #3)
+  somaticFeeling: string | null;  // V5.3: Ressenti somatique (Ronde #4)
+  quickSummary: string;           // V5.6: "En 20 secondes" — résumé ultra-court mobile-first
 }
 
 // V2.5: Fenêtre Majeure — narration spéciale quand convergence ≥75%
@@ -106,6 +122,7 @@ export interface ActionItem {
   sources: string[];
   priority: 'haute' | 'moyenne' | 'basse';
   icon: string;
+  role?: 'focus' | 'avoid' | 'timing' | 'conseil';  // V5.5 fix: rôle sémantique
 }
 
 // ── Thème détection (pour trouver les convergences) ──
@@ -116,6 +133,40 @@ const THEME_ICONS: Record<Theme, string> = {
   action: '🔥', patience: '⏳', communication: '💬', introspection: '🔮',
   expansion: '🚀', prudence: '🛡️', transformation: '🦋', partenariat: '🤝',
   créativité: '✨', structure: '🏗️',
+};
+
+// V5.0: Noms techniques → français accessible (pour textes user-facing dans le moteur)
+const SYSTEM_FR: Record<string, string> = {
+  'Personal Day': 'Jour personnel',
+  'Yi King du jour': 'Yi King',
+  'Yi King natal': 'Yi King natal',
+  'Hexagramme Nucléaire': 'Courant profond',
+  'BaZi Day Master': 'Énergie du jour',
+  'Luck Pillar (BaZi)': 'Cycle de 10 ans',
+  'Quatre Piliers (八字)': 'Thème chinois',
+  'Hour Pillar (時柱)': 'Pilier horaire',
+  'Phase lunaire': 'Lune',
+  'Nœuds Lunaires': 'Direction de vie',
+  'Transits astrologiques': 'Transits planétaires',
+  'Convergence scoring': 'Score global',
+  'Confiance temporelle': 'Fiabilité',
+  'Pattern Detection': 'Schéma détecté',
+  'Pinnacle actif': 'Phase de vie',
+  'Challenge actif': 'Défi de vie',
+  'Chemin de vie': 'Chemin de vie',
+  '10 Gods': 'Archétypes du jour',
+  'Étoiles Fixes': 'Étoiles Fixes',
+  'BaZi': 'Énergie chinoise',
+  'Nakshatra': 'Étoile lunaire',
+  'Peach Blossom': 'Fleur de romance',
+  'Shen Sha': 'Étoiles symboliques',
+  'Mercure': 'Mercure',
+  'Astrologie': 'Astrologie',
+  'Planètes': 'Planètes',
+  'I Ching': 'Yi King',
+  'Yi King': 'Yi King',
+  'Lune': 'Lune',
+  'Numérologie': 'Numérologie',
 };
 
 // Map des nombres personnels vers thèmes dominants
@@ -224,13 +275,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
   const lpInfo = getNumberInfo(num.lp.v);
   const exprInfo = getNumberInfo(num.expr.v);
 
-  // 1. Portrait identitaire (depuis Life Timeline)
-  insights.push({
-    text: timeline.portrait,
-    sources: ['Chemin de vie', 'Zodiaque chinois', 'Expression', 'Âme', 'Yi King natal', 'Maturité'],
-    intensity: 'forte',
-    icon: '🌟',
-  });
+  // 1. Portrait identitaire → affiché dans PortraitSection dédié (LectureTab), plus dans le bloc Passé
 
   // 1b. V4.2: Luck Pillars × Pinnacles — croisement cycles de vie
   if (luckPillars) {
@@ -241,12 +286,50 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
 
     if (pastPillars.length > 0) {
       const crosses: string[] = [];
+      // V5.2: Descriptions lisibles (plus de "forge × liberté" technique)
+      const CROSS_DESC: Record<string, Record<string, string>> = {
+        croissance: {
+          expansion: 'période de fort élan, tout accélère',
+          construction: 'croissance structurée, bâtir sur du solide',
+          partenariats: 'croissance par les alliances et les rencontres',
+          liberté: 'période d\'ouverture et d\'exploration',
+          accomplissement: 'croissance orientée vers des résultats concrets',
+        },
+        soutien: {
+          expansion: 'énergie porteuse, un appui pour avancer vite',
+          construction: 'bases solides soutenues par l\'environnement',
+          partenariats: 'soutien relationnel fort, entraide',
+          liberté: 'espace pour explorer avec un filet de sécurité',
+          accomplissement: 'soutien extérieur qui amplifie tes résultats',
+        },
+        conquête: {
+          expansion: 'conquête active, besoin de marquer un territoire',
+          construction: 'conquête par la structure et la discipline',
+          partenariats: 'conquête relationnelle, alliances stratégiques',
+          liberté: 'besoin de conquérir ta liberté, de te réinventer',
+          accomplissement: 'conquête orientée vers un accomplissement majeur',
+        },
+        forge: {
+          expansion: 'période de mise à l\'épreuve qui te fait grandir',
+          construction: 'décennie de forge intense, pression qui solidifie',
+          partenariats: 'épreuves relationnelles qui te renforcent',
+          liberté: 'tension entre contraintes et besoin de liberté',
+          accomplissement: 'défis qui préparent un accomplissement futur',
+        },
+        stabilité: {
+          expansion: 'équilibre entre stabilité et envie d\'avancer',
+          construction: 'période stable propice à la construction',
+          partenariats: 'stabilité relationnelle, consolidation',
+          liberté: 'un cadre stable qui permet l\'indépendance',
+          accomplissement: 'stabilité qui porte ses fruits',
+        },
+      };
+
       pastPillars.forEach(pillar => {
         const pillarMidAge = pillar.startAge + 5;
         const matchIdx = periods.findIndex(p => pillarMidAge >= p.start && (p.end === null || pillarMidAge <= p.end));
         if (matchIdx >= 0) {
           const pinnV = num.pinnacles[matchIdx].v;
-          const pinnK = getNumberInfo(pinnV).k;
           const theme = pillar.themeKey === 'produces' ? 'croissance' :
                         pillar.themeKey === 'produced_by' ? 'soutien' :
                         pillar.themeKey === 'destroys' ? 'conquête' :
@@ -254,18 +337,14 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
           const pinnDir = [1, 3, 8].includes(pinnV) ? 'expansion' : [4, 7].includes(pinnV) ? 'construction' :
                           [2, 6].includes(pinnV) ? 'partenariats' : pinnV === 5 ? 'liberté' : 'accomplissement';
 
-          if (theme === 'croissance' && ['expansion', 'liberté'].includes(pinnDir))
-            crosses.push(`${pillar.startAge}-${pillar.endAge} ans : double élan de croissance (${pillar.stem.element} + Pinnacle ${pinnV} ${pinnK})`);
-          else if (theme === 'forge' && pinnDir === 'construction')
-            crosses.push(`${pillar.startAge}-${pillar.endAge} ans : décennie de forge intense (${pillar.stem.element} + Pinnacle ${pinnV})`);
-          else
-            crosses.push(`${pillar.startAge}-${pillar.endAge} ans : ${theme} × ${pinnDir} (${pillar.stem.element} + Pinnacle ${pinnV})`);
+          const desc = CROSS_DESC[theme]?.[pinnDir] || `${theme} et ${pinnDir}`;
+          crosses.push(`${pillar.startAge}-${pillar.endAge} ans : ${desc}`);
         }
       });
       if (crosses.length > 0) {
         insights.push({
-          text: `Cycles de vie croisés (BaZi × Numérologie) : ${crosses.join('. ')}.`,
-          sources: ['Luck Pillars (BaZi)', 'Pinnacles (Numérologie)'],
+          text: `Tes grands cycles de vie : ${crosses.join('. ')}.`,
+          sources: ['Cycles de 10 ans', 'Phases de vie'],
           intensity: 'forte', icon: '🏛',
         });
       }
@@ -275,9 +354,9 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
   // 1c. V4.2: Quatre Piliers natals (八字) — ADN énergétique complet
   if (fourPillars) {
     const fp = fourPillars;
-    let fpText = `Quatre Piliers natals (八字) : `;
+    let fpText = `Ton thème chinois de naissance : `;
     fpText += `${fp.year.stem.chinese}${fp.year.branch.chinese} · ${fp.month.stem.chinese}${fp.month.branch.chinese} · ${fp.day.stem.chinese}${fp.day.branch.chinese} · ${fp.hour.stem.chinese}${fp.hour.branch.chinese}. `;
-    fpText += `Day Master ${fp.dayMaster.chinese} (${fp.dayMaster.element} ${fp.dayMaster.yinYang}) — ${fp.dayMaster.archetype}. `;
+    fpText += `Ton énergie fondamentale : ${fp.dayMaster.chinese} (${fp.dayMaster.element} ${fp.dayMaster.yinYang}) — ${fp.dayMaster.archetype}. `;
     fpText += fp.hourNarrative;
     insights.push({
       text: fpText,
@@ -310,7 +389,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
       text: `Moments clés identifiés : ${timeline.keyMoments.join(' · ')}`,
       sources: ['Transits universels', 'Pinnacles', 'Années personnelles'],
       intensity: 'forte',
-      icon: '⚡',
+      icon: '🌟',
     });
   }
 
@@ -333,7 +412,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
   if (natalProfile) {
     let natalText = `Hexagramme natal n°${natalHex.hexNum} — ${natalHex.name} (${natalProfile.archetype}). `;
     natalText += `Sagesse permanente : "${natalProfile.wisdom?.split('.')[0]}." `;
-    natalText += `Force : ${natalProfile.opportunity}. Vigilance : ${natalProfile.risk}.`;
+    natalText += `Force : ${natalProfile.opportunity.replace(/\.\s*$/, '')}. Vigilance : ${natalProfile.risk.replace(/\.\s*$/, '')}.`;
     insights.push({ text: natalText, sources: ['Yi King natal'], intensity: 'moyenne', icon: '☰' });
   }
 
@@ -381,19 +460,19 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   const pyInfo = getNumberInfo(num.py.v);
   const pmInfo = getNumberInfo(num.pm.v);
   const moon = getMoonPhase();
-  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
+  const bio = null as { physical: number; emotional: number; intellectual: number; critical: string[]; average: number; phase?: string } | null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
 
   // 1. Énergie du jour croisée (Numérologie + Day Type + Yi King + Lune)
   const hexProfile = getHexProfile(iching.hexNum);
   let dayText = `Aujourd'hui vibre sur le ${num.ppd.v} (${pdInfo.k}) dans un mois ${num.pm.v} (${pmInfo.k}) et une année ${num.py.v} (${pyInfo.k}). `;
   dayText += `Le jour est de type "${conv.dayType.label}" — ${conv.dayType.desc}. `;
-  dayText += `Le Yi King confirme avec l'hexagramme ${iching.hexNum} (${iching.name}) : ${iching.keyword}.`;
+  dayText += `L'oracle confirme avec l'hexagramme ${iching.hexNum} (${iching.name}) : ${iching.keyword}.`;
 
   // V8 — Verrouillage tonalité : si score < 35 (Tempête), préfixe d'alerte
   // Empêche l'incohérence narrative où les modules positifs (PD élevé, IChing favorable)
   // contredisent un score de convergence en zone Tempête (BaZi/Nakshatra fortement négatifs).
   if (conv.score < 35) {
-    dayText = `⚠️ Malgré des signaux narratifs positifs (${iching.name}, PD ${num.ppd.v}), les cycles prédictifs (BaZi, Nakshatra) sont fortement contraires. Score de convergence : ${conv.score} — ne pas surpondérer les signaux narratifs aujourd'hui. ` + dayText;
+    dayText = `⚠️ Malgré des signaux narratifs positifs (${iching.name}, PD ${num.ppd.v}), les cycles prédictifs (astrologie chinoise, cycles védiques) sont fortement contraires. Score de convergence : ${conv.score} — ne pas surpondérer les signaux narratifs aujourd'hui. ` + dayText;
   } else if (conv.score < 45) {
     dayText = `Les signaux sont mixtes ce jour. ` + dayText;
   }
@@ -412,7 +491,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     const majorTransits = astro.tr.filter(t => ['jupiter', 'saturn', 'uranus', 'neptune', 'pluto'].includes(t.tp));
     let transitText = `${astro.tr.length} transit${astro.tr.length > 1 ? 's' : ''} actif${astro.tr.length > 1 ? 's' : ''}. `;
     if (exactTransits.length > 0) {
-      transitText += `⚡ Transit${exactTransits.length > 1 ? 's' : ''} EXACT${exactTransits.length > 1 ? 'S' : ''} : ${exactTransits.map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]}`).join(', ')}. Pic d'intensité aujourd'hui. `;
+      transitText += `🌟 Transit${exactTransits.length > 1 ? 's' : ''} EXACT${exactTransits.length > 1 ? 'S' : ''} : ${exactTransits.map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]}`).join(', ')}. Pic d'intensité aujourd'hui. `;
     }
     if (majorTransits.length > 0) {
       transitText += `Transits lents (impact profond) : ${majorTransits.slice(0, 3).map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]}`).join(', ')}.`;
@@ -456,10 +535,10 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   const topSystems = [...conv.breakdown].sort((a, b) => b.points - a.points).slice(0, 2);
   const bottomSystems = [...conv.breakdown].sort((a, b) => a.points - b.points).slice(0, 1);
   if (topSystems.length > 0) {
-    scoreText += ` Meilleurs leviers : ${topSystems.map(s => `${s.system} (${s.points > 0 ? '+' : ''}${s.points})`).join(', ')}.`;
+    scoreText += ` Meilleurs leviers : ${topSystems.map(s => `${SYSTEM_FR[s.system] || s.system} (${s.points > 0 ? '+' : ''}${s.points})`).join(', ')}.`;
   }
   if (bottomSystems.length > 0 && bottomSystems[0].points < 0) {
-    scoreText += ` Point de friction : ${bottomSystems[0].system} (${bottomSystems[0].points}).`;
+    scoreText += ` Point de friction : ${SYSTEM_FR[bottomSystems[0].system] || bottomSystems[0].system} (${bottomSystems[0].points}).`;
   }
 
   insights.push({
@@ -487,7 +566,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   // 6. Yi King — message stratégique du jour
   if (hexProfile) {
     let ichingText = `Hexagramme ${iching.hexNum} — ${hexProfile.archetype} : ${hexProfile.judgment} `;
-    ichingText += `Opportunité : ${hexProfile.opportunity}. Risque : ${hexProfile.risk}. `;
+    ichingText += `Opportunité : ${hexProfile.opportunity.replace(/\.\s*$/, '')}. Risque : ${hexProfile.risk.replace(/\.\s*$/, '')}. `;
     ichingText += `Action recommandée : ${hexProfile.action}`;
     insights.push({
       text: ichingText,
@@ -515,11 +594,11 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   // 8. BaZi Day Master V2.9.2
   if (conv.baziDaily) {
     const bz = conv.baziDaily;
-    let baziText = `Day Master du jour : ${bz.dailyStem.chinese} ${bz.dailyStem.pinyin} — ${bz.dailyStem.archetype}. `;
+    let baziText = `Énergie du jour : ${bz.dailyStem.chinese} ${bz.dailyStem.pinyin} — ${bz.dailyStem.archetype}. `;
     baziText += `${bz.interaction.dynamique} `;
     baziText += `Conseil : ${bz.interaction.conseil}`;
     if (bz.liuHeMatch) {
-      baziText += ` 六合 Harmonie cachée active — les alliances invisibles te soutiennent.`;
+      baziText += ` Harmonie cachée active — les alliances invisibles te soutiennent.`;
     }
     insights.push({
       text: baziText,
@@ -529,21 +608,8 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     });
   }
 
-  // 9. Hexagramme Nucléaire V2.9.2
-  if (conv.nuclearHex) {
-    const nh = conv.nuclearHex;
-    const nucInterp = NUCLEAR_INTERPRETATIONS[nh.crossKey];
-    if (nucInterp) {
-      let nucText = `Sous la surface (Hex Nucléaire ${nh.nuclearName}) : ${nucInterp.interpretation} `;
-      nucText += `Conseil profond : ${nucInterp.conseil}`;
-      insights.push({
-        text: nucText,
-        sources: ['Yi King', 'Hexagramme Nucléaire'],
-        intensity: nh.crossKey.includes('A') || nh.crossKey.includes('E') ? 'forte' : 'subtile',
-        icon: '⚛',
-      });
-    }
-  }
+  // 9. Hexagramme Nucléaire — PROMU en bloc "Sous la surface" (V5.1 Ronde #2)
+  // Plus affiché ici dans le Présent, affiché en bloc dédié via reading.undercurrent
 
   // 10. Contexte Éclipse V2.9.2
   const eclipses = getEclipseList();
@@ -572,7 +638,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     const cp = luckPillars.currentPillar;
     const yearsLeft = luckPillars.currentPillarYearsLeft;
     const narrative = getLuckPillarNarrative(cp, 'present', yearsLeft);
-    let lpText = `🏛 Luck Pillar actuel : ${cp.stem.chinese}${cp.branch.chinese} (${cp.stem.element} ${cp.stem.yinYang}) — `;
+    let lpText = `🏛 Ton cycle de 10 ans en cours : ${cp.stem.chinese}${cp.branch.chinese} (${cp.stem.element} ${cp.stem.yinYang}) — `;
     lpText += `${narrative} `;
     lpText += yearsLeft > 3 ? `Encore ~${yearsLeft} ans dans ce cycle.` : `Transition dans ~${yearsLeft} an${yearsLeft > 1 ? 's' : ''} — prépare le virage.`;
 
@@ -585,7 +651,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
 
     const lpTheme = cp.themeKey === 'produces' ? 'création' : cp.themeKey === 'produced_by' ? 'soutien' :
                     cp.themeKey === 'destroys' ? 'conquête' : cp.themeKey === 'destroyed_by' ? 'transformation' : 'stabilité';
-    lpText += ` Croisement : Luck Pillar en ${lpTheme} + Pinnacle ${pinnV} (${pinnK}).`;
+    lpText += ` Croisement : cycle décennal en ${lpTheme} + phase de vie ${pinnV} (${pinnK}).`;
 
     insights.push({ text: lpText, sources: ['Luck Pillar (BaZi)', 'Pinnacle (Numérologie)'], intensity: 'forte', icon: '🏛' });
   }
@@ -613,10 +679,12 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     });
   }
 
-  const summary = `${conv.score}% d'alignement · ${conv.dayType.label} · ${moon.name} · ${iching.name} · ${bio ? bio.phase.label : 'Biorhythmes N/A'}`;
+  const summaryParts = [`${conv.score}% d'alignement`, conv.dayType.label, moon.name, iching.name];
+  // bio?.phase?.label removed — biorhythm supprimé V4.0
+  const summary = summaryParts.join(' · ');
 
   return {
-    title: '⚡ Où tu es maintenant',
+    title: '🌟 Où tu es maintenant',
     period: new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
     insights,
     summary,
@@ -638,20 +706,20 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
   const periods = getPinnaclePeriods(bd, lpSingle);
   const currentPeriod = periods[activeIdx];
 
-  let pinnText = `Tu es dans ton Pinnacle ${activeIdx + 1} : énergie ${activePinnacle.v} (${getNumberInfo(activePinnacle.v).k})`;
+  let pinnText = `Tu es dans ta ${activeIdx + 1}e grande phase de vie : énergie ${activePinnacle.v} (${getNumberInfo(activePinnacle.v).k})`;
   if (currentPeriod.end) {
     const yearsLeft = currentPeriod.end - age;
     pinnText += yearsLeft > 0
       ? ` — encore ~${yearsLeft} an${yearsLeft > 1 ? 's' : ''} dans ce cycle.`
-      : ` — transition imminente vers le Pinnacle ${activeIdx + 2}.`;
+      : ` — transition imminente vers la phase ${activeIdx + 2}.`;
   } else {
     pinnText += ` — cycle final, sans limite de temps.`;
   }
-  pinnText += ` Défi associé : ${activeChallenge.v} (${getNumberInfo(activeChallenge.v).k}) — c'est la leçon que ce cycle t'impose.`;
+  pinnText += ` Défi associé : ${activeChallenge.v} (${getNumberInfo(activeChallenge.v).k}) — c'est la leçon que ce cycle t\'impose.`;
 
   if (activeIdx < 3) {
     const nextPinnacle = num.pinnacles[activeIdx + 1];
-    pinnText += ` Prochain cycle : Pinnacle ${activeIdx + 2} = ${nextPinnacle.v} (${getNumberInfo(nextPinnacle.v).k}).`;
+    pinnText += ` Prochaine phase : énergie ${nextPinnacle.v} (${getNumberInfo(nextPinnacle.v).k}).`;
   }
   insights.push({ text: pinnText, sources: ['Pinnacle actif', 'Challenge actif'], intensity: 'forte', icon: '🏔️' });
 
@@ -677,6 +745,13 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
     33: 'Année de guérison collective — ton impact dépasse ta sphère personnelle.',
   };
   yearText += yearInterpretations[nextPY.v] || `Énergie ${nextPYInfo.k} en approche.`;
+
+  // V5.1: Pont passé→futur (Ronde #2 consensus 3/3) — relier le futur à un cycle passé identique
+  const lastSamePYYear = currentYear + 1 - 9; // Le cycle 1-9 se répète tous les 9 ans
+  const lastSamePYAge = age - 9 + 1;
+  if (lastSamePYAge > 12) {
+    yearText += ` La dernière fois que tu as traversé cette énergie ${nextPY.v}, c'était en ${lastSamePYYear} (vers ${lastSamePYAge} ans) — mais cette fois avec 9 ans de maturité en plus.`;
+  }
   insights.push({ text: yearText, sources: ['Année personnelle', 'Cycle 1-9'], intensity: 'forte', icon: '📅' });
 
   // 2b. Portail PY → PY+1 V2.9.2 (si transition ≤ 60 jours)
@@ -701,14 +776,15 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
 
     let fcText = `Prévisions 6 mois : `;
     fcText += `Meilleur mois → ${MOIS_FR[best.month - 1]} ${best.year} (${best.score}% ${best.label})`;
-    if (best.dominantDomains.length > 0) fcText += ` en ${best.dominantDomains[0]}`;
+    const DOMAIN_FR: Record<string, string> = { BUSINESS: 'Affaires', AMOUR: 'Amour', RELATIONS: 'Relations', CREATIVITE: 'Créativité', INTROSPECTION: 'Introspection', VITALITE: 'Vitalité' };
+    if (best.dominantDomains.length > 0) fcText += ` en ${DOMAIN_FR[best.dominantDomains[0]] || best.dominantDomains[0]}`;
     fcText += `. `;
     fcText += `Mois le plus tendu → ${MOIS_FR[worst.month - 1]} ${worst.year} (${worst.score}% ${worst.label}). `;
 
     // Windows d'action du meilleur mois
     if (best.windows.length > 0) {
       const w = best.windows[0];
-      fcText += `Fenêtre d'action : ${w.label} du ${w.startDate} au ${w.endDate} ${MOIS_FR[best.month - 1]}. `;
+      fcText += `Fenêtre d'action : ${w.label} du ${fmtDateFR(w.startDate, true)} au ${fmtDateFR(w.endDate, true)}. `;
     }
 
     // Alertes du pire mois
@@ -719,12 +795,21 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
     // Tendance générale
     const avgScore = Math.round(forecast6.reduce((s, m) => s + m.score, 0) / forecast6.length);
     const trend = forecast6[forecast6.length - 1].score > forecast6[0].score ? 'ascendante' : forecast6[forecast6.length - 1].score < forecast6[0].score ? 'descendante' : 'stable';
-    fcText += `Tendance générale : ${trend} (moyenne ${avgScore}%).`;
+    fcText += `Tendance générale : ${trend} (moyenne ${avgScore}%). `;
+
+    // V5.1: Catégorisation futur — opportunité / vigilance / maturation (Ronde #2 GPT)
+    if (avgScore >= 70) {
+      fcText += `Période à dominante d'opportunité — les conditions sont réunies pour agir.`;
+    } else if (avgScore <= 45) {
+      fcText += `Période de vigilance — protège tes acquis et prépare le terrain.`;
+    } else {
+      fcText += `Période de maturation — les choses avancent en profondeur, pas en surface.`;
+    }
 
     insights.push({ text: fcText, sources: ['Forecast 36 mois', 'Monte Carlo'], intensity: 'forte', icon: '📈' });
   }
 
-  // 2d. V4.2: Prochain Luck Pillar — ce qui t'attend dans la décennie suivante
+  // 2d. V4.2: Prochain Luck Pillar — ce qui t\'attend dans la décennie suivante
   if (luckPillars?.currentPillar) {
     const cpIdx = luckPillars.currentPillar.index;
     const nextPillar = luckPillars.pillars.find(p => p.index === cpIdx + 1);
@@ -732,7 +817,7 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
       const yearsUntil = nextPillar.startYear - parseInt(today.split('-')[0]);
       if (yearsUntil > 0 && yearsUntil <= 15) {
         const narrative = getLuckPillarNarrative(nextPillar, 'future', yearsUntil);
-        let lpFutText = `Prochain Luck Pillar dans ~${yearsUntil} ans : ${nextPillar.stem.chinese}${nextPillar.branch.chinese} (${nextPillar.stem.element} ${nextPillar.stem.yinYang}). `;
+        let lpFutText = `Prochain grand cycle de 10 ans dans ~${yearsUntil} ans : ${nextPillar.stem.chinese}${nextPillar.branch.chinese} (${nextPillar.stem.element} ${nextPillar.stem.yinYang}). `;
         lpFutText += narrative;
         insights.push({ text: lpFutText, sources: ['Luck Pillars (BaZi)'], intensity: 'moyenne', icon: '🏛' });
       }
@@ -741,7 +826,7 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
 
   // 3. Maturité (Life Path + Expression convergent)
   const matInfo = getNumberInfo(num.mat.v);
-  let matText = `Ton nombre de Maturité est ${num.mat.v} (${matInfo.k}) — c'est la synthèse de ton Chemin de vie (${num.lp.v}) et de ton Expression (${num.expr.v}). `;
+  let matText = `Ton nombre de Maturité est ${num.mat.v} (${matInfo.k}) — c'est la synthèse de ton Chemin de vie (${num.lp.v}) et de ton potentiel inné (${num.expr.v}). `;
   if (age < 45) {
     matText += `Cette énergie s'active progressivement et deviendra dominante après 45 ans. Tu évolues vers un rôle de ${matInfo.k.toLowerCase()}.`;
   } else {
@@ -754,11 +839,11 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
     const ln = conv.lunarNodes;
     const interp = ln.natal.interpretation;
     let nodeText = `Direction karmique (Nœud Nord ${ln.natal.northNode.sign}) : ${interp.gift} `;
-    nodeText += `Impact pro : ${interp.career}. `;
+    nodeText += `Impact pro : ${interp.career.replace(/\.\s*$/, '')}. `;
     if (ln.nodeReturnYear && ln.nodeReturnAge) {
       const yearsUntil = ln.nodeReturnYear - currentYear;
       if (yearsUntil > 0 && yearsUntil <= 10) {
-        nodeText += `⚡ Retour des Nœuds dans ~${yearsUntil} an${yearsUntil > 1 ? 's' : ''} (${ln.nodeReturnYear}) — réactivation karmique à anticiper.`;
+        nodeText += `🌟 Retour des Nœuds dans ~${yearsUntil} an${yearsUntil > 1 ? 's' : ''} (${ln.nodeReturnYear}) — réactivation karmique à anticiper.`;
       }
     }
     insights.push({ text: nodeText, sources: ['Nœuds Lunaires', 'Direction karmique'], intensity: 'moyenne', icon: '☊' });
@@ -787,7 +872,7 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
     insights.push({ text: wisdomText, sources: ['Yi King natal'], intensity: 'moyenne', icon: '🧭' });
   }
 
-  const summary = `Pinnacle ${activeIdx + 1} (${getNumberInfo(activePinnacle.v).k}) → ${currentPeriod.end ? `transition ~${currentPeriod.end} ans` : 'cycle final'} · ${currentYear + 1} = année ${nextPY.v} (${nextPYInfo.k})`;
+  const summary = `Phase de vie ${activeIdx + 1} (${getNumberInfo(activePinnacle.v).k}) → ${currentPeriod.end ? `transition ~${currentPeriod.end} ans` : 'cycle final'} · ${currentYear + 1} = année ${nextPY.v} (${nextPYInfo.k})`;
 
   return {
     title: '🔮 Vers où tu vas',
@@ -811,7 +896,7 @@ function buildCorrelativeDescription(
 ): string {
   const pdv = num.ppd.v;
   const pyv = num.py.v;
-  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
+  const bio = null as { physical: number; emotional: number; intellectual: number; critical: string[]; average: number; phase?: string } | null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const hasBio = systems.some(s => s.includes('Bio'));
   const hasLune = systems.some(s => s.includes('Lune'));
   const hasYiKing = systems.some(s => s.includes('Yi King'));
@@ -834,7 +919,7 @@ function buildCorrelativeDescription(
 
   // PD=7 + Lune Eau + Yi King méditatif → "Réponses du silence"
   if (theme === 'introspection' && hasPD && pdv === 7 && hasYiKing) {
-    return `Journée introspective puissante. Jour ${pdv} (Chercheur) + Yi King ${iching.name} + énergie lunaire intérieure : les réponses viennent du silence, pas de l'action.`;
+    return `Journée introspective puissante. Jour ${pdv} (Chercheur) + oracle ${iching.name} + énergie lunaire intérieure : les réponses viennent du silence, pas de l'action.`;
   }
 
   // CdV action + Chinois Feu + PD action → "Frappe chirurgicale"
@@ -844,7 +929,7 @@ function buildCorrelativeDescription(
 
   // PY 9 + énergie de transformation → "Libération karmique"
   if (theme === 'transformation' && hasPY && pyv === 9) {
-    return `Cycle de libération. Année ${pyv} (clôture) + ${systems.length} systèmes de transformation alignés : ce que tu retiens t'alourdit. Laisse partir.`;
+    return `Cycle de libération. Année ${pyv} (clôture) + ${systems.length} systèmes de transformation alignés : ce que tu retiens t\'alourdit. Laisse partir.`;
   }
 
   // Structure + PY 4 + Challenge → "Structuration forcée"
@@ -854,7 +939,7 @@ function buildCorrelativeDescription(
 
   // Communication + PD 3/6 + Yi King → "Parole amplifiée"
   if (theme === 'communication' && hasPD && [3, 6].includes(pdv) && hasYiKing) {
-    return `Les opportunités arrivent par conversation aujourd'hui. Jour ${pdv} (${getNumberInfo(pdv).k}) + Yi King ${iching.name} amplifient ton pouvoir de persuasion.`;
+    return `Les opportunités arrivent par conversation aujourd'hui. Jour ${pdv} (${getNumberInfo(pdv).k}) + oracle ${iching.name} amplifient ton pouvoir de persuasion.`;
   }
 
   // Expansion avec 5+ systèmes → "Fenêtre majeure" (GPT Module)
@@ -888,14 +973,14 @@ function buildCorrelativeDescription(
   const hasMercure = systems.some(s => s.includes('Mercure'));
   const hasEclipse = systems.some(s => s.includes('clipse'));
 
-  // T16. PD maître + Yi King A-tier + Bio pic + Transit → "Supernova décisionnelle"
+  // T16. PD maître + Oracle très favorable + Bio pic + Transit → "Supernova décisionnelle"
   if (theme === 'action' && systems.length >= 4 && num.ppd.m && hasYiKing && hasBio && bio && bio.average > 50) {
-    return `⚡ SUPERNOVA : Nombre Maître ${pdv} + Yi King puissant + biorhythmes à ${bio.average}% + transit actif. Rareté extrême — décide, lance, signe. Aujourd'hui tu opères à un niveau que tu ne retrouveras pas de sitôt.`;
+    return `🌟 SUPERNOVA : Nombre Maître ${pdv} + oracle puissant + biorhythmes à ${bio.average}% + transit actif. Rareté extrême — décide, lance, signe. Aujourd'hui tu opères à un niveau que tu ne retrouveras pas de sitôt.`;
   }
 
   // T17. PY 9 + Lune décroissante + Yi King E-tier + Nœuds tension → "Mort et renaissance"
   if (theme === 'transformation' && systems.length >= 4 && pyv === 9 && hasLune && hasYiKing) {
-    return `Cycle de mort symbolique. Année 9 + Lune descendante + Yi King ${iching.name} + nœuds karmiques : ce qui meurt aujourd'hui devait mourir. La renaissance commence demain — si tu lâches vraiment.`;
+    return `Cycle de mort symbolique. Année 9 + Lune descendante + oracle ${iching.name} + direction de vie : ce qui meurt aujourd'hui devait mourir. La renaissance commence demain — si tu lâches vraiment.`;
   }
 
   // T18. 4+ systèmes action + Animal Feu/Tigre → "Charge du général"
@@ -925,7 +1010,7 @@ function buildCorrelativeDescription(
 
   // T23. Créativité + Yi King + Bio pic émotionnel + PD 3/5 → "Muse cosmique"
   if (theme === 'créativité' && systems.length >= 4 && hasYiKing && hasBio && bio && bio.emotional > 60) {
-    return `La Muse est là. Yi King ${iching.name} + biorhythme émotionnel à ${bio.emotional}% + ${systems.length - 2} autres courants créatifs. Capture tout — les idées qui passent aujourd'hui sont des pépites qui ne reviendront pas sous cette forme.`;
+    return `La Muse est là. Oracle ${iching.name} + biorhythme émotionnel à ${bio.emotional}% + ${systems.length - 2} autres courants créatifs. Capture tout — les idées qui passent aujourd'hui sont des pépites qui ne reviendront pas sous cette forme.`;
   }
 
   // T24. Structure + PY 4/8 + Astro Saturne + Chinois Terre/Métal → "Architecte cosmique"
@@ -942,7 +1027,7 @@ function buildCorrelativeDescription(
   const defaults: Record<Theme, string> = {
     action: `${systems.length} systèmes pointent vers l'action — c'est le moment de décider et d'avancer. L'hésitation est ton seul ennemi aujourd'hui.`,
     patience: `Convergence vers la patience — ${systems.length} signaux disent "pas encore". Le timing n'est pas mûr, prépare le terrain.`,
-    communication: `Les nombres, les astres et les symboles t'invitent à communiquer. Parle, écris, connecte — le message passera.`,
+    communication: `Les nombres, les astres et les symboles t\'invitent à communiquer. Parle, écris, connecte — le message passera.`,
     introspection: `${systems.length} systèmes s'alignent vers l'intérieur. Médite, analyse, prends du recul — les réponses sont en toi.`,
     expansion: `Fenêtre d'expansion : ${systems.length} systèmes ouvrent le champ. Les conditions sont réunies pour voir grand.`,
     prudence: `Signal de prudence : ${systems.length} systèmes ralentissent. Vérifie, protège, consolide.`,
@@ -966,7 +1051,7 @@ function detectContradictions(
   const c: Contradiction[] = [];
   const pdv = num.ppd.v;
   const pyv = num.py.v;
-  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
+  const bio = null as { physical: number; emotional: number; intellectual: number; critical: string[]; average: number; phase?: string } | null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const hexTier = getHexTier(iching.hexNum);
   const mercStatus = getMercuryStatus(new Date());
   const moon = getMoonPhase();
@@ -979,7 +1064,7 @@ function detectContradictions(
   if (numPts >= 5 && hexTier.tier === 'E') {
     c.push({
       type: 'Énergie vs Résistance',
-      description: `Ton énergie personnelle est forte, mais le Yi King signale une épreuve. `,
+      description: `Ta énergie personnelle est forte, mais l'oracle signale une épreuve. `,
       conseil: `Canalise cette puissance dans la révision et la préparation, pas le lancement.`,
     });
   }
@@ -1015,7 +1100,7 @@ function detectContradictions(
   if (hexTier.tier === 'A' && bio && bio.average < 30) {
     c.push({
       type: 'Puissance cosmique vs Corps fatigué',
-      description: `Le Yi King est puissant, mais tes biorhythmes sont bas. `,
+      description: `L'oracle est puissant, mais tes biorhythmes sont bas. `,
       conseil: `L'énergie cosmique est là, mais ton corps a besoin de repos. Décide mentalement, agis demain.`,
     });
   }
@@ -1052,7 +1137,7 @@ function detectContradictions(
   if (nodeBreak && nodeBreak.points >= 3 && mercStatus.phase === 'retrograde') {
     c.push({
       type: 'Direction karmique vs Brouillard Mercure',
-      description: `Ton Nœud Lunaire t'oriente bien, mais Mercure brouille les pistes. `,
+      description: `Ton Nœud Lunaire t\'oriente bien, mais Mercure brouille les pistes. `,
       conseil: `Suis ton intuition profonde, pas les mots échangés aujourd'hui.`,
     });
   }
@@ -1062,7 +1147,7 @@ function detectContradictions(
   if (conv.dayType.type === 'retrait' && astroBreak && astroBreak.points >= 5) {
     c.push({
       type: 'Retrait vs Opportunité cosmique',
-      description: `Ton jour est de retrait, mais les transits t'ouvrent des portes. `,
+      description: `Ton jour est de retrait, mais les transits t\'ouvrent des portes. `,
       conseil: `Note les opportunités qui se présentent — tu agiras demain avec plus de force.`,
     });
   }
@@ -1071,9 +1156,9 @@ function detectContradictions(
   const baziBreak = conv.breakdown.find(b => b.system === 'BaZi');
   if (baziBreak && baziBreak.points >= 2 && (hexTier.tier === 'D' || hexTier.tier === 'E')) {
     c.push({
-      type: 'Day Master favorable vs Yi King tendu',
-      description: `Ton Day Master est en harmonie avec le jour, mais le Yi King signale des obstacles. `,
-      conseil: `Ton énergie personnelle est forte — utilise-la pour naviguer les difficultés, pas pour les ignorer.`,
+      type: 'Énergie du jour favorable vs Oracle tendu',
+      description: `Ton énergie personnelle est bien alignée aujourd'hui, mais l'oracle signale des obstacles à venir. `,
+      conseil: `Ton énergie est forte — utilise-la pour naviguer les difficultés, pas pour les ignorer.`,
     });
   }
 
@@ -1081,7 +1166,7 @@ function detectContradictions(
   if (conv.nuclearHex && conv.nuclearHex.mainTier === 'A' && (conv.nuclearHex.nuclearTier === 'D' || conv.nuclearHex.nuclearTier === 'E')) {
     c.push({
       type: 'Succès apparent vs Tensions cachées',
-      description: `En surface tout va bien (Yi King puissant), mais en profondeur le nucléaire révèle des fragilités. `,
+      description: `En surface tout va bien (oracle puissant), mais en profondeur le courant profond révèle des fragilités. `,
       conseil: `Renforce les fondations discrètement pendant que la surface brille.`,
     });
   }
@@ -1090,7 +1175,7 @@ function detectContradictions(
   if (baziBreak && baziBreak.points <= -2 && bio && bio.average > 60) {
     c.push({
       type: 'Énergie physique vs Conflit élémentaire',
-      description: `Tes biorhythmes sont hauts, mais ton Day Master est en conflit avec le jour. `,
+      description: `Tes biorhythmes sont hauts, mais ton énergie du jour est en conflit avec le jour. `,
       conseil: `L'énergie est là mais mal orientée — canalise dans la restructuration, pas le lancement.`,
     });
   }
@@ -1113,7 +1198,7 @@ function detectContradictions(
   if (tenGodsBreak && tenGodsBreak.value.includes('Resource') && (moonSign === 'fire' || moonSign === 'air')) {
     c.push({
       type: 'Repli mental vs Urgence émotionnelle',
-      description: `Le besoin de t'isoler pour réfléchir entre en collision avec une urgence de feu. `,
+      description: `Le besoin de t\'isoler pour réfléchir entre en collision avec une urgence de feu. `,
       conseil: `Tu te sens coupable de ne pas agir. Donne-toi 2h de calme — l'action viendra après.`,
     });
   }
@@ -1254,7 +1339,7 @@ function detectCrossings(num: NumerologyProfile, astro: AstroChart | null, cz: C
   else { themeVotes['prudence'].push('Lune décroissante'); }
 
   // Biorhythmes
-  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
+  const bio = null as { physical: number; emotional: number; intellectual: number; critical: string[]; average: number; phase?: string } | null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   if (bio) {
     if (bio.average > 40) { themeVotes['action'].push('Biorhythmes'); themeVotes['expansion'].push('Biorhythmes'); }
     else if (bio.average < -40) { themeVotes['prudence'].push('Biorhythmes'); themeVotes['patience'].push('Biorhythmes'); }
@@ -1304,7 +1389,7 @@ function buildActionPlan(crossings: Crossing[], conv: ConvergenceResult, iching:
   const actions: ActionItem[] = [];
   const hexProfile = getHexProfile(iching.hexNum);
 
-  // Action 1 : dérivée de la convergence la plus forte
+  // Action 1 : dérivée de la convergence la plus forte → FOCUS
   if (crossings.length > 0) {
     const top = crossings[0];
     actions.push({
@@ -1313,21 +1398,23 @@ function buildActionPlan(crossings: Crossing[], conv: ConvergenceResult, iching:
       sources: top.systems,
       priority: top.strength >= 5 ? 'haute' : 'moyenne',
       icon: top.icon,
+      role: 'focus',
     });
   }
 
-  // Action 2 : dérivée du Yi King
+  // Action 2 : dérivée du Yi King → CONSEIL (V5.5 fix: était labellé "À ÉVITER" par erreur d'index)
   if (hexProfile) {
     actions.push({
       action: hexProfile.action,
-      why: `L'hexagramme ${iching.hexNum} (${iching.name}) dit : "${hexProfile.judgment.split('.')[0]}."`,
+      why: `L'oracle n°${iching.hexNum} (${iching.name}) dit : "${hexProfile.judgment.split('.')[0]}."`,
       sources: ['Yi King du jour', 'Ligne mutante ' + (iching.changing + 1)],
       priority: 'haute',
       icon: '☰',
+      role: 'conseil',
     });
   }
 
-  // Action 3 : dérivée de l'actionReco convergence
+  // Action 3 : dérivée de l'actionReco convergence → TIMING
   if (conv.actionReco) {
     actions.push({
       action: `${conv.actionReco.icon} ${conv.actionReco.label}`,
@@ -1335,18 +1422,20 @@ function buildActionPlan(crossings: Crossing[], conv: ConvergenceResult, iching:
       sources: ['Convergence scoring', 'Type de Jour'],
       priority: conv.score >= 70 ? 'haute' : 'moyenne',
       icon: conv.actionReco.icon,
+      role: 'timing',
     });
   }
 
-  // Action 4 : si alerte ou prudence détectée
+  // Action 4 : si alerte ou prudence détectée → À ÉVITER
   const cautionCrossing = crossings.find(c => c.theme === 'Prudence' || c.theme === 'Patience');
   if (cautionCrossing) {
     actions.push({
       action: '🛡️ Point de vigilance',
-      why: `${cautionCrossing.strength} systèmes signalent la prudence : ${cautionCrossing.systems.join(', ')}. Reporte les engagements définitifs si possible.`,
+      why: `${cautionCrossing.strength} systèmes signalent la prudence : ${cautionCrossing.systems.map(s => SYSTEM_FR[s] || s).join(', ')}. Reporte les engagements définitifs si possible.`,
       sources: cautionCrossing.systems,
       priority: cautionCrossing.strength >= 4 ? 'haute' : 'basse',
       icon: '🛡️',
+      role: 'avoid',
     });
   }
 
@@ -1355,35 +1444,154 @@ function buildActionPlan(crossings: Crossing[], conv: ConvergenceResult, iching:
 
 // ── PORTRAIT SYNTHÉTIQUE ──
 
+// ── V5.0: PHRASE-MIROIR (Ronde Lecture — levier émotionnel #1, consensus GPT) ──
+// 1 phrase ultra-ciblée tout en haut, provoque le "c'est exactement moi" en 2 secondes.
+// Croise profil permanent + contradiction majeure + énergie du jour.
+
+function buildMirrorPhrase(
+  conv: ConvergenceResult,
+  contradictions: Contradiction[],
+  num: NumerologyProfile,
+  cz: ChineseZodiac,
+  iching: IChingReading,
+): string {
+  const pdv = num.ppd.v;
+  const pyv = num.py.v;
+  const cdv = num.lp.v;
+  const score = conv.score;
+
+  // Si contradiction dispo → phrase basée sur la tension
+  if (contradictions.length > 0) {
+    const c = contradictions[0];
+    // Templates par type de tension
+    if (c.type.includes('Expansion') && c.type.includes('Retrait'))
+      return `Tu veux avancer, mais quelque chose en toi sait que ce n'est pas encore le moment.`;
+    if (c.type.includes('Nouveau départ') && c.type.includes('Fin'))
+      return `Tu cherches à recommencer alors que tu n'as pas encore fini de tourner la page.`;
+    if (c.type.includes('Communication') && c.type.includes('Mercure'))
+      return `Aujourd'hui, ce que tu ne dis pas compte plus que ce que tu dis.`;
+    if (c.type.includes('Lancement') && c.type.includes('Blocage'))
+      return `L'envie d'agir est réelle — mais le terrain n'est pas encore prêt.`;
+    if (c.type.includes('Magnétisme') && c.type.includes('Froideur'))
+      return `Tu attires, mais tu ne laisses personne approcher vraiment.`;
+    if (c.type.includes('Repli') && c.type.includes('Urgence'))
+      return `Tu te sens coupable de ne pas agir — mais ta tête a besoin de calme d'abord.`;
+    if (c.type.includes('Puissance') && c.type.includes('Instabilité'))
+      return `Tu es au sommet de ton intensité — mais le sol tremble sous tes pieds.`;
+    if (c.type.includes('Succès') && c.type.includes('Tensions'))
+      return `Tout semble aller bien en surface — mais tu sens que quelque chose grince en dessous.`;
+    if (c.type.includes('Retrait') && c.type.includes('Opportunité'))
+      return `Des portes s'ouvrent, mais tu n'as pas envie de les franchir aujourd'hui.`;
+    // Fallback contradiction
+    return `${c.description.trim().replace(/\.\s*$/, '')} — et c'est exactement là que tu en es.`;
+  }
+
+  // Score très haut → phrase d'élan
+  if (score >= 85) {
+    if (cdv === 1 || cdv === 8) return `Aujourd'hui, tu n'as pas besoin de permission pour avancer.`;
+    if (cdv === 3 || cdv === 5) return `L'énergie est là, brute et libre — c'est ton moment.`;
+    if (cdv === 7 || cdv === 9) return `Tout ce que tu as compris en silence est prêt à se manifester.`;
+    return `Les signaux convergent : ce que tu ressens est confirmé par tout le reste.`;
+  }
+
+  // Score bas → phrase de protection
+  if (score <= 40) {
+    if (cdv === 1 || cdv === 8) return `Le problème aujourd'hui n'est pas ton énergie — c'est sa direction.`;
+    if (cdv === 4 || cdv === 6) return `Tu voudrais que tout soit en ordre, mais aujourd'hui le flou est la norme.`;
+    if (cdv === 2 || cdv === 9) return `Ce n'est pas un jour pour donner — c'est un jour pour préserver.`;
+    return `Aujourd'hui, moins tu en fais, mieux tu t'en sors.`;
+  }
+
+  // Score moyen → phrase de tension douce (DayType: decision/observation/communication/retrait/expansion)
+  const dayType = conv.dayType?.type || '';
+  if (dayType === 'decision') return `Tu sens que tu devrais trancher, mais quelque chose te retient — écoute ce frein.`;
+  if (dayType === 'retrait') return `Ce n'est pas de la paresse — c'est ton intelligence qui te dit de patienter.`;
+  if (dayType === 'expansion') return `Tu es entre deux eaux : l'envie de grandir et le besoin de consolider.`;
+  if (dayType === 'communication') return `Tes mots ont du poids aujourd'hui — choisis-les avec soin.`;
+  if (dayType === 'observation') return `Ce que tu cherches dehors se trouve en toi aujourd'hui.`;
+
+  // Fallback universel
+  if (pdv <= 3) return `Aujourd'hui, avance par petits pas — la clarté viendra en marchant.`;
+  if (pdv <= 6) return `La journée te demande de trier, pas d'accumuler.`;
+  return `Le mouvement juste aujourd'hui est plus subtil que tu ne le crois.`;
+}
+
+// ── V5.0: PORTRAIT CONTEXTUALISÉ AU JOUR (bandeau dynamique) ──
+// Remplace le portrait statique par un bandeau qui lie profil permanent au climat du jour.
+
+function buildPortraitOverlay(
+  conv: ConvergenceResult,
+  num: NumerologyProfile,
+  cz: ChineseZodiac,
+  contradictions: Contradiction[],
+): string {
+  const cdv = num.lp.v;
+  const score = conv.score;
+  const dayType = conv.dayType?.type || '';
+
+  // Mappings CdV → archétype court
+  const arche: Record<number, string> = {
+    1: 'leader', 2: 'médiateur', 3: 'créateur', 4: 'bâtisseur',
+    5: 'aventurier', 6: 'protecteur', 7: 'analyste', 8: 'stratège',
+    9: 'humaniste', 11: 'visionnaire', 22: 'architecte', 33: 'guide',
+  };
+  const profil = arche[cdv] || 'profil unique';
+
+  if (score >= 80)
+    return `Aujourd'hui, ton profil de ${profil} est amplifié — tes instincts sont alignés avec les cycles en cours.`;
+  if (score <= 40)
+    return `Aujourd'hui, ton profil de ${profil} est en mode défensif — l'énergie favorise la préservation, pas l'expansion.`;
+
+  // Score moyen — contextualiser avec le dayType (decision/observation/communication/retrait/expansion)
+  if (dayType === 'decision')
+    return `Aujourd'hui, ton profil de ${profil} s'exprime plus par la sélection que par l'accumulation.`;
+  if (dayType === 'retrait')
+    return `Aujourd'hui, ton profil de ${profil} est en veille active — tu observes plus que tu n'agis.`;
+  if (dayType === 'expansion')
+    return `Aujourd'hui, ton profil de ${profil} cherche à grandir — mais la croissance du jour est intérieure.`;
+  if (dayType === 'observation')
+    return `Aujourd'hui, ton profil de ${profil} travaille en silence — les réponses viennent de l'intérieur.`;
+  if (dayType === 'communication')
+    return `Aujourd'hui, ton profil de ${profil} influence par les mots — une conversation peut tout changer.`;
+
+  return `Aujourd'hui, ton profil de ${profil} navigue un climat nuancé — adapte ton rythme au terrain.`;
+}
+
 // ── VERDICT DU JOUR ──
 
 function buildVerdict(conv: ConvergenceResult, crossings: Crossing[], iching: IChingReading): string {
-  const topTheme = crossings.length > 0 ? crossings[0] : null;
+  const top = crossings.length > 0 ? crossings[0] : null;
+  const second = crossings.length > 1 ? crossings[1] : null;
   const rarity = conv.rarityIndex;
-  // V2.7: rank Monte Carlo → "Xème meilleur jour sur 365" (empirique, pas théorique)
   const rarityTag = rarity && rarity.percentage <= 8
     ? ` ${rarity.icon} ${rarity.rank ? `${rarity.rank}${rarity.rank === 1 ? 'er' : 'ème'} meilleur jour de l'année.` : `${rarity.label}.`}`
     : '';
 
+  // Thèmes convergents en narration
+  const themes = top
+    ? (second ? `${top.theme.toLowerCase()} et ${second.theme.toLowerCase()}` : top.theme.toLowerCase())
+    : '';
+  const systemCount = top ? top.strength : 0;
+
   if (conv.score >= 90) {
-    return `⚡ Alignement cosmique (${conv.score}%) — fenêtre exceptionnelle.${rarityTag} ${topTheme ? `${topTheme.strength} systèmes convergent vers ${topTheme.theme.toLowerCase()}.` : ''} Agis avec conviction absolue.`;
+    return `🌟 Alignement exceptionnel (${conv.score}%).${rarityTag} ${systemCount} systèmes convergent vers ${themes}. L'oracle confirme : ${iching.keyword}. Fenêtre rare — agis avec conviction.`;
   }
   if (conv.score >= 85) {
-    return `🌟 Journée Gold (${conv.score}%) — conditions optimales.${rarityTag} ${iching.keyword}. ${topTheme ? `Thème dominant : ${topTheme.theme}.` : ''}`;
+    return `🌟 Journée Gold (${conv.score}%).${rarityTag} Les signaux s'alignent sur ${themes}. ${iching.keyword}. Conditions optimales pour avancer.`;
   }
   if (conv.score >= 70) {
-    return `✦ Dynamique puissante (${conv.score}%) — les vents sont porteurs.${rarityTag} ${topTheme ? `Focus : ${topTheme.theme.toLowerCase()}.` : ''} Avance.`;
+    return `✦ Dynamique puissante (${conv.score}%).${rarityTag} ${systemCount} systèmes pointent vers ${themes}. Le vent est porteur — avance sur ce qui compte.`;
   }
   if (conv.score >= 55) {
-    return `☉ Conditions favorables (${conv.score}%) — progresser est possible. ${topTheme ? `Tendance : ${topTheme.theme.toLowerCase()}.` : ''} Reste attentif.`;
+    return `${conv.level} (${conv.score}%) — progresser est possible.${themes ? ` Tendance : ${themes}.` : ''} Pas de feu vert total mais suffisamment d'énergie pour progresser.${top && systemCount >= 3 ? ` Meilleurs leviers : ${top.systems.slice(0, 3).map(s => SYSTEM_FR[s] || s).join(', ')}.` : ''}`;
   }
   if (conv.score >= 40) {
-    return `☉ Consolidation (${conv.score}%) — phase neutre, énergie tournée vers l'intérieur. ${topTheme ? `Tendance : ${topTheme.theme.toLowerCase()}.` : ''} Prépare plutôt qu'agir.`;
+    return `☉ Phase de consolidation (${conv.score}%).${themes ? ` Tendance : ${themes}.` : ''} L'énergie est tournée vers l'intérieur — prépare, structure, ne force rien.`;
   }
   if (conv.score >= 25) {
-    return `☽ Énergie basse (${conv.score}%) — résistances actives. ${topTheme ? `${topTheme.strength} systèmes freinent sur ${topTheme.theme.toLowerCase()}.` : 'Plusieurs signaux bloquants.'} Reporte les décisions non urgentes.`;
+    return `☽ Résistances actives (${conv.score}%).${themes ? ` ${systemCount} systèmes freinent sur ${themes}.` : ' Plusieurs signaux bloquants.'} Reporte les décisions non urgentes.`;
   }
-  return `⛈ Temps de retrait (${conv.score}%) — ${topTheme ? `${topTheme.strength} systèmes en tension sur ${topTheme.theme.toLowerCase()}.` : 'Les cycles majeurs sont contraires.'} Journée de recul stratégique absolu — protège tes acquis.`;
+  return `⛈ Journée de recul (${conv.score}%).${themes ? ` ${systemCount} systèmes en tension sur ${themes}.` : ' Les cycles majeurs sont contraires.'} Protège tes acquis, ne lance rien de nouveau.`;
 }
 
 // ── V2.5: MODULE FENÊTRE MAJEURE ──
@@ -1423,8 +1631,8 @@ function buildMajorWindow(
       + `Les fenêtres comme celle-ci ne restent pas ouvertes longtemps.`;
   } else if (conv.score >= 85) {
     narrative = `🌟 FENÊTRE GOLD — ${positiveSystems.length} systèmes positifs alignés. `
-      + `${hexProfile ? `Le Yi King (${hexProfile.archetype}) confirme : "${hexProfile.judgment.split('.')[0]}."` : ''} `
-      + `Ton énergie personnelle (${pdInfo.k}) est en résonance avec les cycles en cours. `
+      + `${hexProfile ? `L'oracle (${hexProfile.archetype}) confirme : "${hexProfile.judgment.split('.')[0]}."` : ''} `
+      + `Ta énergie personnelle (${pdInfo.k}) est en résonance avec les cycles en cours. `
       + `${topTheme ? `La convergence pointe vers ${topTheme.theme.toLowerCase()} — utilise cette clarté.` : ''} `
       + `Ce n'est pas de la chance, c'est un alignement. Agis en conséquence.`;
   } else {
@@ -1453,7 +1661,7 @@ function buildMajorWindow(
     actions.push(themeActions[topTheme.theme] || `Concentre-toi sur ${topTheme.theme.toLowerCase()}`);
   }
   if (hexProfile) {
-    actions.push(`Yi King : ${hexProfile.action}`);
+    actions.push(`Oracle : ${hexProfile.action}`);
   }
   if (conv.lunarNodes && conv.lunarNodes.alignment === 'conjoint') {
     actions.push('Les Nœuds Lunaires amplifient — tes décisions ont une portée karmique');
@@ -1487,7 +1695,7 @@ function buildMicroDetails(
   const pdv = num.ppd.v;
   const pyv = num.py.v;
   const lpv = num.lp.v;
-  const bio = (conv as any).biorhythm ?? null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
+  const bio = null as { physical: number; emotional: number; intellectual: number; critical: string[]; average: number; phase?: string } | null; // biorhythm supprimé V4.0 — DÉCISION VERROUILLÉE
   const age = parseInt(new Date().getFullYear().toString()) - parseInt(bd.split('-')[0]);
 
   // ── 1. Triple maître + PD action → "Journée de fondateur"
@@ -1528,7 +1736,9 @@ function buildMicroDetails(
   }
 
   // ── 5. Challenge 4 + PD 4/8 → "La discipline comme arme"
-  const activeIdx = getActivePinnacleIdx(bd, new Date().toISOString().slice(0, 10), num.lp);
+  const _d = new Date();
+  const _todayLocal = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+  const activeIdx = getActivePinnacleIdx(bd, _todayLocal, num.lp);
   const activeChallenge = num.challenges[activeIdx];
   if (activeChallenge && activeChallenge.v === 4 && [4, 8].includes(pdv)) {
     details.push({
@@ -1560,7 +1770,7 @@ function buildMicroDetails(
   // ── 8. Animal Feu + PD Feu (1, 3, 9) + bio physique haut → "Combustion"
   if (cz.elem === 'Feu' && [1, 3, 9].includes(pdv) && bio && bio.physical > 60) {
     details.push({
-      text: `Feu chinois + jour de feu + pic physique = combustion. Ton énergie est explosive aujourd'hui — canalise-la ou elle se dissipera en impatience.`,
+      text: `Feu chinois + jour de feu + pic physique = combustion. Ta énergie est explosive aujourd'hui — canalise-la ou elle se dissipera en impatience.`,
       sources: [`${cz.animal} de Feu`, `PD ${pdv}`, 'Biorhythme physique'],
       reliability: 'suggestif',
     });
@@ -1623,11 +1833,11 @@ function buildMicroDetails(
     }
   }
 
-  // ── 15. Pinnacle = Expression → "Zone de maîtrise"
+  // ── 15. Phase de vie = Potentiel → "Zone de maîtrise"
   const activePinnacle = num.pinnacles[activeIdx];
   if (activePinnacle && activePinnacle.v === num.expr.v) {
     details.push({
-      text: `Ton Pinnacle actuel (${activePinnacle.v}) = ton Expression : tu es dans ta zone de maîtrise absolue. Ce cycle de vie amplifie exactement ce que tu fais le mieux.`,
+      text: `Ta phase de vie actuelle (${activePinnacle.v}) = ton potentiel inné : tu es dans ta zone de maîtrise absolue. Ce cycle de vie amplifie exactement ce que tu fais le mieux.`,
       sources: ['Pinnacle actif', 'Expression'],
       reliability: 'cycle',
     });
@@ -1664,7 +1874,7 @@ function buildMicroDetails(
   const hexProfile = getHexProfile(iching.hexNum);
   if (hexProfile && /cré|innov|express|imagin/.test(hexProfile.archetype.toLowerCase()) && pdv === 3) {
     details.push({
-      text: `Yi King du jour (${hexProfile.archetype}) + jour 3 (Expression) : explosion créative. Ce qui sort de toi aujourd'hui a une qualité inhabituelle — ne censure rien.`,
+      text: `Oracle du jour (${hexProfile.archetype}) + jour 3 (Expression) : explosion créative. Ce qui sort de toi aujourd'hui a une qualité inhabituelle — ne censure rien.`,
       sources: ['Yi King créatif', 'PD 3'],
       reliability: 'suggestif',
     });
@@ -1684,7 +1894,7 @@ function buildMicroDetails(
   // ── 21. Chaldéen = PD + Expression → "Maître harmoniseur bâtisseur" (CYCLE)
   if (num.ch && num.ch.rd.v === pdv && pdv === num.expr.v % 10) {
     details.push({
-      text: `Ton Chaldéen ${num.ch.rd.v} + Personal Day ${pdv} + Expression ${num.expr.v} = triple résonance vibratoire. Journée de maître harmoniseur — parfait pour négocier ou structurer.`,
+      text: `Ton nombre vibratoire ${num.ch.rd.v} + Jour Personnel ${pdv} + Expression ${num.expr.v} = triple résonance vibratoire. Journée de maître harmoniseur — parfait pour négocier ou structurer.`,
       sources: ['Chaldéen', `PD ${pdv}`, 'Expression'],
       reliability: 'resonance',
     });
@@ -1696,7 +1906,7 @@ function buildMicroDetails(
   const diplomatAnimals = ['Lapin', 'Chèvre', 'Cochon', 'Bœuf'];
   if (['Balance', 'Vierge'].includes(natalNodeSign) && [2, 6].includes(pdv) && diplomatAnimals.includes(cz.animal)) {
     details.push({
-      text: `Nœud Nord en ${natalNodeSign} + Personal Day ${pdv} + alliance zodiacale = journée idéale pour alliances et négociations diplomatiques.`,
+      text: `Nœud Nord en ${natalNodeSign} + Jour Personnel ${pdv} + alliance zodiacale = journée idéale pour alliances et négociations diplomatiques.`,
       sources: [`Nœud Nord ${natalNodeSign}`, `PD ${pdv}`, `Triade ${cz.animal}`],
       reliability: 'cycle',
     });
@@ -1738,13 +1948,13 @@ function buildMicroDetails(
   // ── 26. Leçon karmique 4/8 + Challenge 4/8 actif + PD 4/8 → "Test ultime" (CYCLE)
   if (num.kl.includes(4) && activeChallenge?.v === 4 && [4, 8].includes(pdv)) {
     details.push({
-      text: `Leçon karmique 4 + Challenge 4 + Personal Day ${pdv} = test ultime de structure. Aujourd'hui tu poses les fondations de ta prochaine décennie.`,
+      text: `Leçon karmique 4 + Défi 4 + Jour Personnel ${pdv} = test ultime de structure. Aujourd'hui tu poses les fondations de ta prochaine décennie.`,
       sources: ['Leçon 4', 'Challenge 4', `PD ${pdv}`],
       reliability: 'cycle',
     });
   } else if (num.kl.includes(8) && activeChallenge?.v === 8 && [4, 8].includes(pdv)) {
     details.push({
-      text: `Leçon karmique 8 + Challenge 8 + Personal Day ${pdv} = l'univers te teste sur le pouvoir et l'argent. C'est le moment de la maîtrise.`,
+      text: `Leçon karmique 8 + Défi 8 + Jour Personnel ${pdv} = l'univers te teste sur le pouvoir et l'argent. C'est le moment de la maîtrise.`,
       sources: ['Leçon 8', 'Challenge 8', `PD ${pdv}`],
       reliability: 'cycle',
     });
@@ -1753,7 +1963,7 @@ function buildMicroDetails(
   // ── 27. Bio triple pic + PD 5 + Animal Cheval/Tigre → "Aventurier maximum" (SUGGESTIF)
   if (bio && bio.physical > 70 && bio.emotional > 60 && bio.intellectual > 60 && pdv === 5 && ['Cheval', 'Tigre', 'Dragon'].includes(cz.animal)) {
     details.push({
-      text: `Triple pic biorhythmique + Personal Day 5 + ${cz.animal} = énergie d'aventurier au maximum. Journée de mouvement et de liberté.`,
+      text: `Triple pic biorhythmique + Jour Personnel 5 + ${cz.animal} = énergie d'aventurier au maximum. Journée de mouvement et de liberté.`,
       sources: ['Bio triple pic', 'PD 5', cz.animal],
       reliability: 'suggestif',
     });
@@ -1773,7 +1983,7 @@ function buildMicroDetails(
   const southNodeSign = natalNode?.southNode?.sign || '';
   if (['Scorpion', 'Cancer'].includes(southNodeSign) && num.soul.v === 11 && pdv === 9) {
     details.push({
-      text: `Nœud Sud en ${southNodeSign} + Âme 11 + Personal Day 9 = journée de transformation profonde et de lâcher-prise karmique.`,
+      text: `Nœud Sud en ${southNodeSign} + Âme 11 + Jour Personnel 9 = journée de transformation profonde et de lâcher-prise karmique.`,
       sources: [`Nœud Sud ${southNodeSign}`, 'Âme 11', 'PD 9'],
       reliability: 'cycle',
     });
@@ -1782,7 +1992,7 @@ function buildMicroDetails(
   // ── 30. Mercure post-rétro + PD 3 + Expression 3/5 → "Explosion de clarté" (RESONANCE)
   if ((mercStatus.phase === 'post-shadow' || mercStatus.phase === 'stationary-direct') && pdv === 3 && [3, 5].includes(num.expr.v)) {
     details.push({
-      text: `Mercure sortant de rétro + Personal Day 3 + Expression ${num.expr.v} = explosion de clarté et de communication créative. Ce que tu n'arrivais pas à formuler trouve enfin ses mots.`,
+      text: `Mercure sortant de rétro + Jour Personnel 3 + Expression ${num.expr.v} = explosion de clarté et de communication créative. Ce que tu n'arrivais pas à formuler trouve enfin ses mots.`,
       sources: [mercStatus.label, 'PD 3', `Expression ${num.expr.v}`],
       reliability: 'resonance',
     });
@@ -1794,7 +2004,7 @@ function buildMicroDetails(
     if (saturnTransit && activeChallenge?.v === 1 && pdv === 1) {
       const satAspFr = saturnTransit.t === 'conjunction' ? 'conjonction' : 'carré';
       details.push({
-        text: `Saturne en ${satAspFr} + Challenge 1 + Personal Day 1 = test de leadership. Aujourd'hui tu affirmes ton autorité ou tu la perds.`,
+        text: `Saturne en ${satAspFr} + Défi 1 + Jour Personnel 1 = test de leadership. Aujourd'hui tu affirmes ton autorité ou tu la perds.`,
         sources: [`Transit Saturne ${satAspFr}`, 'Challenge 1', 'PD 1'],
         reliability: 'cycle',
       });
@@ -1804,7 +2014,7 @@ function buildMicroDetails(
   // ── 32. Animal Serpent/Scorpion-like + Nœud Nord Scorpion + PD 8 → "Pouvoir transformateur" (CYCLE)
   if (['Serpent', 'Rat'].includes(cz.animal) && natalNodeSign === 'Scorpion' && pdv === 8) {
     details.push({
-      text: `${cz.animal} + Nœud Nord Scorpion + Personal Day 8 = journée de pouvoir transformateur karmique. Tu maîtrises l'ombre là où les autres la fuient.`,
+      text: `${cz.animal} + Nœud Nord Scorpion + Jour Personnel 8 = journée de pouvoir transformateur karmique. Tu maîtrises l'ombre là où les autres la fuient.`,
       sources: [cz.animal, 'Nœud Scorpion', 'PD 8'],
       reliability: 'cycle',
     });
@@ -1813,7 +2023,7 @@ function buildMicroDetails(
   // ── 33. Bio bas + Lune décroissante + PD 9 → "Clôture et lâcher-prise" (SUGGESTIF)
   if (bio && bio.average < -30 && moon.phase >= 5 && pdv === 9) {
     details.push({
-      text: `Biorhythmes bas + Lune décroissante + Personal Day 9 = journée de clôture et de lâcher-prise. Termine ce qui doit l'être, ne commence rien de nouveau.`,
+      text: `Biorhythmes bas + Lune décroissante + Jour Personnel 9 = journée de clôture et de lâcher-prise. Termine ce qui doit l'être, ne commence rien de nouveau.`,
       sources: ['Bio bas', moon.name, 'PD 9'],
       reliability: 'suggestif',
     });
@@ -1824,7 +2034,7 @@ function buildMicroDetails(
     const hasJupiter = astro?.tr?.some(t => t.tp === 'jupiter' && (t.t === 'conjunction' || t.t === 'trine'));
     if (hasJupiter) {
       details.push({
-        text: `Hexagramme ${iching.hexNum} (${hexTier.label}) + Personal Day ${pdv} + Jupiter favorable = journée de décision puissante. Tranche avec confiance.`,
+        text: `Hexagramme ${iching.hexNum} (${hexTier.label}) + Jour Personnel ${pdv} + Jupiter favorable = journée de décision puissante. Tranche avec confiance.`,
         sources: [`Yi King A-tier`, `PD ${pdv}`, 'Jupiter'],
         reliability: 'resonance',
       });
@@ -1868,7 +2078,7 @@ function buildMicroDetails(
   if (iching.hexNum === 1 && [11, 22].includes(pdv)) {
     const wow = WOW_MOMENTS['createur_maitre'];
     details.push({
-      text: `⚡ ${wow.titre} — ${wow.signification.split('.')[0]}. ${wow.conseil}`,
+      text: `🌟 ${wow.titre} — ${wow.signification.split('.')[0]}. ${wow.conseil}`,
       sources: ['Yi King #1 Créateur', `PD maître ${pdv}`],
       reliability: 'resonance',
     });
@@ -1900,7 +2110,7 @@ function buildMicroDetails(
   // ── 36. BaZi "same" + PD = LP → "Double racine" (CYCLE)
   if (conv.baziDaily && conv.baziDaily.relation === 'same' && pdv === lpv) {
     details.push({
-      text: `Ton Day Master BaZi (${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.element}) est en résonance "même élément" ET ton PD = ton Chemin de Vie. Double racine : tu es aligné à 100% avec ta mission de vie aujourd'hui.`,
+      text: `Ton énergie du jour (${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.element}) est en résonance avec ta nature profonde ET ton Jour Personnel = ton Chemin de Vie. Double racine : tu es aligné à 100% avec ta mission de vie aujourd'hui.`,
       sources: ['BaZi same element', `PD = CdV ${lpv}`],
       reliability: 'cycle',
     });
@@ -1914,13 +2124,13 @@ function buildMicroDetails(
     const nucGood = ['A', 'B'].includes(conv.nuclearHex.nuclearTier);
     if (mainGood && nucBad && [7, 4, 2].includes(pdv)) {
       details.push({
-        text: `Surface favorable (Hex ${conv.nuclearHex.mainTier}-tier) mais fondation fragile (Nuclear ${conv.nuclearHex.nuclearTier}-tier). Ne te fie pas aux apparences aujourd'hui — creuse avant de signer.`,
+        text: `La surface est favorable mais la fondation est fragile. Ne te fie pas aux apparences aujourd'hui — creuse avant de signer.`,
         sources: ['I Ching surface', 'Hex Nucléaire profondeur', `PD ${pdv}`],
         reliability: 'resonance',
       });
     } else if (mainBad && nucGood && [1, 8].includes(pdv)) {
       details.push({
-        text: `La surface semble difficile (Hex ${conv.nuclearHex.mainTier}-tier) mais les fondations sont solides (Nuclear ${conv.nuclearHex.nuclearTier}-tier). L'obstacle que tu vois est une illusion — pousse.`,
+        text: `La surface semble difficile mais les fondations sont solides. L'obstacle que tu vois est une illusion — pousse.`,
         sources: ['I Ching surface', 'Hex Nucléaire profondeur', `PD ${pdv}`],
         reliability: 'resonance',
       });
@@ -1930,7 +2140,7 @@ function buildMicroDetails(
   // ── 38. BaZi "destroys" + Challenge actif → "Pression transformatrice" (CYCLE)
   if (conv.baziDaily && (conv.baziDaily.relation === 'destroys' || conv.baziDaily.relation === 'destroyed_by') && activeChallenge && [4, 8, 9].includes(pdv)) {
     details.push({
-      text: `Conflit BaZi (${conv.baziDaily.dailyStem.element} ${conv.baziDaily.relation === 'destroys' ? 'détruit' : 'est détruit par'} ton Day Master) + Défi ${activeChallenge.v} actif. Pression transformatrice — ce qui te met mal à l'aise aujourd'hui est exactement ce que tu dois affronter.`,
+      text: `Conflit d'énergie (${conv.baziDaily.dailyStem.element} ${conv.baziDaily.relation === 'destroys' ? 'détruit' : 'est détruit par'} ton énergie du jour) + Défi ${activeChallenge.v} actif. Pression transformatrice — ce qui te met mal à l'aise aujourd'hui est exactement ce que tu dois affronter.`,
       sources: ['BaZi conflit', `Challenge ${activeChallenge.v}`, `PD ${pdv}`],
       reliability: 'cycle',
     });
@@ -1945,7 +2155,7 @@ function buildMicroDetails(
   });
   if (nearEclipse && (pyv === 1 || pyv === 9)) {
     details.push({
-      text: `Éclipse ${nearEclipse.type === 'solar' ? 'solaire' : 'lunaire'} (${nearEclipse.date}) + Année Personnelle ${pyv}. Double portail : les choix des prochains jours ont un impact disproportionné sur ton année entière.`,
+      text: `Éclipse ${nearEclipse.type === 'solar' ? 'solaire' : 'lunaire'} (${fmtDateFR(nearEclipse.date)}) + Année Personnelle ${pyv}. Double portail : les choix des prochains jours ont un impact disproportionné sur ton année entière.`,
       sources: [`Éclipse ${nearEclipse.type}`, `PY ${pyv}`],
       reliability: 'cycle',
     });
@@ -1954,7 +2164,7 @@ function buildMicroDetails(
   // ── 40. BaZi Liu He + PD 6/2 → "Alliance cachée" (RESONANCE)
   if (conv.baziDaily && conv.baziDaily.liuHeMatch && [2, 6].includes(pdv)) {
     details.push({
-      text: `六合 Liu He (harmonie cachée BaZi) + jour ${pdv} (${getNumberInfo(pdv).k}). Les alliances que tu noues aujourd'hui ont une qualité invisible — quelqu'un que tu rencontres ou contactes aujourd'hui jouera un rôle clé plus tard.`,
+      text: `Harmonie cachée (alliance invisible) + jour ${pdv} (${getNumberInfo(pdv).k}). Les alliances que tu noues aujourd'hui ont une qualité invisible — quelqu'un que tu rencontres ou contactes aujourd'hui jouera un rôle clé plus tard.`,
       sources: ['BaZi Liu He', `PD ${pdv}`],
       reliability: 'resonance',
     });
@@ -1977,14 +2187,14 @@ function buildMicroDetails(
 
   // Récupérer les 10 Gods et Essence depuis conv (si disponibles)
   const tenGods = conv.tenGods as TenGodsResult | null | undefined;
-  const essAlign = (conv as any).essenceAlignment as string | undefined;
-  const confidence = (conv as any).confidence as any | undefined; // ConfidenceResult — type Firebase, non exporté
-  const metaScore = (conv as any).metaScore as any | undefined;   // MetaScore — type Firebase, non exporté
+  const essAlign: string | undefined = undefined; // essenceAlignment — champ supprimé, toujours undefined
+  const confidence = null as { ratio: number } | null; // ConfidenceResult — champ supprimé, toujours null
+  const metaScore = null as { isConfirmed: boolean; narrative: string } | null; // MetaScore — champ supprimé, toujours null
 
   // ── 42. Wealth God + PY 8 + Essence alignée CdV → "Attraction financière" (RESONANCE)
   if (tenGods?.dominant?.god === 'zheng_cai' && pyv === 8 && essAlign === 'cdv') {
     details.push({
-      text: `正財 Richesse Directe + Année de Récolte (PY 8) + Essence alignée sur ton Chemin de Vie. L'argent n'est pas un objectif aujourd'hui — c'est un sous-produit de ton alignement. Chaque action génère de la valeur presque malgré toi.`,
+      text: `Archétype Prospérité + Année de Récolte (année 8) + Énergie alignée sur ton Chemin de Vie. L'argent n'est pas un objectif aujourd'hui — c'est un sous-produit de ton alignement. Chaque action génère de la valeur presque malgré toi.`,
       sources: ['10 Gods 正財', 'PY 8', 'Essence = CdV'],
       reliability: 'resonance',
     });
@@ -2008,19 +2218,19 @@ function buildMicroDetails(
     });
   }
 
-  // ── 45. Output God (食神) + PD 3 + Yi King A-tier → "Créativité canalisée" (RESONANCE)
+  // ── 45. Output God (食神) + PD 3 + Oracle très favorable → "Créativité canalisée" (RESONANCE)
   if (tenGods?.dominant?.god === 'shi_shen' && pdv === 3 && hexTier.tier === 'A') {
     details.push({
-      text: `食神 Eating God (créativité pure) + Jour 3 (Expression) + Yi King A-tier. Ton canal créatif est grand ouvert. Ce qui sort de toi aujourd'hui n'est pas juste bon — c'est un chef-d'œuvre en puissance. Ne filtre rien.`,
+      text: `Archétype Créateur (créativité pure) + Jour 3 (Expression) + Oracle très favorable. Ton canal créatif est grand ouvert. Ce qui sort de toi aujourd'hui n'est pas juste bon — c'est un chef-d'œuvre en puissance. Ne filtre rien.`,
       sources: ['10 Gods 食神', 'PD 3', 'Yi King A-tier'],
       reliability: 'resonance',
     });
   }
 
-  // ── 46. 七殺 Seven Killings + PD 1/8 + Bio physique >70 → "Guerrier stratège" (SUGGESTIF)
+  // ── 46. Archétype Combattant + PD 1/8 + Bio physique >70 → "Guerrier stratège" (SUGGESTIF)
   if (tenGods?.dominant?.god === 'qi_sha' && [1, 8].includes(pdv) && bio && bio.physical > 70) {
     details.push({
-      text: `七殺 Seven Killings (compétition) + Jour ${pdv} (${getNumberInfo(pdv).k}) + Pic physique. Tu es en mode guerrier stratège — l'énergie est agressive mais contrôlable. Utilise cette force pour négocier dur ou trancher un conflit qui traîne.`,
+      text: `Archétype Combattant (compétition) + Jour ${pdv} (${getNumberInfo(pdv).k}) + Pic physique. Tu es en mode guerrier stratège — l'énergie est agressive mais contrôlable. Utilise cette force pour négocier dur ou trancher un conflit qui traîne.`,
       sources: ['10 Gods 七殺', `PD ${pdv}`, 'Bio physique pic'],
       reliability: 'suggestif',
     });
@@ -2029,7 +2239,7 @@ function buildMicroDetails(
   // ── 47. Essence = Leçon Karmique + Retour des Nœuds → "Test de vie" (CYCLE)
   if (essAlign === 'karmic' && conv.lunarNodes?.isNodeReturn) {
     details.push({
-      text: `Ton Essence annuelle active une leçon karmique ET les Nœuds Lunaires sont en retour. Double test cosmique — cette année est un examen de passage. Ce que tu évites depuis des années te sera présenté, et cette fois tu ne pourras pas détourner le regard.`,
+      text: `Ton énergie annuelle active une qualité à développer ET ta direction de vie est en retour. Double test cosmique — cette année est un examen de passage. Ce que tu évites depuis des années te sera présenté, et cette fois tu ne pourras pas détourner le regard.`,
       sources: ['Essence karmique', 'Retour des Nœuds', 'Double test'],
       reliability: 'cycle',
     });
@@ -2038,7 +2248,7 @@ function buildMicroDetails(
   // ── 48. Essence = Soul + PD = Âme + Pleine Lune → "Alignement émotionnel total" (RESONANCE)
   if (essAlign === 'soul' && pdv === num.soul.v && moon.phase === 4) {
     details.push({
-      text: `Essence annuelle = Âme + PD = Âme + Pleine Lune. Triple alignement émotionnel — tes désirs profonds sont illuminés. Ce que tu ressens aujourd'hui est la vérité de ce que tu veux vraiment. Écoute sans juger.`,
+      text: `Énergie annuelle = Désir profond + Jour = Désir profond + Pleine Lune. Triple alignement émotionnel — tes désirs profonds sont illuminés. Ce que tu ressens aujourd'hui est la vérité de ce que tu veux vraiment. Écoute sans juger.`,
       sources: ['Essence = Soul', `PD = Âme ${num.soul.v}`, 'Pleine Lune'],
       reliability: 'resonance',
     });
@@ -2065,16 +2275,16 @@ function buildMicroDetails(
   // ── 51. 比肩 Bi Jian + PD = CdV + BaZi same → "Triple identité" (CYCLE)
   if (tenGods?.dominant?.god === 'bi_jian' && pdv === lpv && conv.baziDaily?.relation === 'same') {
     details.push({
-      text: `比肩 Shoulder (identité) + PD = Chemin de Vie + BaZi même élément. Triple résonance identitaire — tu es TOI à 100% aujourd'hui. Pas de masque, pas de compromis. Ce que tu décides maintenant porte ta signature la plus profonde.`,
+      text: `Archétype Identité (toi-même) + PD = Chemin de Vie + même énergie du jour. Triple résonance identitaire — tu es TOI à 100% aujourd'hui. Pas de masque, pas de compromis. Ce que tu décides maintenant porte ta signature la plus profonde.`,
       sources: ['10 Gods 比肩', `PD = CdV ${lpv}`, 'BaZi same'],
       reliability: 'cycle',
     });
   }
 
-  // ── 52. 傷官 Hurting Officer + Mercure rétro + PD 3 → "Parole dangereuse" (RESONANCE)
+  // ── 52. Archétype Provocateur + Mercure rétro + PD 3 → "Parole dangereuse" (RESONANCE)
   if (tenGods?.dominant?.god === 'shang_guan' && mercStatus.phase !== 'direct' && pdv === 3) {
     details.push({
-      text: `傷官 Hurting Officer + ${mercStatus.label} + Jour 3 (Communication). Ta langue est aiguisée mais le terrain est miné. Chaque mot que tu prononces a un impact disproportionné — choisis-les avec un soin chirurgical.`,
+      text: `Archétype Provocateur + ${mercStatus.label} + Jour 3 (Communication). Ta langue est aiguisée mais le terrain est miné. Chaque mot que tu prononces a un impact disproportionné — choisis-les avec un soin chirurgical.`,
       sources: ['10 Gods 傷官', mercStatus.label, 'PD 3'],
       reliability: 'resonance',
     });
@@ -2095,7 +2305,7 @@ function buildMicroDetails(
   // ── 54. Essence = Challenge + 七殺 + PD difficile → "Tempête parfaite" (CYCLE)
   if (essAlign === 'challenge' && tenGods?.dominant?.god === 'qi_sha' && activeChallenge && pdv === activeChallenge.v) {
     details.push({
-      text: `Essence = Challenge actif + 七殺 Seven Killings + PD = Défi de vie. Tempête parfaite — trois systèmes convergent vers la même friction. Ce n'est pas un mauvais jour — c'est le jour où tu grandis le plus vite, si tu tiens bon.`,
+      text: `Essence = Challenge actif + Archétype Combattant + PD = Défi de vie. Tempête parfaite — trois systèmes convergent vers la même friction. Ce n'est pas un mauvais jour — c'est le jour où tu grandis le plus vite, si tu tiens bon.`,
       sources: ['Essence challenge', '10 Gods 七殺', `PD = Challenge ${activeChallenge.v}`],
       reliability: 'cycle',
     });
@@ -2104,17 +2314,17 @@ function buildMicroDetails(
   // ── 55. 偏財 Pian Cai + PD 5 + Animal Cheval/Dragon → "Risque calculé" (SUGGESTIF)
   if (tenGods?.dominant?.god === 'pian_cai' && pdv === 5 && ['Cheval', 'Dragon', 'Singe'].includes(cz.animal)) {
     details.push({
-      text: `偏財 Richesse Indirecte (偏 = risqué) + Jour 5 (Changement) + ${cz.animal}. L'argent est accessible mais par des voies non conventionnelles. Prends un risque CALCULÉ — pas un pari aveugle, un mouvement audacieux avec un plan B.`,
+      text: `Archétype Opportuniste (gain indirect) + Jour 5 (Changement) + ${cz.animal}. L'argent est accessible mais par des voies non conventionnelles. Prends un risque CALCULÉ — pas un pari aveugle, un mouvement audacieux avec un plan B.`,
       sources: ['10 Gods 偏財', 'PD 5', cz.animal],
       reliability: 'suggestif',
     });
   }
 
-  // ── 56. 正印 Zheng Yin + Pinnacle = Expression + Lune croissante → "Mentor invisible" (CYCLE)
+  // ── 56. 正印 Zheng Yin + Phase de vie = Potentiel + Lune croissante → "Mentor invisible" (CYCLE)
   if (tenGods?.dominant?.god === 'zheng_yin' && activePinnacle && activePinnacle.v === num.expr.v && moon.phase >= 1 && moon.phase <= 3) {
     details.push({
-      text: `正印 Direct Resource (mentor) + Pinnacle = Expression + Lune croissante. Un mentor, un livre, un message va apparaître aujourd'hui et t'offrir exactement ce dont tu as besoin pour avancer dans ta zone de maîtrise.`,
-      sources: ['10 Gods 正印', 'Pinnacle = Expression', 'Lune croissante'],
+      text: `Archétype Mentor (soutien) + Phase de vie = Potentiel + Lune croissante. Un mentor, un livre, un message va apparaître aujourd'hui et t\'offrir exactement ce dont tu as besoin pour avancer dans ta zone de maîtrise.`,
+      sources: ['10 Gods 正印', 'Phase de vie = Potentiel', 'Lune croissante'],
       reliability: 'cycle',
     });
   }
@@ -2131,7 +2341,7 @@ function buildMicroDetails(
   // ── 58. 10 Gods Relations > 4 + PD 2/6 + Liu He → "Diplomate né" (RESONANCE)
   if (tenGods && tenGods.relationsPts > 4 && [2, 6].includes(pdv) && conv.baziDaily?.liuHeMatch) {
     details.push({
-      text: `10 Gods orientés relations + Jour ${pdv} (${getNumberInfo(pdv).k}) + 六合 Liu He. Tu dégages une aura diplomatique naturelle aujourd'hui. Les gens vont vouloir collaborer avec toi — dis OUI aux propositions qui arrivent.`,
+      text: `Archétype relationnel + Jour ${pdv} (${getNumberInfo(pdv).k}) + Harmonie cachée. Tu dégages une aura diplomatique naturelle aujourd'hui. Les gens vont vouloir collaborer avec toi — dis OUI aux propositions qui arrivent.`,
       sources: ['10 Gods relations', `PD ${pdv}`, 'Liu He'],
       reliability: 'resonance',
     });
@@ -2149,7 +2359,7 @@ function buildMicroDetails(
   // ── 60. 10 Gods Créativité > 4 + Essence Soul + Hexagramme créatif → "Flow state" (SUGGESTIF)
   if (tenGods && tenGods.creativityPts > 4 && essAlign === 'soul' && hexProfile && /cré|innov|express|imagin/.test(hexProfile.archetype.toLowerCase())) {
     details.push({
-      text: `10 Gods créativité + Essence = Âme + Yi King créatif (${hexProfile.archetype}). Tu es aux portes du flow state — cet état où le temps disparaît et où la qualité de ce que tu produis te surprend toi-même. Élimine toute distraction.`,
+      text: `Archétype créatif + Énergie = Désir profond + Oracle créatif (${hexProfile.archetype}). Tu es aux portes du flow state — cet état où le temps disparaît et où la qualité de ce que tu produis te surprend toi-même. Élimine toute distraction.`,
       sources: ['10 Gods créativité', 'Essence = Soul', 'Yi King créatif'],
       reliability: 'suggestif',
     });
@@ -2158,7 +2368,7 @@ function buildMicroDetails(
   // ── 61. 劫財 Jie Cai + PD 8 + Clash chinois → "Compétition financière" (RESONANCE)
   if (tenGods?.dominant?.god === 'jie_cai' && pdv === 8 && cz.clash) {
     details.push({
-      text: `劫財 Rob Wealth (compétition) + Jour 8 (Pouvoir) + Clash zodiacal. Quelqu'un convoite ce qui est à toi — client, position, idée. Ce n'est pas le moment de la générosité. Protège tes acquis avec fermeté.`,
+      text: `Archétype Rival (compétition) + Jour 8 (Pouvoir) + Clash zodiacal. Quelqu'un convoite ce qui est à toi — client, position, idée. Ce n'est pas le moment de la générosité. Protège tes acquis avec fermeté.`,
       sources: ['10 Gods 劫財', 'PD 8', 'Clash chinois'],
       reliability: 'resonance',
     });
@@ -2167,7 +2377,7 @@ function buildMicroDetails(
   // ── 62. 正官 Zheng Guan + PY 4 + Bio intellectuel > 80 → "Structurateur suprême" (CYCLE)
   if (tenGods?.dominant?.god === 'zheng_guan' && pyv === 4 && bio && bio.intellectual > 80) {
     details.push({
-      text: `正官 Officer Direct (structure) + Année 4 (Structuration) + Pic intellectuel. Tu penses avec une clarté cristalline sur les questions d'organisation. Le système ou le processus que tu mets en place aujourd'hui sera encore debout dans 5 ans.`,
+      text: `Archétype Organisateur (structure) + Année 4 (Structuration) + Pic intellectuel. Tu penses avec une clarté cristalline sur les questions d'organisation. Le système ou le processus que tu mets en place aujourd'hui sera encore debout dans 5 ans.`,
       sources: ['10 Gods 正官', 'PY 4', 'Bio intellectuel pic'],
       reliability: 'cycle',
     });
@@ -2176,7 +2386,7 @@ function buildMicroDetails(
   // ── 63. 10 Gods 正 (harmonieux) + Confiance > 70 + Score > 65 → "Courant porteur" (RESONANCE)
   if (tenGods?.dominant?.isZheng && confidence && confidence.ratio > 70 && conv.score > 65) {
     details.push({
-      text: `10 Gods harmonieux (正) + Signal fiable (${confidence.ratio}%) + Score ${conv.score}%. Tu es dans un courant porteur — pas besoin de forcer. Les bonnes choses arrivent naturellement quand tu es aligné comme ça.`,
+      text: `Archétype harmonieux + Signal fiable (${confidence.ratio}%) + Score ${conv.score}%. Tu es dans un courant porteur — pas besoin de forcer. Les bonnes choses arrivent naturellement quand tu es aligné comme ça.`,
       sources: ['10 Gods 正', `Confiance ${confidence.ratio}%`, `Score ${conv.score}%`],
       reliability: 'resonance',
     });
@@ -2185,7 +2395,7 @@ function buildMicroDetails(
   // ── 64. 10 Gods 偏 (agressif) + Confiance < 50 → "Opportunité cachée dans le chaos" (SUGGESTIF)
   if (tenGods?.dominant && !tenGods.dominant.isZheng && confidence && confidence.ratio < 50) {
     details.push({
-      text: `10 Gods 偏 (version agressive) + Vents contraires. Les systèmes sont en désaccord, le God actif est agressif — mais c'est exactement dans ce type de chaos que les meilleurs deals se négocient. Sois un opportuniste froid.`,
+      text: `Archétype agressif + Vents contraires. Les systèmes sont en désaccord, l'énergie est agressive — mais c'est exactement dans ce type de chaos que les meilleurs deals se négocient. Sois un opportuniste froid.`,
       sources: ['10 Gods 偏', `Confiance ${confidence.ratio}%`, 'Chaos productif'],
       reliability: 'suggestif',
     });
@@ -2194,8 +2404,8 @@ function buildMicroDetails(
   // ── 65. Essence CdV + PD = CdV + Pinnacle = CdV → "Triple alignement mission" (CYCLE — WOW)
   if (essAlign === 'cdv' && pdv === lpv && activePinnacle && activePinnacle.v === lpv) {
     details.push({
-      text: `💎 TRIPLE ALIGNEMENT MISSION : Essence annuelle = CdV ${lpv}, PD = CdV ${lpv}, Pinnacle = CdV ${lpv}. Ce type de convergence ne se produit que quelques jours par DÉCENNIE. Tu incarnes ta mission de vie à chaque respiration — ce que tu fais aujourd'hui résonnera pendant des années.`,
-      sources: ['Essence = CdV', `PD = CdV ${lpv}`, `Pinnacle = CdV ${lpv}`],
+      text: `💎 TRIPLE ALIGNEMENT MISSION : Énergie annuelle = Chemin de vie ${lpv}, Jour = Chemin de vie ${lpv}, Phase de vie = Chemin de vie ${lpv}. Ce type de convergence ne se produit que quelques jours par DÉCENNIE. Tu incarnes ta mission de vie à chaque respiration — ce que tu fais aujourd'hui résonnera pendant des années.`,
+      sources: ['Essence = CdV', `PD = CdV ${lpv}`, `Phase de vie = CdV ${lpv}`],
       reliability: 'cycle',
     });
   }
@@ -2203,7 +2413,7 @@ function buildMicroDetails(
   // ── 66. 食神 + 偏財 dans hidden + PY 3 + Bio émotionnel > 70 → "Alchimiste créatif" (SUGGESTIF — WOW)
   if (tenGods && tenGods.gods.some(g => g.god === 'shi_shen') && tenGods.gods.some(g => g.god === 'pian_cai') && pyv === 3 && bio && bio.emotional > 70) {
     details.push({
-      text: `⚡ ALCHIMISTE CRÉATIF : 食神 (création) + 偏財 (opportunisme) + Année 3 (Expression) + Pic émotionnel. Tu peux transformer une idée en argent aujourd'hui — pas demain, pas la semaine prochaine, AUJOURD'HUI. L'émotion est le carburant et le talent est le véhicule.`,
+      text: `🌟 ALCHIMISTE CRÉATIF : Créativité + Opportunisme + Année 3 (Expression) + Pic émotionnel. Tu peux transformer une idée en argent aujourd'hui — pas demain, pas la semaine prochaine, AUJOURD'HUI. L'émotion est le carburant et le talent est le véhicule.`,
       sources: ['10 Gods 食神+偏財', 'PY 3', 'Bio émotionnel pic'],
       reliability: 'suggestif',
     });
@@ -2375,6 +2585,378 @@ function patternsMicroDetails(patterns: Pattern[]): MicroDetail[] {
 }
 
 // ══════════════════════════════════════
+// ═══ V5.2: SOUS LA SURFACE + RESSENTI PROBABLE (Ronde #3) ═══
+// ══════════════════════════════════════
+
+// Mapping mainTier → mot humain (consensus GPT+Grok+Gemini)
+const MAIN_TIER_WORD: Record<string, string> = {
+  A: "l'élan", B: "la progression", C: "l'équilibre", D: "la friction", E: "l'épreuve",
+};
+
+/**
+ * buildUndercurrentText — 3 templates (analytique/miroir/oraculaire) avec rotation
+ * Ronde #3: Fusion GPT (structure) + Grok (miroir) + Gemini (oracle)
+ */
+function buildUndercurrentText(
+  nucProfile: { archetype: string; judgment: string; image: string; action: string; opportunity: string },
+  mainTier: string,
+  crossKey: string,
+  dateKey: string,
+  hexNum: number,
+  hexName: string,
+): string {
+  const mtw = MAIN_TIER_WORD[mainTier] || "l'équilibre";
+  // Strip trailing period from fields to allow clean sentence flow
+  const strip = (s: string) => s.replace(/\.\s*$/, '');
+  const judgment = nucProfile.judgment;
+  const image = nucProfile.image;
+  const archetype = nucProfile.archetype;
+  const action = strip(nucProfile.action);
+  const opportunity = nucProfile.opportunity.charAt(0).toLowerCase() + strip(nucProfile.opportunity.slice(1));
+  // Arcane = archetype + référence hex pour contexte
+  const arcane = `${archetype} — hexagramme n°${hexNum}, ${hexName}`;
+
+  const templates = [
+    // Template A (GPT — contraste analytique)
+    `Tu peux donner l'impression de ${mtw}, alors qu'en dessous quelque chose travaille. ${action}. ${image} — c'est ton courant caché du jour.`,
+    // Template B (Grok — miroir émotionnel)
+    `Derrière ce que tu contrôles, ${archetype} (arcane n°${hexNum}) s'active en silence. ${judgment} — c'est ce qui travaille en toi quand personne ne regarde.`,
+    // Template C (Gemini — révélation oraculaire)
+    `Il y a ce que tu gères en surface, et ce qui te traverse en profondeur. Ton courant caché (${archetype}, arcane n°${hexNum}) : ${strip(judgment)}. Le vrai enjeu n'est pas visible — c'est ${opportunity}.`,
+  ];
+
+  // Rotation basée sur la date + crossKey pour varier chaque jour
+  const rotationSeed = (dateKey + crossKey).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+
+  // Anti-répétition: vérifier localStorage pour ne pas répéter le même template
+  let templateIdx = rotationSeed % 3;
+  try {
+    const stored = localStorage.getItem('k_undercurrent_history');
+    if (stored) {
+      const history: { date: string; idx: number }[] = JSON.parse(stored);
+      const recent = history.filter(h => {
+        const diff = Date.now() - new Date(h.date).getTime();
+        return diff < 7 * 24 * 3600 * 1000; // 7 jours
+      });
+      const last2 = recent.slice(-2).map(h => h.idx);
+      // Si le template choisi est le même que les 2 derniers jours, décaler
+      if (last2.length >= 2 && last2[0] === templateIdx && last2[1] === templateIdx) {
+        templateIdx = (templateIdx + 1) % 3;
+      }
+      // Sauvegarder
+      recent.push({ date: dateKey, idx: templateIdx });
+      localStorage.setItem('k_undercurrent_history', JSON.stringify(recent.slice(-14)));
+    } else {
+      localStorage.setItem('k_undercurrent_history', JSON.stringify([{ date: dateKey, idx: templateIdx }]));
+    }
+  } catch { /* localStorage indisponible — on continue avec le seed */ }
+
+  return templates[templateIdx];
+}
+
+// ── Ressenti probable — 5 buckets × 3 variantes (15 phrases) ──
+
+type FeelingBucket = 'pressure' | 'restraint' | 'overload' | 'clarity' | 'vulnerability';
+
+const FEELING_POOL: Record<FeelingBucket, string[]> = {
+  pressure: [
+    "Tu peux te sentir poussé, mais obligé de filtrer.",
+    "Tu te sens porter un poids invisible malgré la chance.",
+    "Tu peux sentir une urgence sourde sous une journée normale.",
+  ],
+  restraint: [
+    "Tu te sens brûler de créer sans le montrer.",
+    "Tu peux avoir l'esprit en mouvement et le corps en retenue.",
+    "Tu te sens retenir un feu intérieur malgré tout.",
+  ],
+  overload: [
+    "Tu peux vouloir décider, puis surpiloter chaque détail.",
+    "Tu peux sentir que tu gères trop de choses à la fois.",
+    "Tu peux te sentir tiraillé entre agir et te protéger.",
+  ],
+  clarity: [
+    "Tu peux te sentir net, sans avoir envie de t'expliquer.",
+    "Tu peux te sentir lucide, mais moins disponible que prévu.",
+    "Tu peux sentir que ça monte, sans vouloir t'exposer.",
+  ],
+  vulnerability: [
+    "Tu peux te protéger davantage, même sans menace claire.",
+    "Tu peux sentir une vigilance accrue sous le calme.",
+    "Tu peux garder tes distances sans vraiment savoir pourquoi.",
+  ],
+};
+
+/**
+ * inferBucket — déduit le bucket de ressenti à partir des signaux du jour
+ * Minimum 2 signaux croisés requis (garde-fou anti-Barnum)
+ */
+function inferBucket(
+  contradictions: Contradiction[],
+  score: number,
+  dayType: string,
+  hexTier: string,
+  lp: number, // chemin de vie
+): { bucket: FeelingBucket; signals: number } | null {
+  let signals = 0;
+  const votes: Partial<Record<FeelingBucket, number>> = {};
+  const vote = (b: FeelingBucket) => { votes[b] = (votes[b] || 0) + 1; signals++; };
+
+  // Signal 1: Contradictions détectées
+  if (contradictions.length >= 2) vote('pressure');
+  if (contradictions.length >= 1) vote('restraint');
+
+  // Signal 2: Score du jour
+  if (score >= 75) vote('clarity');
+  else if (score >= 55) vote('restraint');
+  else if (score >= 35) vote('overload');
+  else vote('vulnerability');
+
+  // Signal 3: Type de jour
+  if (dayType === 'decision' || dayType === 'expansion') vote('pressure');
+  if (dayType === 'retrait' || dayType === 'introspection') vote('vulnerability');
+  if (dayType === 'communication') vote('overload');
+  if (dayType === 'creativity' || dayType === 'creation') vote('restraint');
+  if (dayType === 'observation') vote('clarity');
+
+  // Signal 4: Hex tier
+  if (hexTier === 'A' || hexTier === 'B') vote('clarity');
+  if (hexTier === 'D') vote('pressure');
+  if (hexTier === 'E') vote('vulnerability');
+
+  // Signal 5: Profil permanent (ajustements CdV)
+  if (lp === 3 || lp === 5) vote('restraint');  // expression bloquée
+  if (lp === 8) vote('pressure');               // contrôle
+  if (lp === 7 || lp === 9) vote('clarity');    // introspection/vision
+  if (lp === 2 || lp === 6) vote('vulnerability'); // sensibilité
+
+  // Garde-fou: minimum 2 signaux croisés
+  if (signals < 2) return null;
+
+  // Trouver le bucket dominant
+  let best: FeelingBucket = 'restraint';
+  let bestScore = 0;
+  for (const [b, v] of Object.entries(votes) as [FeelingBucket, number][]) {
+    if (v > bestScore) { bestScore = v; best = b; }
+  }
+
+  return { bucket: best, signals };
+}
+
+/**
+ * buildProbableFeeling — génère la ligne de ressenti probable
+ * Retourne null si pas assez de signaux (garde-fou #5: sortie douce)
+ */
+function buildProbableFeeling(
+  contradictions: Contradiction[],
+  score: number,
+  dayType: string,
+  hexTier: string,
+  lp: number,
+  dateKey: string,
+): string | null {
+  const result = inferBucket(contradictions, score, dayType, hexTier, lp);
+  if (!result) return null;
+
+  // Sortie douce: pas de ressenti si score neutre ET aucune contradiction
+  if (contradictions.length === 0 && score >= 45 && score <= 65) return null;
+
+  const { bucket } = result;
+  const pool = FEELING_POOL[bucket];
+
+  // Sélection avec rotation basée sur date
+  const seed = dateKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  let variantIdx = seed % pool.length;
+
+  // Anti-répétition localStorage: ne pas réutiliser le même bucket 3 jours de suite
+  try {
+    const stored = localStorage.getItem('k_feeling_history');
+    if (stored) {
+      const history: { date: string; bucket: string; idx: number }[] = JSON.parse(stored);
+      const recent = history.filter(h => {
+        const diff = Date.now() - new Date(h.date).getTime();
+        return diff < 7 * 24 * 3600 * 1000;
+      });
+      // Vérifier si même bucket 2 jours de suite → forcer un autre variant au minimum
+      const last2Buckets = recent.slice(-2).map(h => h.bucket);
+      if (last2Buckets.length >= 2 && last2Buckets.every(b => b === bucket)) {
+        // Même bucket 3 jours de suite → décaler le variant
+        variantIdx = (variantIdx + 1) % pool.length;
+      }
+      // Éviter exactement la même phrase que la veille
+      const lastEntry = recent[recent.length - 1];
+      if (lastEntry && lastEntry.bucket === bucket && lastEntry.idx === variantIdx) {
+        variantIdx = (variantIdx + 1) % pool.length;
+      }
+      recent.push({ date: dateKey, bucket, idx: variantIdx });
+      localStorage.setItem('k_feeling_history', JSON.stringify(recent.slice(-14)));
+    } else {
+      localStorage.setItem('k_feeling_history', JSON.stringify([{ date: dateKey, bucket, idx: variantIdx }]));
+    }
+  } catch { /* localStorage indisponible */ }
+
+  return pool[variantIdx];
+}
+
+// ── Ressenti somatique — Ronde #4 (12 phrases, 5 zones, BaZi crossing) ──
+
+type SomaticZone = 'épaules' | 'mâchoire' | 'mains' | 'nuque' | 'souffle';
+
+const SOMATIC_POOL: Record<FeelingBucket, { phrase: string; zone: SomaticZone }[]> = {
+  pressure: [
+    { phrase: "Tes épaules portent peut-être un peu plus aujourd'hui.", zone: 'épaules' },
+    { phrase: "Ta mâchoire se serre peut-être sans que tu le remarques.", zone: 'mâchoire' },
+  ],
+  restraint: [
+    { phrase: "Tes mains cherchent peut-être quelque chose à faire.", zone: 'mains' },
+    { phrase: "Une raideur peut s'installer dans la nuque.", zone: 'nuque' },
+    { phrase: "Ta mâchoire retient peut-être ce qui veut sortir.", zone: 'mâchoire' },
+  ],
+  overload: [
+    { phrase: "Ton souffle est peut-être plus court que d'habitude.", zone: 'souffle' },
+    { phrase: "Tes épaules montent peut-être sans t'en rendre compte.", zone: 'épaules' },
+  ],
+  clarity: [
+    { phrase: "Tes mains peuvent se sentir plus légères ce matin.", zone: 'mains' },
+    { phrase: "Ton souffle se pose peut-être plus librement.", zone: 'souffle' },
+  ],
+  vulnerability: [
+    { phrase: "Une contraction légère peut traverser ta nuque.", zone: 'nuque' },
+    { phrase: "Tes épaules se referment peut-être un peu.", zone: 'épaules' },
+    { phrase: "Tes mains se crispent peut-être sans raison claire.", zone: 'mains' },
+  ],
+};
+
+/** Blacklist: combinaisons bucket × zone interdites (trop intimes ou médicales) */
+const SOMATIC_BLACKLIST: [FeelingBucket, SomaticZone][] = [
+  ['vulnerability', 'souffle'],
+  ['overload', 'nuque'],
+  ['pressure', 'mains'],
+];
+
+/** BaZi element → zone corporelle préférentielle (crossing Gemini) */
+const BAZI_ELEMENT_ZONE: Record<string, SomaticZone> = {
+  'Métal': 'mâchoire',
+  'Feu': 'souffle',
+  'Eau': 'mains',
+  'Bois': 'nuque',
+  'Terre': 'épaules',
+};
+
+/**
+ * buildSomaticFeeling — ligne corporelle optionnelle sous le ressenti émotionnel.
+ * S'affiche uniquement quand : ressenti émotionnel existe + 1 signal fort.
+ * BaZi element favorise une zone si possible (crossing Gemini Ronde #4).
+ */
+function buildSomaticFeeling(
+  bucket: FeelingBucket,
+  score: number,
+  contradictions: Contradiction[],
+  hexTier: string,
+  baziElement: string,
+  dateKey: string,
+): string | null {
+  // Condition de déclenchement: au moins 1 signal fort
+  const scorePolarized = score >= 78 || score <= 28;
+  const highContradictions = contradictions.length >= 2;
+  const extremeTier = hexTier === 'A' || hexTier === 'E';
+  if (!scorePolarized && !highContradictions && !extremeTier) return null;
+
+  // Pool filtré par blacklist
+  const isBlacklisted = (b: FeelingBucket, z: SomaticZone) =>
+    SOMATIC_BLACKLIST.some(([bb, zz]) => bb === b && zz === z);
+  const candidates = SOMATIC_POOL[bucket].filter(c => !isBlacklisted(bucket, c.zone));
+  if (candidates.length === 0) return null;
+
+  // BaZi crossing: favoriser la zone liée à l'élément si disponible
+  const preferredZone = BAZI_ELEMENT_ZONE[baziElement];
+  const preferred = preferredZone ? candidates.filter(c => c.zone === preferredZone) : [];
+
+  // Sélection avec seed date
+  const seed = dateKey.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  // 60% chance d'utiliser la zone BaZi si disponible
+  const usePreferred = preferred.length > 0 && (seed % 10) < 6;
+  const pool = usePreferred ? preferred : candidates;
+  let idx = seed % pool.length;
+  const chosen = pool[idx];
+
+  // Anti-répétition localStorage: ne pas répéter la même zone 2 jours de suite
+  try {
+    const stored = localStorage.getItem('k_somatic_history');
+    if (stored) {
+      const history: { date: string; zone: string }[] = JSON.parse(stored);
+      const recent = history.filter(h => {
+        const diff = Date.now() - new Date(h.date).getTime();
+        return diff < 7 * 24 * 3600 * 1000;
+      });
+      const yesterday = recent[recent.length - 1];
+      if (yesterday && yesterday.zone === chosen.zone) {
+        // Chercher un candidat avec une zone différente
+        const alt = candidates.filter(c => c.zone !== yesterday.zone && !isBlacklisted(bucket, c.zone));
+        if (alt.length > 0) {
+          const altPick = alt[seed % alt.length];
+          recent.push({ date: dateKey, zone: altPick.zone });
+          localStorage.setItem('k_somatic_history', JSON.stringify(recent.slice(-14)));
+          return altPick.phrase;
+        }
+      }
+      recent.push({ date: dateKey, zone: chosen.zone });
+      localStorage.setItem('k_somatic_history', JSON.stringify(recent.slice(-14)));
+    } else {
+      localStorage.setItem('k_somatic_history', JSON.stringify([{ date: dateKey, zone: chosen.zone }]));
+    }
+  } catch { /* localStorage indisponible */ }
+
+  return chosen.phrase;
+}
+
+// ── V5.6: "En 20 secondes" — résumé ultra-court (Ronde #5 bonus GPT) ──
+// 2-3 phrases max. Score + couleur + action clé. Mobile-first.
+function buildQuickSummary(
+  conv: ConvergenceResult,
+  crossings: Crossing[],
+  contradictions: Contradiction[],
+  actionPlan: ActionItem[],
+  iching: IChingReading,
+): string {
+  const score = conv.score;
+  const dayType = conv.dayType?.label || '';
+
+  // Ligne 1: Score + couleur du jour
+  let line1: string;
+  if (score >= 80) line1 = `${score}% — Journée puissante.`;
+  else if (score >= 65) line1 = `${score}% — Bonne énergie, avance avec discernement.`;
+  else if (score >= 50) line1 = `${score}% — Journée mixte, choisis tes batailles.`;
+  else if (score >= 35) line1 = `${score}% — Énergie basse, protège-toi.`;
+  else line1 = `${score}% — Journée de repli. Fais le minimum.`;
+
+  // Ligne 2: Tension ou convergence clé
+  let line2: string;
+  if (contradictions.length > 0) {
+    line2 = `Tension : ${contradictions[0].type.toLowerCase()}.`;
+  } else if (crossings.length > 0) {
+    const top = crossings[0];
+    line2 = `${top.strength} systèmes convergent vers : ${top.theme.toLowerCase()}.`;
+  } else {
+    line2 = dayType ? `Jour ${dayType}.` : 'Pas de signal dominant.';
+  }
+
+  // Ligne 3: Action clé (focus ou conseil)
+  let line3 = '';
+  const focus = actionPlan.find(a => a.role === 'focus');
+  const avoid = actionPlan.find(a => a.role === 'avoid');
+  if (focus) {
+    // Extraire le thème sans l'emoji
+    const theme = focus.action.replace(/^[^\w\s]*\s*Priorise\s*:\s*/i, '');
+    line3 = `→ ${theme}.`;
+  }
+  if (avoid) {
+    line3 += line3 ? ` ⚠ Vigilance.` : `⚠ Vigilance recommandée.`;
+  }
+
+  return [line1, line2, line3].filter(Boolean).join(' ');
+}
+
+// ══════════════════════════════════════
 // ═══ EXPORT PRINCIPAL ═══
 // ══════════════════════════════════════
 
@@ -2426,14 +3008,63 @@ export function generateStrategicReading(data: {
   const majorWindow = buildMajorWindow(conv, crossings, num, cz, iching);
 
   // V2.5: Micro-détails "c'est exactement moi" (cold reading algorithmique)
-  const microDetails = buildMicroDetails(num, cz, conv, iching, astro, bd);
+  const microDetailsRaw = buildMicroDetails(num, cz, conv, iching, astro, bd);
 
   // V3.0: Ajouter les patterns flippants aux micro-détails (priorité haute)
   const patternMicros = patternsMicroDetails(patterns.patterns);
-  microDetails.unshift(...patternMicros);
+  microDetailsRaw.unshift(...patternMicros);
+
+  // V5.5 fix: Dédupliquer micro-détails vs past/present/future (éviter doublons visibles)
+  const blockTexts = new Set<string>();
+  for (const blk of [past, present, future]) {
+    for (const ins of blk.insights) {
+      // Stocker les 80 premiers caractères normalisés comme clé de dédup
+      blockTexts.add(ins.text.slice(0, 80).toLowerCase().replace(/\s+/g, ' '));
+    }
+  }
+  const microDetails = microDetailsRaw.filter(md => {
+    const key = md.text.slice(0, 80).toLowerCase().replace(/\s+/g, ' ');
+    return !blockTexts.has(key);
+  });
 
   // V2.9.1: Contradictions inter-systèmes (audit Grok R2+R3)
   const contradictions = detectContradictions(conv, iching, num);
 
-  return { past, present, future, crossings, actionPlan, portrait, todayVerdict, timeline, majorWindow, microDetails, contradictions, patterns };
+  // V5.0: Phrase-miroir (Ronde Lecture — levier émotionnel #1)
+  const mirrorPhrase = buildMirrorPhrase(conv, contradictions, num, cz, iching);
+
+  // V5.0: Portrait contextualisé au jour (bandeau dynamique)
+  const portraitOverlay = buildPortraitOverlay(conv, num, cz, contradictions);
+
+  // V5.2: Hu Gua "Sous la surface" — 3 templates Ronde #3 (analytique/miroir/oraculaire)
+  let undercurrent: StrategicReading['undercurrent'] = null;
+  if (conv.nuclearHex) {
+    const nh = conv.nuclearHex;
+    const nucProfile = getHexProfile(nh.nuclearHex);
+    if (nucProfile) {
+      const ucText = buildUndercurrentText(nucProfile, nh.mainTier, nh.crossKey, t, nh.nuclearHex, nh.nuclearName);
+      undercurrent = {
+        text: ucText,
+        name: nh.nuclearName,
+        hexNum: nh.nuclearHex ?? 0,
+      };
+    }
+  }
+
+  // V5.2: Ressenti probable — ligne ultra-courte sous la phrase-miroir (Ronde #3)
+  const hexTier = iching ? getHexTier(iching.hexNum).tier : 'C';
+  const probableFeeling = buildProbableFeeling(
+    contradictions, conv.score, conv.dayType?.type || '', hexTier, num.lp.v, t,
+  );
+
+  // V5.3: Ressenti somatique — ligne corporelle optionnelle (Ronde #4 + BaZi crossing Gemini)
+  const feelingResult = inferBucket(contradictions, conv.score, conv.dayType?.type || '', hexTier, num.lp.v);
+  const somaticFeeling = (probableFeeling && feelingResult)
+    ? buildSomaticFeeling(feelingResult.bucket, conv.score, contradictions, hexTier, cz.elem, t)
+    : null;
+
+  // V5.6: "En 20 secondes" — résumé ultra-court mobile-first (Ronde #5 bonus — GPT)
+  const quickSummary = buildQuickSummary(conv, crossings, contradictions, actionPlan, iching);
+
+  return { past, present, future, crossings, actionPlan, portrait, todayVerdict, mirrorPhrase, portraitOverlay, timeline, majorWindow, microDetails, contradictions, patterns, undercurrent, probableFeeling, somaticFeeling, quickSummary };
 }

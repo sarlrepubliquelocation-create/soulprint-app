@@ -158,6 +158,12 @@ export interface DayPreview {
   rarityPct: number;
   turbulence?: TurbulenceIndex;  // V4.3b
   outlier?: OutlierFlag;         // V4.3b
+  // Ronde 6 Soft Shift — données pour le blend post-traitement annuel
+  xt?: number;                   // X_total_future (branche FUTURE, alpha>0 uniquement)
+  dm?: number;                   // dashaMult du jour (pour recalculer terrainBonus en passe 2)
+  // Ronde Cosmique — labels annuels (post-traitement plancher/plafond)
+  isAnnualPeak?: boolean;   // "Pic de l'année" — top 3 jours d'une année pauvre (score ≥ 85)
+  isCosmicCapped?: boolean; // jour ≥ 88 mais hors du top 25 (année trop riche) → perd le badge Cosmique
 }
 
 // ══════════════════════════════════════
@@ -223,6 +229,10 @@ export interface ConvergenceResult {
   // Sprint AY — C4 live + SHAP explicabilité (ex-shadow, promu production)
   c4Shadow?: number;         // Sprint AY : C4 live (injecté dans le score — ex-shadow)
   cisCurrent?: number;       // CIS historique (gardé pour observabilité — remplacé par C4)
+  calibration?: {            // Calibration Firebase — précision auto-ajustée
+    accuracy: number;        // % de concordance vécu/prédit
+    recentVotes: number;     // nombre de votes récents
+  };
   shapley?: {                // Shapley exact 16 coalitions — contributions additives
     lune: number;            // φ_lune en points de score
     ephem: number;           // φ_ephem en points de score

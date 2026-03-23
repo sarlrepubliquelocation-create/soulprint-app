@@ -6,6 +6,7 @@ import {
   type PresentContext,
   type TemporalNarrative,
   type ArcName,
+  type MACDResult,
   getMomentumNarrativeKey,
   MOMENTUM_NARRATIVES,
   getForecastNarrativeKey,
@@ -16,9 +17,16 @@ import {
   ARC_NARRATIVES,
   type PSIResult,
 } from '../engines/temporal';
+import { type TemporalCI, type PotentielAction, type TransitionAlert } from '../engines/temporal-layers';
 import { Sec, Cd, P } from './ui';
 
 // ── Props ──
+export interface ForecastCIData {
+  ci7: TemporalCI;
+  ci30: TemporalCI;
+  ci90: TemporalCI;
+}
+
 export interface TemporalData {
   momentum: MomentumResult;
   forecast: ForecastResult;
@@ -26,6 +34,10 @@ export interface TemporalData {
   present: PresentContext;
   arc: ArcName;
   narrative: TemporalNarrative;
+  macd?: MACDResult;
+  forecastCI?: ForecastCIData;
+  potentielAction?: PotentielAction;
+  transitionAlerts?: TransitionAlert[];
 }
 
 interface Props {
@@ -47,19 +59,55 @@ const trendColor: Record<string, string> = {
   rising: '#4ade80', falling: '#ef4444', stable: '#60a5fa', volatile: '#f97316',
 };
 
+/** Traduit une distance PSI brute en label lisible */
+const ciColor = (label: string): string =>
+  label === 'Haute' ? '#4ade80' : label === 'Bonne' ? '#60a5fa' : label === 'Modérée' ? '#f59e0b' : '#ef4444';
+
+// Distance euclidienne 12D : plage réelle ~0-6, forte < 2.1, modérée < 4.0
+const distanceLabel = (d: number): string =>
+  d < 0.7 ? 'quasi identique' : d < 1.2 ? 'très similaire' : d < 2.1 ? 'similaire' : d < 4.0 ? 'partiellement similaire' : 'faiblement similaire';
+
+/** Normalise un nombre de jours en label UX lisible */
+const fmtDaysUntil = (days: number): string => {
+  if (days <= 0) return "Aujourd'hui";
+  if (days === 1) return 'Demain';
+  if (days < 30) return `Dans ${days} jours`;
+  if (days < 60) return 'Dans ~1 mois';
+  const months = Math.round(days / 30);
+  if (months <= 12) return `Dans ~${months} mois`;
+  const years = Math.floor(months / 12);
+  const remainMonths = months % 12;
+  if (remainMonths === 0) return `Dans ~${years} an${years > 1 ? 's' : ''}`;
+  return `Dans ~${years} an${years > 1 ? 's' : ''} et ${remainMonths} mois`;
+};
+
 const intensityLabels: Record<string, { label: string; color: string; icon: string }> = {
   calm: { label: 'Calme', color: '#60a5fa', icon: '🌊' },
   building: { label: 'En construction', color: '#f59e0b', icon: '🔨' },
-  peak: { label: 'Pic d\'activation', color: '#4ade80', icon: '⚡' },
+  peak: { label: 'Pic d\'activation', color: '#4ade80', icon: '🌟' },
   releasing: { label: 'Phase de relâchement', color: '#a78bfa', icon: '🍂' },
 };
 
 // ── Mini Sparkline SVG ──
 function Sparkline({ scores }: { scores: number[] }) {
-  if (scores.length < 2) return null;
+  if (scores.length < 2) return (
+    <div style={{ fontSize: 10, color: P.textDim, fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+      Données insuffisantes pour le graphique
+    </div>
+  );
   const min = Math.min(...scores), max = Math.max(...scores);
-  const range = max - min || 1;
+  const range = max - min;
   const w = 140, h = 40, pad = 4;
+
+  // Si tous les scores sont identiques, ligne stable au centre
+  if (range === 0) {
+    const mid = h / 2;
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: h, display: 'block' }} preserveAspectRatio="none">
+        <line x1="0" y1={mid} x2={w} y2={mid} stroke="#60a5fa" strokeWidth="2" strokeDasharray="4 4" opacity="0.5" />
+      </svg>
+    );
+  }
 
   const points = scores.map((v, i) => {
     const x = (i / (scores.length - 1)) * w;
@@ -122,12 +170,123 @@ function AccordionBlock({ title, icon, color, children, defaultOpen }: {
   );
 }
 
+// ── Expandable Event Block ──
+// P2-2 : Tap target ≥ 44×44px (WCAG 2.5.8) — padding augmenté pour mobile
+function ExpandableEvent({ icon, title, subtitle, color, detail }: {
+  icon: string; title: string; subtitle: string; color: string; detail?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = !!detail;
+  return (
+    <div
+      onClick={hasDetail ? () => setOpen(!open) : undefined}
+      style={{
+        padding: '12px 14px', borderRadius: 8,
+        minHeight: 44,
+        cursor: hasDetail ? 'pointer' : 'default',
+        background: `${color}08`, border: `1px solid ${color}20`,
+        transition: 'all 0.2s',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 20 }}>
+        <span style={{ fontSize: 18, lineHeight: 1, minWidth: 22, textAlign: 'center' }}>{icon}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color }}>{title}</div>
+          <div style={{ fontSize: 11, color: P.textDim, marginTop: 2 }}>{subtitle}</div>
+        </div>
+        {hasDetail && (
+          <span style={{
+            fontSize: 14, color: P.textDim,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28,
+            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}>▾</span>
+        )}
+      </div>
+      {hasDetail && (
+        <div style={{
+          maxHeight: open ? 200 : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.2s ease-in-out, opacity 0.2s ease-in-out',
+          opacity: open ? 1 : 0,
+        }}>
+          <div style={{
+            marginTop: 8, paddingTop: 8,
+            borderTop: `1px solid ${color}15`,
+            fontSize: 11, color: P.textMid, lineHeight: 1.6,
+          }}>
+            {detail}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Textes d'explication pour les événements ──
+const EVENT_DETAILS = {
+  pyTransition: (from: number, to: number) => {
+    const themes: Record<number, string> = {
+      1: 'Nouveau départ — initier des projets, oser, planter des graines',
+      2: 'Partenariats — collaborer, écouter, renforcer tes relations',
+      3: 'Créativité — t\'exprimer, communiquer, explorer tes talents',
+      4: 'Structure — construire des fondations solides, organiser',
+      5: 'Changement — accepter l\'imprévu, voyager, te libérer',
+      6: 'Harmonie — nourrir tes relations, responsabilités, foyer',
+      7: 'Introspection — te recentrer, analyser, approfondir ta compréhension',
+      8: 'Pouvoir — récolter, gérer tes ressources, prendre des décisions',
+      9: 'Clôture — lâcher prise, bilan, préparer le prochain cycle',
+    };
+    return `Tu quittes l'énergie de l'Année ${from} (${themes[from]?.split(' — ')[0] ?? 'cycle spécial'}) pour entrer dans l'Année ${to}.\n\n` +
+      `Énergie à venir : ${themes[to] ?? 'cycle spécial'}.\n\n` +
+      `Conseil : les 2-3 mois autour de cette transition sont souvent ressentis comme un "entre-deux". C'est normal — le nouveau thème s'installe progressivement.`;
+  },
+  pinnacle: (age: number) => (
+    `À ${age} ans, tu entres dans une nouvelle grande phase de vie. Les Pinnacles sont les 4 grandes saisons de ton existence.\n\n` +
+    `Ce changement redéfinit tes priorités profondes, ton environnement, et la nature des défis que tu rencontres.\n\n` +
+    `Conseil : anticipe cette transition en observant ce qui "ne fonctionne plus" dans ta vie actuelle — c'est souvent le signe que le nouveau pinnacle prépare le terrain.`
+  ),
+  retrograde: (planet: string, isEnd: boolean) => {
+    const energies: Record<string, string> = {
+      'Mercure': 'communication, technologie, contrats, déplacements',
+      'Vénus': 'relations, argent, esthétique, valeurs personnelles',
+      'Mars': 'énergie, motivation, conflits, prise de décision',
+      'Jupiter': 'expansion, optimisme, opportunités, croissance',
+      'Saturne': 'responsabilités, structures, discipline, limites',
+    };
+    const energy = energies[planet] ?? 'cycles planétaires profonds';
+    return isEnd
+      ? `La rétrogradation de ${planet} se termine — les blocages liés à ${energy} commencent à se lever.\n\nConseil : c'est le moment de relancer les projets mis en pause. L'énergie redevient directe et fluide.`
+      : `${planet} entre en rétrogradation — les domaines touchés : ${energy}.\n\nCette phase invite à la révision, pas à l'action forcée. Relis, reconsidère, peaufine plutôt que de lancer du neuf.\n\nConseil : évite de signer des contrats importants ou de faire des achats majeurs pendant cette période si possible.`;
+  },
+  eclipse: (type: string) => (
+    `Les éclipses sont des catalyseurs de changement — elles accélèrent des processus déjà en cours.\n\n` +
+    `Une éclipse ${type.toLowerCase()} amplifie les transformations sur 6 mois. Ce n'est pas un événement "bon" ou "mauvais" — c'est un accélérateur.\n\n` +
+    `Conseil : observe ce qui émerge ou disparaît dans les 2 semaines autour de cette date. Les éclipses révèlent ce qui était caché.`
+  ),
+  transitionAlert: (template: string) => template,
+};
+
 // ══════════════════════════════════════
 // ═══ TEMPORAL TAB PRINCIPALE ═══
 // ══════════════════════════════════════
 
+// ── P2-3 : Paliers Potentiel calibrés sur données réelles ──
+// Distribution observée : 50% des jours entre 40-70, extremes rares
+const getPotentielPalier = (score: number): { label: string; color: string; icon: string } => {
+  if (score >= 85) return { label: 'Exceptionnel', color: '#E0B0FF', icon: '💎' };
+  if (score >= 72) return { label: 'Fort',         color: '#4ade80', icon: '🔥' };
+  if (score >= 55) return { label: 'Bon',          color: '#60a5fa', icon: '✦' };
+  if (score >= 40) return { label: 'Modéré',       color: '#f59e0b', icon: '○' };
+  return                   { label: 'Faible',       color: '#9890aa', icon: '·' };
+};
+
 export default function TemporalTab({ data, psi }: Props) {
-  const { momentum, forecast, past, present, arc, narrative } = data;
+  const { momentum, forecast, past, present, arc, narrative, macd, forecastCI, potentielAction, transitionAlerts } = data;
+  const [showAllWindows, setShowAllWindows] = useState(false);
+  // P2-1 : Toggle Essentiel / Complet
+  const [viewMode, setViewMode] = useState<'essentiel' | 'complet'>('essentiel');
 
   const momKey = getMomentumNarrativeKey(momentum);
   const momNarr = MOMENTUM_NARRATIVES[momKey];
@@ -151,6 +310,32 @@ export default function TemporalTab({ data, psi }: Props) {
     <div>
       {/* ── Arc Narratif (Header) ── */}
       <Sec icon="🌀" title="Dynamique Temporelle">
+        {/* P2-1 : Toggle Essentiel / Complet */}
+        <div style={{
+          display: 'flex', justifyContent: 'flex-end', marginBottom: 12,
+        }}>
+          <div style={{
+            display: 'inline-flex', borderRadius: 8, overflow: 'hidden',
+            border: `1px solid ${P.cardBdr}`, background: P.surface,
+          }}>
+            {(['essentiel', 'complet'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: '6px 14px', fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: 'none', outline: 'none',
+                  background: viewMode === mode ? `${P.gold}25` : 'transparent',
+                  color: viewMode === mode ? P.gold : P.textDim,
+                  textTransform: 'capitalize',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {mode === 'essentiel' ? '◉ Essentiel' : '◎ Complet'}
+              </button>
+            ))}
+          </div>
+        </div>
         <Cd sx={{ marginBottom: 20, background: `linear-gradient(135deg, ${P.gold}08, ${P.gold}04)`, border: `1px solid ${P.gold}25` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <div style={{
@@ -180,6 +365,37 @@ export default function TemporalTab({ data, psi }: Props) {
             </div>
           )}
         </Cd>
+
+        {/* ── En un coup d'œil ── */}
+        <div style={{
+          marginBottom: 16, padding: '10px 14px', borderRadius: 10,
+          background: `${P.surface}`, border: `1px solid ${P.cardBdr}`,
+        }}>
+          <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 8 }}>
+            👁️ En un coup d'œil
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 700, color: trendColor[momentum.trend] }}>{trendLabel[momentum.trend]}</span>
+              {' · '}
+              <span>{intInfo.label}</span>
+              {potentielAction && potentielAction.delta !== 0 && (() => {
+                const p = getPotentielPalier(potentielAction.score);
+                return <span> · Potentiel <span style={{ fontWeight: 700, color: p.color }}>{potentielAction.score}</span> <span style={{ fontSize: 10, color: p.color }}>({p.label})</span></span>;
+              })()}
+            </div>
+            {forecastCI?.ci7 && (
+              <div style={{ fontSize: 11, color: P.textDim }}>
+                Lisibilité 7j : <span style={{ fontWeight: 600, color: ciColor(forecastCI.ci7.label) }}>{forecastCI.ci7.percent}% ({forecastCI.ci7.label})</span>
+              </div>
+            )}
+            {forecast.next7.best.score >= 72 && (
+              <div style={{ fontSize: 11, color: P.gold }}>
+                ✦ Prochaine fenêtre : <span style={{ fontWeight: 600 }}>{fmtDate(forecast.next7.best.date)}</span> (score {Math.round(forecast.next7.best.score)})
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* ── Intensité du Moment ── */}
         <div style={{
@@ -222,7 +438,75 @@ export default function TemporalTab({ data, psi }: Props) {
           {momNarr && (
             <div style={{ fontSize: 11, color: P.gold, fontWeight: 600 }}>→ {momNarr.conseil}</div>
           )}
+          {/* Signal d'inversion — détection de changement de tendance */}
+          {macd && (macd.crossover || macd.divergence) && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px', borderRadius: 8,
+              background: macd.crossover === 'bullish' ? '#4ade800a' : '#ef44440a',
+              border: `1px solid ${macd.crossover === 'bullish' ? '#4ade8025' : '#ef444425'}`,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 16 }}>{macd.crossover === 'bullish' ? '📈' : macd.crossover === 'bearish' ? '📉' : '⚠️'}</span>
+              <div style={{ fontSize: 11, color: macd.crossover === 'bullish' ? '#4ade80' : '#ef4444', lineHeight: 1.5, fontWeight: 600 }}>
+                {macd.narrative}
+              </div>
+            </div>
+          )}
+          {/* Narrative — Passé (dispersé depuis Narrative Temporelle) */}
+          <div style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 8,
+            background: '#a78bfa06', borderLeft: '3px solid #a78bfa44',
+          }}>
+            <div style={{ fontSize: 10, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>🔮 Passé récent — {narrative.past.title}</div>
+            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 4 }}>{narrative.past.narrative}</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginTop: 4, fontStyle: 'italic' }}>💡 {narrative.past.insight}</div>
+          </div>
         </AccordionBlock>
+
+        {/* ── Potentiel d'Action + Présent fusionnés ── */}
+        <div style={{
+          padding: '12px 14px', borderRadius: 10, marginBottom: 12,
+          background: potentielAction && potentielAction.delta > 0 ? '#4ade800a' : `${P.gold}06`,
+          border: `1px solid ${potentielAction && potentielAction.delta > 0 ? '#4ade8020' : `${P.gold}20`}`,
+        }}>
+          {/* Potentiel d'Action */}
+          {/* P2-3 : Potentiel d'action avec palier qualitatif calibré */}
+          {potentielAction && potentielAction.delta !== 0 && (() => {
+            const palier = getPotentielPalier(potentielAction.score);
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 18 }}>{palier.icon}</span>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: palier.color }}>
+                      Potentiel d'action : {potentielAction.score}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+                      background: `${palier.color}18`, color: palier.color,
+                    }}>
+                      {palier.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
+                    Score du jour ({potentielAction.score - potentielAction.delta}) {potentielAction.delta > 0 ? 'amplifié' : 'atténué'} par tes cycles Année et Mois Personnels ({potentielAction.delta > 0 ? '+' : ''}{potentielAction.delta} pts)
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          {/* Narrative Présent — intégrée dans la card */}
+          <div style={{
+            padding: '8px 12px', borderRadius: 8,
+            background: `${P.gold}08`, borderLeft: `3px solid ${P.gold}44`,
+          }}>
+            <div style={{ fontSize: 10, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
+              ☀️ Présent — {narrative.present.title}
+            </div>
+            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 4 }}>{narrative.present.narrative}</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginTop: 4, fontStyle: 'italic' }}>💡 {narrative.present.insight}</div>
+          </div>
+        </div>
 
         {/* ── Forecast ── */}
         <AccordionBlock title="Prévisions" icon="🔭" color="#60a5fa" defaultOpen>
@@ -251,9 +535,27 @@ export default function TemporalTab({ data, psi }: Props) {
                 <div style={{ fontSize: 10, color: P.textDim }}>{fmtDate(forecast.next7.worst.date)}</div>
               </div>
             </div>
-            {forecast.next7.goldDays > 0 && (
-              <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginTop: 8 }}>
-                ✦ {forecast.next7.goldDays} jour{forecast.next7.goldDays > 1 ? 's' : ''} Alignement fort cette semaine
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+              {forecast.next7.goldDays > 0 && (
+                <div style={{ fontSize: 11, color: P.gold, fontWeight: 600 }}>
+                  ✦ {forecast.next7.goldDays} jour{forecast.next7.goldDays > 1 ? 's' : ''} Alignement fort
+                </div>
+              )}
+              {forecastCI?.ci7 && (
+                <div style={{
+                  fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
+                  background: `${ciColor(forecastCI.ci7.label)}12`,
+                  color: ciColor(forecastCI.ci7.label),
+                  marginLeft: 'auto',
+                }}>
+                  Fiabilité {forecastCI.ci7.percent}% · {forecastCI.ci7.label}
+                </div>
+              )}
+            </div>
+            {/* Avertissement score élevé + fiabilité basse */}
+            {forecast.next7.best.score > 90 && forecastCI?.ci7 && forecastCI.ci7.percent < 55 && (
+              <div style={{ fontSize: 10, color: '#f59e0b', marginTop: 6, lineHeight: 1.5, fontStyle: 'italic' }}>
+                ⚠️ Score élevé mais lisibilité instable — cette fenêtre est prometteuse, reste attentif aux variations des prochains jours.
               </div>
             )}
           </div>
@@ -268,6 +570,11 @@ export default function TemporalTab({ data, psi }: Props) {
                 Moy. {Math.round(forecast.next30.avg)} · {forecast.next30.goldDays} Alignement fort
                 {forecast.next30.cosmiqueDays > 0 && ` · ${forecast.next30.cosmiqueDays} Convergence rare`}
               </div>
+              {forecastCI?.ci30 && (
+                <div style={{ fontSize: 9, color: ciColor(forecastCI.ci30.label), fontWeight: 600, marginTop: 4 }}>
+                  ◎ {forecastCI.ci30.label} ({forecastCI.ci30.percent}%)
+                </div>
+              )}
             </div>
             <div style={{ padding: '10px 12px', borderRadius: 8, background: P.surface }}>
               <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>90 jours</div>
@@ -277,6 +584,11 @@ export default function TemporalTab({ data, psi }: Props) {
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
                 {forecast.next90.goldDays} Alignement fort · {forecast.next90.majorEvents.length} Convergence rare
               </div>
+              {forecastCI?.ci90 && (
+                <div style={{ fontSize: 9, color: ciColor(forecastCI.ci90.label), fontWeight: 600, marginTop: 4 }}>
+                  ◎ {forecastCI.ci90.label} ({forecastCI.ci90.percent}%)
+                </div>
+              )}
             </div>
           </div>
           {/* Forecast narrative */}
@@ -286,15 +598,47 @@ export default function TemporalTab({ data, psi }: Props) {
               <div style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600 }}>→ {foreNarr.conseil}</div>
             </>
           )}
+          {/* Zone de Mutation — quand la fiabilité chute sous 40% */}
+          {forecastCI && (forecastCI.ci7.isZoneMutation || forecastCI.ci30.isZoneMutation || forecastCI.ci90.isZoneMutation) && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 8,
+              background: '#a855f70a', border: '1px solid #a855f720',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#a855f7', marginBottom: 4 }}>
+                🔮 Zone de Mutation
+              </div>
+              <div style={{ fontSize: 11, color: P.textMid, lineHeight: 1.6 }}>
+                {forecastCI.ci7.isZoneMutation
+                  ? 'La fiabilité à court terme est faible — cette période présente une forte variabilité. Tes choix auront un poids supérieur à la moyenne : ton libre arbitre définit cet horizon.'
+                  : forecastCI.ci30.isZoneMutation
+                  ? 'La fiabilité à 30 jours est incertaine — les tendances peuvent se retourner. Reste flexible et ajuste ta stratégie au fil des jours.'
+                  : 'L\'horizon 90 jours est en zone de mutation — les prévisions longues sont moins fiables. Concentre-toi sur les fenêtres proches.'}
+              </div>
+            </div>
+          )}
+          {/* Narrative — Futur (dispersé depuis Narrative Temporelle) */}
+          <div style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 8,
+            background: '#4ade8006', borderLeft: '3px solid #4ade8044',
+          }}>
+            <div style={{ fontSize: 10, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>🔭 Futur — {narrative.future.title}</div>
+            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 4 }}>{narrative.future.narrative}</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginTop: 4, fontStyle: 'italic' }}>💡 {narrative.future.insight}</div>
+          </div>
         </AccordionBlock>
 
-        {/* ── Fenêtres d'Action ── */}
-        {forecast.windows.length > 0 && (
-          <AccordionBlock title={`Fenêtres d'action (${forecast.windows.length})`} icon="🎯" color={P.gold}>
+        {/* ── Fenêtres d'Action ── (P2-1 : masqué en mode Essentiel) */}
+        {viewMode === 'complet' && <AccordionBlock title={`Fenêtres d'action (${forecast.windows.length})`} icon="🎯" color={P.gold}>
+          {forecast.windows.length === 0 ? (
+            <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.5, fontStyle: 'italic' }}>
+              Aucune fenêtre d'action détectée sur les 90 prochains jours. Les scores restent sous le seuil de 72.
+            </div>
+          ) : (
+            <>
             <div style={{ fontSize: 11, color: P.textDim, marginBottom: 10, lineHeight: 1.5 }}>
               Clusters de jours consécutifs à score ≥72 — les meilleurs moments pour lancer des initiatives.
             </div>
-            {forecast.windows.slice(0, 5).map((w, i) => (
+            {forecast.windows.slice(0, showAllWindows ? forecast.windows.length : 3).map((w, i) => (
               <div key={i} style={{
                 padding: '10px 12px', borderRadius: 8, marginBottom: 6,
                 background: `${P.gold}0a`, border: `1px solid ${P.gold}18`,
@@ -311,103 +655,148 @@ export default function TemporalTab({ data, psi }: Props) {
                 <div style={{
                   padding: '4px 10px', borderRadius: 6,
                   background: `${P.gold}18`, color: P.gold,
-                  fontSize: 11, fontWeight: 700,
-                }}>GO</div>
+                  fontSize: 10, fontWeight: 700,
+                }}>{Math.round(w.avg)}</div>
               </div>
             ))}
-          </AccordionBlock>
-        )}
+            {forecast.windows.length > 3 && !showAllWindows && (
+              <div
+                onClick={() => setShowAllWindows(true)}
+                style={{
+                  textAlign: 'center', padding: '8px 0', cursor: 'pointer',
+                  fontSize: 11, color: P.gold, fontWeight: 600,
+                  borderTop: `1px solid ${P.gold}18`, marginTop: 4,
+                }}
+              >
+                Voir les {forecast.windows.length - 3} autres fenêtres ▾
+              </div>
+            )}
+            {showAllWindows && forecast.windows.length > 3 && (
+              <div
+                onClick={() => setShowAllWindows(false)}
+                style={{
+                  textAlign: 'center', padding: '8px 0', cursor: 'pointer',
+                  fontSize: 11, color: P.textDim, fontWeight: 600,
+                  marginTop: 4,
+                }}
+              >
+                Réduire ▴
+              </div>
+            )}
+            </>
+          )}
+        </AccordionBlock>}
 
-        {/* ── Événements à venir ── */}
-        <AccordionBlock title="Événements à venir" icon="📡" color="#a78bfa">
+        {/* ── Événements à venir (triés par chronologie) ── (P2-1 : masqué en mode Essentiel) */}
+        {viewMode === 'complet' && <AccordionBlock title="Événements à venir" icon="📡" color="#a78bfa">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* PY Transition */}
-            {forecast.nextPYTransition && (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🔄</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: P.text }}>
-                      Transition Année {forecast.nextPYTransition.fromPY} → {forecast.nextPYTransition.toPY}
-                    </div>
-                    <div style={{ fontSize: 10, color: P.textDim }}>
-                      {fmtDate(forecast.nextPYTransition.date)} · dans {forecast.nextPYTransition.daysUntil}j
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Pinnacle Transition */}
-            {forecast.nextPinnacleTransition && (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#a78bfa0a', border: '1px solid #a78bfa18' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🏔️</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa' }}>
-                      Transition Pinnacle → âge {forecast.nextPinnacleTransition.transitionAge}
-                    </div>
-                    <div style={{ fontSize: 10, color: P.textDim }}>
-                      dans {forecast.nextPinnacleTransition.daysUntil}j
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Next Retrograde */}
-            {forecast.nextRetrograde && (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#f973160a', border: '1px solid #f9731618' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>☿</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#f97316' }}>
-                      {forecast.nextRetrograde.planet} — {forecast.nextRetrograde.type === 'retro_end' ? 'fin rétro' : 'début rétro'}
-                    </div>
-                    <div style={{ fontSize: 10, color: P.textDim }}>
-                      {fmtDate(forecast.nextRetrograde.type === 'retro_end' ? forecast.nextRetrograde.endDate : forecast.nextRetrograde.startDate)} · dans {forecast.nextRetrograde.daysUntil}j
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Next Eclipse */}
-            {forecast.nextEclipse && (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: '#ef44440a', border: '1px solid #ef444418' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🌑</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>
-                      Éclipse {forecast.nextEclipse.type}
-                    </div>
-                    <div style={{ fontSize: 10, color: P.textDim }}>
-                      {fmtDate(forecast.nextEclipse.date)} · dans {forecast.nextEclipse.daysUntil}j
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {(() => {
+              // Construire un tableau unifié de tous les événements, triés par daysUntil
+              const events: { key: string; daysUntil: number; el: React.ReactNode }[] = [];
+
+              // Transition Alerts (LP change, PY9→1, etc.)
+              if (transitionAlerts) {
+                transitionAlerts.forEach((alert, i) => {
+                  events.push({
+                    key: `ta-${i}`,
+                    daysUntil: alert.monthsAway * 30,
+                    el: (
+                      <ExpandableEvent
+                        icon={alert.urgency.icon}
+                        title={alert.label}
+                        subtitle={`${alert.urgency.category} · ${fmtDaysUntil(alert.monthsAway * 30)}`}
+                        color={alert.urgency.color}
+                        detail={alert.template}
+                      />
+                    ),
+                  });
+                });
+              }
+
+              // PY Transition
+              if (forecast.nextPYTransition) {
+                const t = forecast.nextPYTransition;
+                events.push({
+                  key: 'py',
+                  daysUntil: t.daysUntil,
+                  el: (
+                    <ExpandableEvent
+                      icon="🔄"
+                      title={`Transition Année ${t.fromPY} → ${t.toPY}`}
+                      subtitle={`${fmtDate(t.date)} · ${fmtDaysUntil(t.daysUntil)}`}
+                      color="#a78bfa"
+                      detail={EVENT_DETAILS.pyTransition(t.fromPY, t.toPY)}
+                    />
+                  ),
+                });
+              }
+
+              // Pinnacle Transition
+              if (forecast.nextPinnacleTransition) {
+                const p = forecast.nextPinnacleTransition;
+                events.push({
+                  key: 'pinnacle',
+                  daysUntil: p.daysUntil,
+                  el: (
+                    <ExpandableEvent
+                      icon="🏔️"
+                      title={`Changement de phase de vie → âge ${p.transitionAge}`}
+                      subtitle={fmtDaysUntil(p.daysUntil)}
+                      color="#a78bfa"
+                      detail={EVENT_DETAILS.pinnacle(p.transitionAge)}
+                    />
+                  ),
+                });
+              }
+
+              // Next Retrograde
+              if (forecast.nextRetrograde) {
+                const r = forecast.nextRetrograde;
+                events.push({
+                  key: 'retro',
+                  daysUntil: r.daysUntil,
+                  el: (
+                    <ExpandableEvent
+                      icon="☿"
+                      title={`${r.planet} — ${r.type === 'retro_end' ? 'fin rétro' : 'début rétro'}`}
+                      subtitle={`${fmtDate(r.type === 'retro_end' ? r.endDate : r.startDate)} · ${fmtDaysUntil(r.daysUntil)}`}
+                      color="#f97316"
+                      detail={EVENT_DETAILS.retrograde(r.planet, r.type === 'retro_end')}
+                    />
+                  ),
+                });
+              }
+
+              // Next Eclipse
+              if (forecast.nextEclipse) {
+                const e = forecast.nextEclipse;
+                events.push({
+                  key: 'eclipse',
+                  daysUntil: e.daysUntil,
+                  el: (
+                    <ExpandableEvent
+                      icon="🌑"
+                      title={`Éclipse ${e.type}`}
+                      subtitle={`${fmtDate(e.date)} · ${fmtDaysUntil(e.daysUntil)}`}
+                      color="#ef4444"
+                      detail={EVENT_DETAILS.eclipse(e.type)}
+                    />
+                  ),
+                });
+              }
+
+              // Tri chronologique (le plus proche en premier)
+              events.sort((a, b) => a.daysUntil - b.daysUntil);
+
+              return events.map(ev => <div key={ev.key}>{ev.el}</div>);
+            })()}
           </div>
-        </AccordionBlock>
+        </AccordionBlock>}
 
-        {/* ── Narrative Passé / Présent / Futur ── */}
-        <AccordionBlock title="Narrative temporelle" icon="📖" color={P.gold}>
-          {[
-            { block: narrative.past, label: 'Passé', color: '#a78bfa' },
-            { block: narrative.present, label: 'Présent', color: P.gold },
-            { block: narrative.future, label: 'Futur', color: '#4ade80' },
-          ].map(({ block, label, color }) => (
-            <div key={label} style={{
-              padding: '10px 14px', borderRadius: 8, marginBottom: 8,
-              background: `${color}06`, borderLeft: `3px solid ${color}44`,
-            }}>
-              <div style={{ fontSize: 10, color, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>{label} — {block.title}</div>
-              <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 4 }}>{block.narrative}</div>
-              <div style={{ fontSize: 11, color: P.textDim, marginTop: 4, fontStyle: 'italic' }}>💡 {block.insight}</div>
-            </div>
-          ))}
-        </AccordionBlock>
+        {/* Narrative Temporelle supprimée — dispersée dans Momentum (Passé), Potentiel (Présent), Prévisions (Futur) */}
 
-        {/* ── Position dans les cycles ── */}
-        <AccordionBlock title="Position dans les cycles" icon="🧭" color="#60a5fa">
+        {/* ── Position dans les cycles ── (P2-1 : masqué en mode Essentiel) */}
+        {viewMode === 'complet' && <AccordionBlock title="Position dans les cycles" icon="🧭" color="#60a5fa">
           {/* Année Personnelle */}
           <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -444,9 +833,9 @@ export default function TemporalTab({ data, psi }: Props) {
               </div>
             </div>
           </div>
-        </AccordionBlock>
-        {/* ── Résonance Périodique PSI (V4.9 Sprint E3) ── */}
-        {psi && (psi.resonanceLabel === 'forte' || psi.resonanceLabel === 'modérée') && (() => {
+        </AccordionBlock>}
+        {/* ── Résonance Périodique PSI (V4.9 Sprint E3) ── (P2-1 : masqué en mode Essentiel) */}
+        {viewMode === 'complet' && psi && (psi.resonanceLabel === 'forte' || psi.resonanceLabel === 'modérée') && (() => {
           const isFort = psi.resonanceLabel === 'forte';
           const psiColor = isFort ? '#f59e0b' : '#60a5fa';
           const top = psi.pastMatches[0];
@@ -500,6 +889,14 @@ export default function TemporalTab({ data, psi }: Props) {
                     {psi.pastMatches.map((m, i) => {
                       const ago = Math.round((Date.now() - new Date(m.date).getTime()) / 86400000);
                       const mColor = m.resonanceLabel === 'forte' ? '#f59e0b' : m.resonanceLabel === 'modérée' ? '#60a5fa' : P.textDim;
+                      // Raison contextuelle du match
+                      const cycleDays = [7, 14, 28, 30, 60, 90, 180, 365];
+                      const nearCycle = cycleDays.find(c => Math.abs(ago - c) <= 2);
+                      const matchReason = nearCycle
+                        ? `cycle ~${nearCycle}j`
+                        : ago < 10 ? 'configuration récente'
+                        : ago % 30 < 3 ? 'cycle mensuel'
+                        : 'configuration cyclique';
                       return (
                         <div key={i} style={{
                           padding: '8px 10px', borderRadius: 7,
@@ -511,7 +908,7 @@ export default function TemporalTab({ data, psi }: Props) {
                               Il y a {ago} jour{ago > 1 ? 's' : ''}
                             </div>
                             <div style={{ fontSize: 10, color: P.textDim, marginTop: 1 }}>
-                              Distance : {m.distance.toFixed(2)} · {m.resonanceLabel}
+                              {distanceLabel(m.distance)} · {m.resonanceLabel} · {matchReason}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -546,7 +943,7 @@ export default function TemporalTab({ data, psi }: Props) {
                         Prochaine configuration similaire
                       </div>
                       <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                        Dans {inDays} jour{inDays > 1 ? 's' : ''} · distance {psi.nextOccurrence.distance.toFixed(2)}
+                        Dans {inDays} jour{inDays > 1 ? 's' : ''} · {distanceLabel(psi.nextOccurrence.distance)}
                       </div>
                     </div>
                   </div>
@@ -555,6 +952,16 @@ export default function TemporalTab({ data, psi }: Props) {
             </AccordionBlock>
           );
         })()}
+        {/* PSI empty state — quand pas de résonance significative (P2-1 : masqué en mode Essentiel) */}
+        {viewMode === 'complet' && (!psi || (psi.resonanceLabel !== 'forte' && psi.resonanceLabel !== 'modérée')) && (
+          <AccordionBlock title="Résonance Périodique" icon="🔄" color={P.textDim}>
+            <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.5, fontStyle: 'italic' }}>
+              {!psi
+                ? 'Données de résonance indisponibles — le moteur PSI nécessite un historique suffisant.'
+                : 'Aucune résonance significative détectée — cette configuration est peu commune dans ton cycle. Les patterns habituels ne s\'appliquent pas aujourd\'hui.'}
+            </div>
+          </AccordionBlock>
+        )}
 
       </Sec>
     </div>

@@ -221,18 +221,18 @@ function detectCycleMirrors(
         ? ` En ${transitCoincidences[0].year}, cette énergie a été amplifiée par ${TRANSIT_AGES.find(t => Math.abs(t.age - transitCoincidences[0].age) <= 1)?.name}.`
         : '';
       const pinnacleNote = hasPinnacleCoincidence
-        ? ` L'un de ces cycles a coïncidé avec une transition de Pinnacle — un double basculement.`
+        ? ` L'un de ces cycles a coïncidé avec un changement de grande phase de vie — un double basculement.`
         : '';
 
       patterns.push({
         type: 'cycle_mirror',
         title: `Cycle récurrent de ${pyFr}`,
-        narrative: `Ton Année Personnelle ${targetPY} (${pyFr}) est revenue ${occurrences.length} fois dans ta vie : ${yearsStr}.${transitNote}${pinnacleNote} Chaque fois, le même schéma de ${pyFr} s'est activé — et tu as probablement initié des actions similaires sans t'en rendre compte.${futureStr}`,
+        narrative: `Ton Année Personnelle ${targetPY} (${pyFr}) est revenue ${occurrences.length} fois dans ta vie : ${yearsStr}.${transitNote}${pinnacleNote} Chaque fois, le même schéma de ${pyFr} s'est activé — et tu as probablement initié des actions similaires sans t\'en rendre compte.${futureStr}`,
         insight: futureOcc
-          ? `Prépare-toi : ${futureOcc.year} réactivera cette énergie de ${pyFr}. Ce que tu as fait en ${occurrences[occurrences.length - 1].year} te donne un indice de ce qui t'attend.`
+          ? `Prépare-toi : ${futureOcc.year} réactivera cette énergie de ${pyFr}. Ce que tu as fait en ${occurrences[occurrences.length - 1].year} te donne un indice de ce qui t\'attend.`
           : `Tu es dans la phase de maturité de ce cycle. Les leçons de ${occurrences[0].year} et ${occurrences[1].year} sont maintenant intégrées.`,
         years: [...occurrences.map(o => o.year), ...(futureOcc ? [futureOcc.year] : [])],
-        systems: ['Année Personnelle', 'Cycle 9 ans', ...(isTransitAmplified ? ['Transit universel'] : []), ...(hasPinnacleCoincidence ? ['Transition Pinnacle'] : [])],
+        systems: ['Année Personnelle', 'Cycle 9 ans', ...(isTransitAmplified ? ['Transit universel'] : []), ...(hasPinnacleCoincidence ? ['Changement de phase'] : [])],
         // V4.0: Transit+Pinnacle = flippant, un seul = fort
         intensity: isTransitAmplified && hasPinnacleCoincidence ? 'flippant' : 'fort',
         predictive: !!futureOcc,
@@ -247,19 +247,40 @@ function detectCycleMirrors(
       }).filter(Boolean) as { closureYear: number; launchYear: number; age: number }[];
 
       // Portails 9→1 qui coïncident avec un transit
+      // V5.2: Variantes de formulation pour éviter la répétition quand plusieurs portails existent
+      const PORTAL_NARRATIVES = [
+        (p: { closureYear: number; launchYear: number; age: number }, tr: { name: string }) =>
+          `En ${p.closureYear}-${p.launchYear} (${p.age}-${p.age + 1} ans), un portail 9→1 s'est ouvert en même temps que ton ${tr.name}. Ce n'est pas un hasard : tu as probablement vécu une transformation profonde — fin d'un chapitre + début radical d'un autre.`,
+        (p: { closureYear: number; launchYear: number; age: number }, tr: { name: string }) =>
+          `Vers ${p.age}-${p.age + 1} ans (${p.closureYear}-${p.launchYear}), la fin d'un grand cycle intérieur a coïncidé avec ton ${tr.name}. Un ancien toi s'est effacé pour laisser place à une version plus alignée — cette mutation t'a probablement surpris par sa force.`,
+        (p: { closureYear: number; launchYear: number; age: number }, tr: { name: string }) =>
+          `${p.closureYear}-${p.launchYear} (${p.age}-${p.age + 1} ans) : ton ${tr.name} a percuté une année de fermeture karmique. Ce qui restait de l'ancien cycle a été brûlé — le terrain s'est vidé pour accueillir quelque chose de neuf.`,
+      ];
+      const PORTAL_INSIGHTS = [
+        (p: { launchYear: number }, tr: { name: string }) =>
+          `Ce portail ${tr.name} × PY 9→1 est l'un des plus puissants de ta vie. Ce que tu as lancé en ${p.launchYear} porte encore ses fruits aujourd'hui.`,
+        (p: { launchYear: number }, tr: { name: string }) =>
+          `La graine plantée en ${p.launchYear} après ce ${tr.name} continue de pousser. Les effets de ce portail se mesurent en décennies, pas en mois.`,
+        (p: { launchYear: number }, tr: { name: string }) =>
+          `Ce ${tr.name} a agi comme un catalyseur. Les décisions prises autour de ${p.launchYear} ont redéfini ta trajectoire — leur impact est encore actif aujourd'hui.`,
+      ];
+      let portalIdx = 0;
       py1After.forEach(portal => {
         const transit = TRANSIT_AGES.find(t => Math.abs(t.age - portal.age) <= 2 && t.force >= 2);
         if (transit) {
+          const ni = portalIdx % PORTAL_NARRATIVES.length;
+          const ii = portalIdx % PORTAL_INSIGHTS.length;
           patterns.push({
             type: 'cycle_mirror',
             title: 'Portail de Renaissance',
-            narrative: `En ${portal.closureYear}-${portal.launchYear} (${portal.age}-${portal.age + 1} ans), un portail 9→1 s'est ouvert en même temps que ton ${transit.name}. Ce n'est pas un hasard : tu as probablement vécu une transformation profonde — fin d'un chapitre + début radical d'un autre.`,
-            insight: `Ce portail ${transit.name} × PY 9→1 est l'un des plus puissants de ta vie. Ce que tu as lancé en ${portal.launchYear} porte encore ses fruits aujourd'hui.`,
+            narrative: PORTAL_NARRATIVES[ni](portal, transit),
+            insight: PORTAL_INSIGHTS[ii](portal, transit),
             years: [portal.closureYear, portal.launchYear],
             systems: ['PY 9→1', transit.name, 'Portail karmique'],
             intensity: 'flippant',
             predictive: false,
           });
+          portalIdx++;
         }
       });
     }
@@ -326,7 +347,7 @@ function detectKarmicEchoes(
         activations.push({
           year: birthYear + p.startAge,
           age: p.startAge,
-          trigger: `Pinnacle ${idx + 1} = Leçon ${kl.num}`,
+          trigger: `Phase de vie ${idx + 1} = Leçon ${kl.num}`,
           force: 3,
         });
       }
@@ -349,7 +370,7 @@ function detectKarmicEchoes(
     }
 
     const narrative = activations.length >= 3
-      ? `Ta leçon karmique ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t'a rendu plus fort sur exactement ce point.`
+      ? `Ta leçon karmique ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t\'a rendu plus fort sur exactement ce point.`
       : `Ta leçon karmique ${kl.num} (${kl.info.k}) a été testée de manière intense en ${strongest.year} (${strongest.age} ans) via ${strongest.trigger}. Ce n'est pas une coïncidence : c'est le moment où tu as été confronté à ce que tu évitais le plus.`;
 
     patterns.push({
@@ -392,11 +413,11 @@ function detectPinnaclePYResonance(
   if (currentPY.v === active.number) {
     patterns.push({
       type: 'pinnacle_py_resonance',
-      title: 'Double résonance Pinnacle×Année',
-      narrative: `Ton Pinnacle actif (${active.number}) et ton Année Personnelle (${currentPY.v}) sont identiques. C'est une amplification structurelle : l'énergie de ${getNumberInfo(active.number).k} est doublée. Tout ce que tu fais cette année a un impact disproportionné sur cette phase de vie entière.`,
+      title: 'Double résonance Phase de vie × Année',
+      narrative: `Ta phase de vie actuelle (${active.number}) et ton Année Personnelle (${currentPY.v}) sont identiques. C'est une amplification structurelle : l'énergie de ${getNumberInfo(active.number).k} est doublée. Tout ce que tu fais cette année a un impact disproportionné sur cette phase de vie entière.`,
       insight: `Ne gaspille pas cette année. Chaque initiative dans le domaine de ${getNumberInfo(active.number).k.toLowerCase()} est multipliée.`,
       years: [birthYear + currentAge],
-      systems: ['Pinnacle actif', 'Année Personnelle'],
+      systems: ['Phase de vie', 'Année Personnelle'],
       // V3.1: fort au lieu de flippant — prob 1/9=11% annuel = structurel pas rare (audit GPT)
       intensity: 'fort',
       predictive: false,
@@ -427,13 +448,13 @@ function detectPinnaclePYResonance(
 
     patterns.push({
       type: 'pinnacle_py_resonance',
-      title: 'Tension Pinnacle vs Année',
-      narrative: `Ton Pinnacle ${active.number} (${pinnInfo.k}) est en tension avec ton Année ${currentPY.v} (${pyInfo.k}). L'un te pousse vers ${pinnInfo.k.toLowerCase()}, l'autre vers ${pyInfo.k.toLowerCase()}. Cette friction n'est pas un problème — c'est le moteur de ta croissance cette année.`,
+      title: 'Tension Phase de vie vs Année',
+      narrative: `Ta phase de vie ${active.number} (${pinnInfo.k}) est en tension avec ton Année ${currentPY.v} (${pyInfo.k}). L'une te pousse vers ${pinnInfo.k.toLowerCase()}, l'autre vers ${pyInfo.k.toLowerCase()}. Cette friction n'est pas un problème — c'est le moteur de ta croissance cette année.`,
       insight: resolveYear
         ? `Cette tension se dissipe en ${resolveYear}. D'ici là, utilise-la : les meilleures décisions naissent de l'inconfort.`
         : `Accepte la dualité. Tu n'as pas à choisir entre ${pinnInfo.k.toLowerCase()} et ${pyInfo.k.toLowerCase()} — tu dois les fusionner.`,
       years: [birthYear + currentAge, ...(resolveYear ? [resolveYear] : [])],
-      systems: ['Pinnacle actif', 'Année Personnelle', 'Tension productive'],
+      systems: ['Phase de vie', 'Année Personnelle', 'Tension productive'],
       intensity: 'fort',
       predictive: !!resolveYear,
     });
@@ -454,13 +475,13 @@ function detectPinnaclePYResonance(
     if (ratio >= 3) {
       patterns.push({
         type: 'pinnacle_py_resonance',
-        title: `Pinnacle en ${balance} dominante`,
-        narrative: `Depuis le début de ton Pinnacle ${active.number}, tu as vécu ${harmonyYears} année${harmonyYears > 1 ? 's' : ''} en harmonie et ${tensionYears} en tension avec son énergie. Ton cycle est dominé par ${balance === 'harmonie' ? 'l\'alignement — tu es dans ton élément' : 'la friction — mais c\'est cette friction qui t\'a fait grandir le plus vite'}.`,
+        title: `Phase de vie en ${balance} dominante`,
+        narrative: `Depuis le début de ta phase de vie ${active.number}, tu as vécu ${harmonyYears} année${harmonyYears > 1 ? 's' : ''} en harmonie et ${tensionYears} en tension avec son énergie. Ton cycle est dominé par ${balance === 'harmonie' ? 'l\'alignement — tu es dans ton élément' : 'la friction — mais c\'est cette friction qui t\'a fait grandir le plus vite'}.`,
         insight: balance === 'harmonie'
           ? `Tu es naturellement aligné avec cette phase de vie. Accélère.`
           : `La tension est ton professeur. Les années de friction ont produit tes plus grandes avancées.`,
         years: [],
-        systems: ['Pinnacle actif', 'Historique PY', 'Balance cyclique'],
+        systems: ['Phase de vie', 'Historique PY', 'Balance cyclique'],
         intensity: 'notable',
         predictive: false,
       });
@@ -532,7 +553,7 @@ function detectElementConvergence(
   if (activeIdx >= 0) {
     const pinnElem = PY_ELEMENT[num.pinnacles[activeIdx].v];
     if (pinnElem && elementVotes[pinnElem]) {
-      elementVotes[pinnElem].push(`Pinnacle ${num.pinnacles[activeIdx].v} (${pinnElem})`);
+      elementVotes[pinnElem].push(`Phase de vie ${num.pinnacles[activeIdx].v} (${pinnElem})`);
     }
   }
 
@@ -623,14 +644,14 @@ function detectLifeRhythm(
       evidence.push(`Intervalle moyen entre ruptures : ${avgChangeInterval} ans`);
     } else {
       archetype = 'L\'Explorateur Perpétuel';
-      description = `Ta vie est un mouvement constant. Tu ne fuis pas — tu explores. Chaque ${avgChangeInterval} ans environ, tu changes de direction, et chaque virage t'a mené plus loin que le précédent.`;
+      description = `Ta vie est un mouvement constant. Tu ne fuis pas — tu explores. Chaque ${avgChangeInterval} ans environ, tu changes de direction, et chaque virage t\'a mené plus loin que le précédent.`;
       evidence.push(`${changeYears.length} virages majeurs détectés`);
     }
   } else if (topEnergies[0] === 'structure' || topEnergies[0] === 'build') {
     if (hasMasterPinnacle) {
       archetype = 'L\'Architecte Visionnaire';
       description = `Tu bâtis lentement mais à grande échelle. Tes constructions ne sont pas éphémères — elles sont conçues pour durer et pour servir quelque chose de plus grand que toi.`;
-      evidence.push(`Dominance de structure + Pinnacle maître : vision long terme`);
+      evidence.push(`Dominance de structure + phase de vie maître : vision long terme`);
     } else {
       archetype = 'Le Stratège Patient';
       description = `Tu avances comme un joueur d'échecs : chaque mouvement est calculé. Les résultats arrivent plus tard que chez les autres, mais ils durent plus longtemps.`;
@@ -650,7 +671,7 @@ function detectLifeRhythm(
     evidence.push(`${energyCounts['create'] || 0} années créatives détectées`);
   } else {
     archetype = 'Le Transformateur';
-    description = `Ta vie ne suit pas un schéma linéaire — elle se transforme par phases. Chaque grande transition t'a révélé une facette de toi que tu ne soupçonnais pas.`;
+    description = `Ta vie ne suit pas un schéma linéaire — elle se transforme par phases. Chaque grande transition t\'a révélé une facette de toi que tu ne soupçonnais pas.`;
     evidence.push(`Profil multi-facettes sans dominance unique`);
   }
 
@@ -714,7 +735,7 @@ function detectPredictiveConvergences(
     if (pinnacleTransition) {
       const nextPIdx = pinnacles.indexOf(pinnacleTransition) + 1;
       const nextP = pinnacles[nextPIdx];
-      signals.push(`Transition Pinnacle ${pinnacleTransition.number}→${nextP?.number || '?'}`);
+      signals.push(`Changement de phase ${pinnacleTransition.number}→${nextP?.number || '?'}`);
       totalRarity += 5;
     }
 
@@ -1166,7 +1187,7 @@ export function detectPatterns(
   bd: string,
   today?: string,
 ): PatternDetectionResult {
-  const t = today || new Date().toISOString().slice(0, 10);
+  const t = today || (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
   const currentAge = getAge(bd, t);
   const pinnacles = buildPinnacles(num, bd);
 

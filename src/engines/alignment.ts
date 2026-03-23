@@ -61,8 +61,17 @@ export interface ContradictionPattern {
   };
 }
 
+/** Label/action/uxText modulés selon l'intensité réelle du signal */
+export interface AlignmentDisplay {
+  label: string;
+  action: string;
+  uxText: string;
+}
+
 export interface AlignmentResult {
   state: AlignmentState;
+  /** Versions modulées par intensité — TOUJOURS utiliser display.* pour l'affichage */
+  display: AlignmentDisplay;
   fondPolarity: AlignmentPolarity;
   tendancePolarity: AlignmentPolarity;
   signalPolarity: AlignmentPolarity;
@@ -89,7 +98,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Alignement total — la voie est libre.',
     color: 'cyan',
     colorHex: '#00CED1',
-    action: 'Foncez, matérialisez.',
+    action: 'Fonce, matérialise.',
     icon: '✦',
   },
   effort_recompense: {
@@ -99,7 +108,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Vent porteur sur terrain exigeant.',
     color: 'orange',
     colorHex: '#FFA500',
-    action: 'Agissez avec résilience.',
+    action: 'Agis avec résilience.',
     icon: '🔥',
   },
   illusion_fluidite: {
@@ -129,7 +138,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Dissonance brève dans un ciel clair.',
     color: 'light-green',
     colorHex: '#90EE90',
-    action: 'Lâchez prise aujourd\'hui, demain sera meilleur.',
+    action: 'Lâche prise aujourd\'hui, demain sera meilleur.',
     icon: '🍃',
   },
   percee_lumineuse: {
@@ -139,8 +148,8 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Éclair de génie dans un climat lourd.',
     color: 'electric-blue',
     colorHex: '#0080FF',
-    action: 'Profitez de cette ouverture éclair.',
-    icon: '⚡',
+    action: 'Profite de cette ouverture éclair.',
+    icon: '🌟',
   },
   oasis_ephemere: {
     name: 'oasis_ephemere',
@@ -149,7 +158,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Brève accalmie au cœur de la tempête.',
     color: 'magenta',
     colorHex: '#FF00FF',
-    action: 'Prenez l\'énergie, ne signez rien à long terme.',
+    action: 'Prends l\'énergie, ne signez rien à long terme.',
     icon: '🌺',
   },
   tension_de_surface: {
@@ -159,7 +168,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Contre-temps sur une météo mensuelle favorable.',
     color: 'orange-grey',
     colorHex: '#CC8844',
-    action: 'Laissez passer l\'orage de la journée.',
+    action: 'Laisse passer l\'orage de la journée.',
     icon: '🌦',
   },
 };
@@ -333,8 +342,12 @@ export function calcAlignment(input: AlignmentInput): AlignmentResult {
     connector,
   };
 
+  // Modulation intensité : tempérer les labels quand le score ne justifie pas l'extrême
+  const display = modulateDisplay(state, score);
+
   return {
     state,
+    display,
     fondPolarity,
     tendancePolarity,
     signalPolarity,
@@ -342,6 +355,41 @@ export function calcAlignment(input: AlignmentInput): AlignmentResult {
     patternText,
     synthesisPhraseComponents,
   };
+}
+
+// ──────────────────────────────────────────────
+// MODULATION INTENSITÉ
+// Tempère labels/actions quand le score ne justifie pas le message extrême
+// ──────────────────────────────────────────────
+
+function modulateDisplay(state: AlignmentState, score: number): AlignmentDisplay {
+  const isModeratePositive = score >= 50 && score <= 65;
+  const isModerateNegative = score >= 35 && score < 50;
+
+  if (state.name === 'autoroute_cosmique' && isModeratePositive) {
+    return {
+      label: 'Alignement total',
+      action: 'Avance avec confiance — le terrain est porteur, même si l\'intensité reste modérée.',
+      uxText: 'Tous tes cycles sont alignés, mais l\'énergie du jour reste calme — journée routine sur terrain favorable.',
+    };
+  }
+  if (state.name === 'percee_lumineuse' && isModeratePositive) {
+    return {
+      label: 'Éclaircie possible',
+      action: 'Reste attentif aux opportunités — le climat est lourd mais la porte s\'entrouvre.',
+      uxText: 'Un signal positif dans un climat de tendance lourde — garde les yeux ouverts sans forcer.',
+    };
+  }
+  if (state.name === 'tempete_cosmique' && isModerateNegative) {
+    return {
+      label: 'Résistance diffuse',
+      action: 'Journée d\'observation — pas de tempête, mais un frein général à prendre en compte.',
+      uxText: 'Les cycles ne sont pas alignés en ta faveur, mais rien de violent — patience et recul.',
+    };
+  }
+
+  // Pas de modulation → valeurs originales
+  return { label: state.label, action: state.action, uxText: state.uxText };
 }
 
 // ──────────────────────────────────────────────

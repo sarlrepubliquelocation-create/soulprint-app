@@ -1,0 +1,53 @@
+name: Kaironaute CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npm run typecheck
+
+      - name: Run tests (structural + scoring + simulation)
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Check bundle size
+        run: |
+          echo "=== Bundle Size Report ==="
+          du -sh dist/
+          echo "--- JS chunks ---"
+          ls -lhS dist/assets/*.js | awk '{print $5, $9}'
+          echo "--- CSS ---"
+          ls -lhS dist/assets/*.css | awk '{print $5, $9}'
+          TOTAL=$(du -sb dist/assets/ | cut -f1)
+          echo "Total assets: $(echo "scale=1; $TOTAL/1024/1024" | bc) MB"
+          # Fail if main bundle > 800KB (uncompressed)
+          MAIN_SIZE=$(stat -c%s dist/assets/index-*.js)
+          if [ "$MAIN_SIZE" -gt 819200 ]; then
+            echo "⚠️  Main bundle ($MAIN_SIZE bytes) exceeds 800KB limit"
+            exit 1
+          fi
+          echo "✅ Main bundle OK ($MAIN_SIZE bytes < 800KB)"
