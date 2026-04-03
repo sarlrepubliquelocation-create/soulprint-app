@@ -101,12 +101,12 @@ export const DASHA_NARRATIVES: Record<string, string> = {
   Ketu:    "Une période où l'ancien se défait. Ce qui n'est plus aligné se dissout sans bruit. Les décisions gagnantes sont celles qui allègent.",
   Vénus:   "Cycle d'attraction et de magnétisme. Les relations et la créativité deviennent tes leviers. La beauté ouvre des portes stratégiques.",
   Soleil:  "Temps d'affirmation. Tu es appelé à occuper ta place, clairement. Les décisions doivent refléter ton autorité intérieure.",
-  Lune:    "Cycle de sensibilité accrue. Ta intuition devient un instrument stratégique. Avance en respectant tes marées intérieures.",
+  Lune:    "Cycle de sensibilité accrue. Ton intuition devient un instrument stratégique. Avance en respectant tes marées intérieures.",
   Mars:    "Période d'action directe. Les décisions courageuses portent plus que les hésitations. L'initiative compte davantage que la prudence.",
   Rahu:    "Cycle d'ambition et de disruption. Tu sors des chemins connus. Les décisions audacieuses peuvent redéfinir ta trajectoire.",
   Jupiter: "Temps d'expansion structurée. Les opportunités s'ouvrent si tu penses long terme. Investis dans ce qui élargit ta vision.",
   Saturne: "Cycle de consolidation profonde. Les décisions lentes mais solides construisent l'avenir. La patience devient stratégie.",
-  Mercure: "Période d'apprentissage et d'adaptation rapide. Ta intelligence stratégique est ton meilleur atout. Les décisions gagnent à être souples.",
+  Mercure: "Période d'apprentissage et d'adaptation rapide. Ton intelligence stratégique est ton meilleur atout. Les décisions gagnent à être souples.",
 };
 
 /**
@@ -129,7 +129,7 @@ export const PRATYANTAR_NARRATIVES: Record<string, string> = {
   Ketu:    "Cette semaine, coupe ce qui ralentit ta trajectoire : l'allègement est ton levier stratégique.",
   Vénus:   "Les alliances et l'attractivité deviennent ton accélérateur : avance par relation plutôt que par force.",
   Soleil:  "Clarifie ta position et assume-la : ta décision gagne à être visible.",
-  Lune:    "Ta intuition est plus rapide que tes tableaux Excel : écoute-la avant de trancher.",
+  Lune:    "Ton intuition est plus rapide que tes tableaux Excel : écoute-la avant de trancher.",
   Mars:    "Passe à l'action sans suranalyser : l'élan crée plus que la prudence.",
   Rahu:    "Ose un pivot ambitieux : le risque maîtrisé peut redéfinir ton cap.",
   Jupiter: "Investis dans une vision plus large : cette semaine favorise les décisions long terme.",
@@ -300,11 +300,9 @@ export function calcCurrentDasha(
   }
 
   // Guard : durée aberrante (< 1 jour = erreur de calcul)
-  console.assert(
-    pratyanEndMs - pratyanStartMs >= 86400000,
-    '[Pratyantar] Durée < 1 jour aberrante:',
-    DASHA_SEQUENCE[pratyanIdx]
-  );
+  if (pratyanEndMs - pratyanStartMs < 86400000) {
+    console.error('[Pratyantar] Durée < 1 jour aberrante:', DASHA_SEQUENCE[pratyanIdx]);
+  }
 
   const pratyantar = buildLevelNoTransition(
     DASHA_SEQUENCE[pratyanIdx], pratyanStartMs, pratyanEndMs, todayMs
@@ -361,11 +359,14 @@ export function calcDashaScore(
     mahaQ !== 0 && antarQ !== 0 && mahaSign === antarSign ? mahaSign * 2 : 0;
 
   // ── Cap ±9 (4+2+1+2 = 9 exact → zéro clipping) ──────────────────────────
-  const raw   = mahaScore + antarScore + pratyanScore + synergyBonus;
-  const total = Math.max(-9, Math.min(9, raw));
+  let raw   = mahaScore + antarScore + pratyanScore + synergyBonus;
+  let total = Math.max(-9, Math.min(9, raw));
 
   // ── Guard cap ────────────────────────────────────────────────────────────
-  console.assert(Math.abs(total) <= 9.1, '[DashaScore] Cap ±9 percé:', total);
+  if (Math.abs(total) > 9.0) {
+    console.error('[DashaScore] Cap ±9 dépassé:', total);
+    total = Math.max(-9, Math.min(9, total));
+  }
 
   // ── Tone narratif (Mahadasha) ────────────────────────────────────────────
   const tone: DashaTone = DASHA_TONE[mahaLord] ?? 'neutral';
@@ -385,7 +386,7 @@ export function calcDashaScore(
   }
   if (dasha.maha.isTransition) {
     const sandhiKey  = `${mahaLord}${dasha.nextMaha.lord}`;
-    const sandhiText = SANDHI_NARRATIVES[sandhiKey] ?? 'Période de bascule karmique — décisions importantes : attendre.';
+    const sandhiText = SANDHI_NARRATIVES[sandhiKey] ?? 'Période de transition de vie — décisions importantes : attendre.';
     breakdown.push(`⚠ Dasha Sandhi : ${sandhiText}`);
   }
   if (mahaLord === 'Rahu' && options?.transitLord === 'Rahu') {

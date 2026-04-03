@@ -20,6 +20,7 @@
 //   - Normalisation somme absolue constante (pas d'explosion de plage)
 //   - Shadow testing: on calcule toujours les deux scores en background
 
+import { sto } from './storage';
 import type { DayFeedback } from './validation-tracker';
 
 // ═══ TYPES ═══
@@ -52,7 +53,7 @@ const MIN_VARIANCE = 0.16;   // σ² minimum (σ < 0.4 → freeze)
 // Systèmes trackés dans le breakdown
 const TRACKED_SYSTEMS = [
   'BaZi', '10 Gods', 'Changsheng', 'Shen Sha',
-  'Numérologie', 'I Ching', 'Lune', 'Mercure',
+  'Numérologie', 'Yi King', 'Lune', 'Mercure',
   'Transit Lunaire', 'Planètes', 'Astrologie',
 ] as const;
 
@@ -100,10 +101,10 @@ interface SystemGroup {
 }
 
 const SYSTEM_GROUPS: SystemGroup[] = [
-  { key: 'terrestre', systems: ['BaZi', '10 Gods', 'Changsheng', 'Shen Sha'], archetypeKey: 'imperial' },
+  { key: 'terrestre', systems: ['BaZi', '10 Archétypes', 'Changsheng', 'Étoiles symboliques'], archetypeKey: 'imperial' },
   { key: 'celeste', systems: ['Lune', 'Mercure', 'Transit Lunaire', 'Astrologie', 'Planètes'], archetypeKey: 'selenite' },
   { key: 'numerique', systems: ['Numérologie'], archetypeKey: 'architecte' },
-  { key: 'fluide', systems: ['I Ching'], archetypeKey: 'oracle' },
+  { key: 'fluide', systems: ['Yi King'], archetypeKey: 'oracle' },
 ];
 
 // ═══ CORE: CALCUL DES POIDS PERSONNALISÉS ═══
@@ -322,14 +323,13 @@ const BREAKDOWN_HISTORY_KEY = 'kn_breakdown_history';
 
 export function savePersonalWeights(weights: PersonalWeights): void {
   try {
-    localStorage.setItem(PERSO_WEIGHTS_KEY, JSON.stringify(weights));
+    sto.set(PERSO_WEIGHTS_KEY, weights);
   } catch { /* */ }
 }
 
 export function loadPersonalWeights(): PersonalWeights | null {
   try {
-    const raw = localStorage.getItem(PERSO_WEIGHTS_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return sto.get<PersonalWeights>(PERSO_WEIGHTS_KEY) ?? null;
   } catch { return null; }
 }
 
@@ -339,8 +339,7 @@ export function saveBreakdownForDate(
   breakdown: Array<{ system: string; points: number }>
 ): void {
   try {
-    const raw = localStorage.getItem(BREAKDOWN_HISTORY_KEY);
-    const history: Array<{ date: string; breakdown: Array<{ system: string; points: number }> }> = raw ? JSON.parse(raw) : [];
+    const history: Array<{ date: string; breakdown: Array<{ system: string; points: number }> }> = sto.get<Array<{ date: string; breakdown: Array<{ system: string; points: number }> }>>(BREAKDOWN_HISTORY_KEY) ?? [];
 
     // Upsert
     const idx = history.findIndex(h => h.date === date);
@@ -350,14 +349,13 @@ export function saveBreakdownForDate(
 
     // Garder 90 jours max
     const trimmed = history.slice(-90);
-    localStorage.setItem(BREAKDOWN_HISTORY_KEY, JSON.stringify(trimmed));
+    sto.set(BREAKDOWN_HISTORY_KEY, trimmed);
   } catch { /* */ }
 }
 
 export function loadBreakdownHistory(): Array<{ date: string; breakdown: Array<{ system: string; points: number }> }> {
   try {
-    const raw = localStorage.getItem(BREAKDOWN_HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return sto.get<Array<{ date: string; breakdown: Array<{ system: string; points: number }> }>>(BREAKDOWN_HISTORY_KEY) ?? [];
   } catch { return []; }
 }
 
@@ -375,11 +373,11 @@ export function getOnboardingMessage(feedbackCount: number, weights: PersonalWei
   }
 
   if (feedbackCount >= 15 && feedbackCount < 20 && weights?.blendPercent === 25) {
-    return `🌟 Calibration en cours. L'algorithme commence à s'ajuster à ta signature énergétique.`;
+    return `🌟 Calibration en cours. Kaironaute commence à s'ajuster à ton profil.`;
   }
 
   if (feedbackCount === 20) {
-    return `🧬 Signature décodée ! L'algorithme s'ajuste à ta fréquence personnelle (50% actif).`;
+    return `🧬 Ton profil prend forme ! Kaironaute affine ses prédictions à partir de tes retours.`;
   }
 
   if (feedbackCount === 25 && weights?.blendPercent === 100) {
@@ -408,7 +406,7 @@ export function getFlatlineAlert(feedbacks: DayFeedback[]): string | null {
   const variance = recent.reduce((a, f) => a + Math.pow(f.userScore! - mean, 2), 0) / recent.length;
 
   if (variance < MIN_VARIANCE) {
-    return `Kaironaute perçoit une énergie très linéaire ces derniers jours. Rappelle-toi : le score 3⭐ est la norme, réserve le 5⭐ pour les journées cosmiques absolues afin de garder l'algorithme affûté.`;
+    return `Kaironaute perçoit une énergie très stable ces derniers jours. Rappelle-toi : le 3⭐ est la norme, réserve le 5⭐ pour les journées vraiment exceptionnelles afin de garder les prédictions précises.`;
   }
 
   return null;

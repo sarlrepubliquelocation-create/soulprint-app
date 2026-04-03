@@ -18,6 +18,9 @@
 // L'intégration se fera en Phase 2 quand Jérôme fournira les fichiers.
 // ============================================================================
 
+import { COSMIC_THRESHOLD } from './convergence';
+import { calcAge } from './date-utils';
+
 // ─────────────────────────────────────────────
 // TYPES — DÉPENDANCES EXTERNES (à connecter)
 // ─────────────────────────────────────────────
@@ -1026,7 +1029,7 @@ export const FORECAST_NARRATIVES: Record<string, { narratif: string; conseil: st
   },
   'mixte': {
     narratif: 'Les prochaines semaines sont contrastées. Il y a des jours ordinaires, mais aussi une ou deux fenêtres exceptionnelles.',
-    conseil: 'Identifie les jours Gold et concentre ton action sur ces moments.'
+    conseil: 'Identifie les jours d\'Or et concentre ton action sur ces moments.'
   },
   'transition': {
     narratif: 'Tu approches d\'un portail temporel important — un changement d\'année personnelle ou de grande phase de vie est proche.',
@@ -1144,13 +1147,13 @@ export const WOW_MOMENTS: Record<string, {
   },
   'portail_puissance': {
     titre: 'Portail de Puissance',
-    signification: 'Jour Cosmique (≥90%) qui tombe le jour d\'une éclipse crée un portail où le karma et l\'énergie du jour se rencontrent.',
-    conseil: 'Observe ce qui se révèle — les décisions prises aujourd\'hui ont un poids karmique exceptionnel.'
+    signification: 'Convergence rare (≥86) qui tombe le jour d\'une éclipse crée un portail où le karma et l\'énergie du jour se rencontrent.',
+    conseil: 'Observe ce qui se révèle — les décisions prises aujourd\'hui ont un poids de vie exceptionnel.'
   },
   'grand_depart': {
     titre: 'Le Grand Départ',
     signification: 'Mercure direct après rétrograde + Lune Nouvelle + Année personnelle 1 mois 1 crée un triple nouveau départ cosmique.',
-    conseil: 'Lance ce que tu repousses depuis longtemps — le timing est exceptionnellement favorable.'
+    conseil: 'Lance ce que tu repousses depuis longtemps — le moment est exceptionnellement favorable.'
   },
   'super_convergence': {
     titre: 'Super Convergence Historique',
@@ -1164,7 +1167,7 @@ export const WOW_MOMENTS: Record<string, {
   },
   'appel_destin': {
     titre: 'L\'Appel du Destin',
-    signification: 'Nœud Nord exact (conjonction) + Jupiter transit favorable crée un appel karmique clair.',
+    signification: 'Nœud Nord exact (conjonction) + Jupiter transit favorable crée un appel de vie clair.',
     conseil: 'Écoute les opportunités qui arrivent aujourd\'hui — elles sont souvent liées à ta mission d\'âme.'
   },
   'oeil_cyclone': {
@@ -1174,7 +1177,7 @@ export const WOW_MOMENTS: Record<string, {
   },
   'vague_or': {
     titre: 'La Vague d\'Or',
-    signification: '3 jours Gold consécutifs est une série extrêmement rare qui indique un momentum exceptionnel.',
+    signification: '3 jours d\'Or consécutifs est une série extrêmement rare qui indique un momentum exceptionnel.',
     conseil: 'Surfe la vague — les décisions prises pendant ces 3 jours ont un effet multiplicateur.'
   }
 };
@@ -1221,6 +1224,7 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 function stdDev(arr: number[]): number {
+  if (!arr.length) return 0;
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
   const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length;
   return Math.sqrt(variance);
@@ -1395,7 +1399,7 @@ export function findNextPinnacleTransition(
   birthDate: Date,
   pinnacles: PinnacleInfo[]
 ): NextPinnacleTransition | null {
-  const age = today.getFullYear() - birthDate.getFullYear();
+  const age = calcAge(today, birthDate);
 
   for (let i = 0; i < pinnacles.length; i++) {
     if (pinnacles[i].startAge > age) {
@@ -1444,7 +1448,7 @@ export function calcForecast(
   const s30 = forward(30);
   const s90 = forward(90);
 
-  const avg = (a: ForecastDay[]) => a.reduce((t, x) => t + x.score, 0) / a.length;
+  const avg = (a: ForecastDay[]) => a.length ? a.reduce((t, x) => t + x.score, 0) / a.length : 0;
 
   // Action Windows (clusters ≥72) — tolérance 1 jour de gap
   const windows: ActionWindow[] = [];
@@ -1487,7 +1491,7 @@ export function calcForecast(
   // Événements majeurs dans les 90j
   const majorEvents: ForecastEvent[] = [];
   for (const d of s90) {
-    if (d.score >= 86) {
+    if (d.score >= COSMIC_THRESHOLD) {
       majorEvents.push({
         type: 'Cosmique',
         date: d.date,
@@ -1507,7 +1511,7 @@ export function calcForecast(
     next30: {
       avg: avg(s30),
       goldDays: s30.filter(x => x.score >= 80).length,
-      cosmiqueDays: s30.filter(x => x.score >= 86).length,
+      cosmiqueDays: s30.filter(x => x.score >= COSMIC_THRESHOLD).length,
       trend: avg(s30) > 50 ? 'favorable' : 'challenging'
     },
     next90: {
@@ -1539,7 +1543,7 @@ export function calcPastAnalysis(
   missingNumbers: number[],
   southNodeSign: string | null
 ): PastAnalysis {
-  const age = today.getFullYear() - birthDate.getFullYear();
+  const age = calcAge(today, birthDate);
 
   // Trouver le pinnacle courant
   const current = pinnacles.find(p => age >= p.startAge && age < p.endAge)
@@ -1623,7 +1627,7 @@ export function calcPresentContext(
   mercuryStatus: MercuryStatus,
   activeRetrogrades: PlanetaryRetro[]
 ): PresentContext {
-  const age = today.getFullYear() - birthDate.getFullYear();
+  const age = calcAge(today, birthDate);
 
   // Pinnacle courant
   const current = pinnacles.find(p => age >= p.startAge && age < p.endAge)
@@ -1654,7 +1658,7 @@ export function calcPresentContext(
   // Key message : priorité contextuelle
   let keyMessage = 'Cycle en cours.';
   if (position === 'late') {
-    keyMessage = 'Fin de Pinnacle : prépare la transition.';
+    keyMessage = 'Fin de phase de vie : prépare la transition.';
   } else if (activeRetrogrades.length > 0) {
     keyMessage = 'Rétrograde active : ralentir pour réajuster.';
   } else if (mercuryStatus.phase.includes('retro')) {
@@ -1809,8 +1813,8 @@ export function generateTemporalNarrative(
   if (builder) {
     try {
       // Derive signalLabel from score thresholds
-      const signalLabel = signalScore >= 90 ? 'Cosmique'
-        : signalScore >= 80 ? 'Gold'
+      const signalLabel = signalScore >= COSMIC_THRESHOLD ? 'Convergence rare'
+        : signalScore >= 80 ? 'Élan fort'
         : signalScore >= 65 ? 'Favorable'
         : signalScore >= 40 ? 'Routine'
         : signalScore >= 25 ? 'Prudence'

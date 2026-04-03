@@ -38,22 +38,25 @@ export const ZODIAC_ORDER: string[] = [
   'Sagittaire', 'Capricorne', 'Verseau', 'Poissons'
 ];
 
-// === MULTIPLICATEURS DOMAINE PAR MAISON ===
-// Mapping Maison → domaine Kaironaute + multiplicateur de score
-// Maisons 1-12 → 6 domaines uniquement (certains partagés)
+// === DOMAINES PAR MAISON ===
+// Mapping Maison → domaine Kaironaute (6 domaines, certains partagés)
+// Ronde #3 unanimité 3/3 : multiplicateurs neutralisés (tous → 1.0)
+// Les anciens coefficients 1.10-1.25 n'avaient aucun fondement doctrinal
+// (la profection traditionnelle active une maison sans pondération numérique)
+// Le champ mult est conservé à 1.0 pour compatibilité API (convergence-daily.ts)
 export const HOUSE_DOMAIN_MULTIPLIER: Record<number, { domain: string; mult: number }> = {
-  1:  { domain: 'Vitalité',    mult: 1.15 },
-  2:  { domain: 'Carrière',    mult: 1.10 },
-  3:  { domain: 'Social',      mult: 1.10 },
-  4:  { domain: 'Spirituel',   mult: 1.15 },
-  5:  { domain: 'Créativité',  mult: 1.20 },
-  6:  { domain: 'Vitalité',    mult: 1.10 },
-  7:  { domain: 'Amour',       mult: 1.25 },
-  8:  { domain: 'Spirituel',   mult: 1.15 },
-  9:  { domain: 'Créativité',  mult: 1.15 },
-  10: { domain: 'Carrière',    mult: 1.25 },
-  11: { domain: 'Social',      mult: 1.20 },
-  12: { domain: 'Spirituel',   mult: 1.20 }
+  1:  { domain: 'Vitalité',    mult: 1.0 },
+  2:  { domain: 'Carrière',    mult: 1.0 },
+  3:  { domain: 'Social',      mult: 1.0 },
+  4:  { domain: 'Spirituel',   mult: 1.0 },
+  5:  { domain: 'Créativité',  mult: 1.0 },
+  6:  { domain: 'Vitalité',    mult: 1.0 },
+  7:  { domain: 'Amour',       mult: 1.0 },
+  8:  { domain: 'Spirituel',   mult: 1.0 },
+  9:  { domain: 'Créativité',  mult: 1.0 },
+  10: { domain: 'Carrière',    mult: 1.0 },
+  11: { domain: 'Social',      mult: 1.0 },
+  12: { domain: 'Spirituel',   mult: 1.0 }
 };
 
 // === MAPPING LONGITUDE SOLAIRE → SIGNE ===
@@ -100,7 +103,9 @@ export function calcProfection(
   const baseSign = (!noTime && ascSign) ? ascSign : sunSign;
 
   // Signe actif : compter depuis le signe de base
-  const baseSignIdx   = Math.max(0, ZODIAC_ORDER.indexOf(baseSign));
+  const _rawIdx = ZODIAC_ORDER.indexOf(baseSign);
+  if (import.meta.env.DEV && _rawIdx < 0) console.warn('[Profections] baseSign invalide:', baseSign);
+  const baseSignIdx   = Math.max(0, _rawIdx);
   const activeSignIdx = (baseSignIdx + activeHouseIndex) % 12;
   const activeSign    = ZODIAC_ORDER[activeSignIdx];
 

@@ -1,3 +1,5 @@
+import { calcAge } from './date-utils';
+
 // ============================================================================
 // SOULPRINT ORACLE V4.3 — bazi.ts
 // BaZi Engine : Day Master, Éléments, Liu He, Shichen, 10 Gods (十神), 藏干
@@ -40,6 +42,7 @@ export interface EarthlyBranch {
   animal: string;
   element: Element;
   hours: string;
+  label?: string;  // For display (e.g., "Rat", "Tiger")
 }
 
 export interface DayPillar {
@@ -56,6 +59,14 @@ export interface DayMasterDailyResult {
   liuHeBonus: number;
   totalScore: number;
   interaction: { dynamique: string; conseil: string };
+  // Four Pillars (conditionally populated)
+  yearlyStem?: HeavenlyStem;
+  yearlyBranch?: EarthlyBranch;
+  monthlyStem?: HeavenlyStem;
+  monthlyBranch?: EarthlyBranch;
+  dailyBranch?: EarthlyBranch;
+  hourlyStem?: HeavenlyStem;
+  hourlyBranch?: EarthlyBranch;
 }
 
 export interface ShichenPeriod {
@@ -77,7 +88,7 @@ export interface ShichenBonus {
 
 export const HEAVENLY_STEMS: HeavenlyStem[] = [
   {
-    index: 0, chinese: '甲', pinyin: 'Jiǎ',
+    index: 0, chinese: '甲', pinyin: 'Jia',
     element: 'Bois', yinYang: 'Yang',
     archetype: 'Le Chêne Impérial',
     strength: 'Leadership visible, capacité à grandir rapidement et à dominer son environnement.',
@@ -85,7 +96,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ta force naturelle pour créer des structures durables, mais reste ouvert aux nouvelles racines.'
   },
   {
-    index: 1, chinese: '乙', pinyin: 'Yǐ',
+    index: 1, chinese: '乙', pinyin: 'Yi',
     element: 'Bois', yinYang: 'Yin',
     archetype: 'Le Bambou Flexible',
     strength: 'Adaptabilité stratégique, résilience face à la pression.',
@@ -93,7 +104,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ta flexibilité pour naviguer les crises, mais ancre-toi dans une vision à long terme.'
   },
   {
-    index: 2, chinese: '丙', pinyin: 'Bǐng',
+    index: 2, chinese: '丙', pinyin: 'Bing',
     element: 'Feu', yinYang: 'Yang',
     archetype: 'Le Soleil Rayonnant',
     strength: 'Charisme naturel, capacité à inspirer et à éclairer les autres.',
@@ -101,7 +112,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ton rayonnement pour motiver les équipes, mais protège ton énergie intérieure.'
   },
   {
-    index: 3, chinese: '丁', pinyin: 'Dīng',
+    index: 3, chinese: '丁', pinyin: 'Ding',
     element: 'Feu', yinYang: 'Yin',
     archetype: 'La Bougie Précise',
     strength: 'Clarté, précision, capacité à illuminer les détails.',
@@ -109,7 +120,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ta précision pour les opérations complexes, mais accepte que certaines choses restent dans l\'ombre.'
   },
   {
-    index: 4, chinese: '戊', pinyin: 'Wù',
+    index: 4, chinese: '戊', pinyin: 'Wu',
     element: 'Terre', yinYang: 'Yang',
     archetype: 'La Montagne Stable',
     strength: 'Stabilité, fiabilité, capacité à porter de lourdes charges.',
@@ -117,7 +128,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ta stabilité pour bâtir des empires durables, mais apprends à bouger quand le terrain tremble.'
   },
   {
-    index: 5, chinese: '己', pinyin: 'Jǐ',
+    index: 5, chinese: '己', pinyin: 'Ji',
     element: 'Terre', yinYang: 'Yin',
     archetype: 'Le Jardin Cultivé',
     strength: 'Capacité à cultiver, à faire grandir les talents et les projets.',
@@ -125,7 +136,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ton talent de cultivateur pour faire grandir les équipes, mais sache quand il faut arracher les mauvaises herbes.'
   },
   {
-    index: 6, chinese: '庚', pinyin: 'Gēng',
+    index: 6, chinese: '庚', pinyin: 'Geng',
     element: 'Métal', yinYang: 'Yang',
     archetype: 'L\'Épée Tranchante',
     strength: 'Décision rapide, clarté, capacité à trancher dans le vif.',
@@ -133,7 +144,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ton tranchant pour les décisions difficiles, mais tempère-le avec la sagesse.'
   },
   {
-    index: 7, chinese: '辛', pinyin: 'Xīn',
+    index: 7, chinese: '辛', pinyin: 'Xin',
     element: 'Métal', yinYang: 'Yin',
     archetype: 'Le Bijou Raffiné',
     strength: 'Raffinement, attention au détail, capacité à créer de la valeur perçue.',
@@ -141,7 +152,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ton raffinement pour créer des produits ou des marques premium, mais accepte que la perfection soit l\'ennemi du bon.'
   },
   {
-    index: 8, chinese: '壬', pinyin: 'Rén',
+    index: 8, chinese: '壬', pinyin: 'Ren',
     element: 'Eau', yinYang: 'Yang',
     archetype: 'L\'Océan Puissant',
     strength: 'Mouvement, profondeur, capacité à absorber et à transformer.',
@@ -149,7 +160,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     businessAdvice: 'Utilise ta puissance océanique pour porter de grands projets, mais maîtrise tes marées intérieures.'
   },
   {
-    index: 9, chinese: '癸', pinyin: 'Guǐ',
+    index: 9, chinese: '癸', pinyin: 'Gui',
     element: 'Eau', yinYang: 'Yin',
     archetype: 'La Rosée Subtile',
     strength: 'Intuition, subtilité, capacité à pénétrer les cœurs et les esprits.',
@@ -163,18 +174,18 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
 // ─────────────────────────────────────────────
 
 export const EARTHLY_BRANCHES: EarthlyBranch[] = [
-  { index: 0,  chinese: '子', pinyin: 'Zǐ',   animal: 'Rat',     element: 'Eau',   hours: '23h-01h' },
-  { index: 1,  chinese: '丑', pinyin: 'Chǒu',  animal: 'Bœuf',    element: 'Terre', hours: '01h-03h' },
-  { index: 2,  chinese: '寅', pinyin: 'Yín',   animal: 'Tigre',   element: 'Bois',  hours: '03h-05h' },
-  { index: 3,  chinese: '卯', pinyin: 'Mǎo',   animal: 'Lapin',   element: 'Bois',  hours: '05h-07h' },
-  { index: 4,  chinese: '辰', pinyin: 'Chén',  animal: 'Dragon',  element: 'Terre', hours: '07h-09h' },
-  { index: 5,  chinese: '巳', pinyin: 'Sì',    animal: 'Serpent',  element: 'Feu',   hours: '09h-11h' },
-  { index: 6,  chinese: '午', pinyin: 'Wǔ',    animal: 'Cheval',  element: 'Feu',   hours: '11h-13h' },
-  { index: 7,  chinese: '未', pinyin: 'Wèi',   animal: 'Chèvre',  element: 'Terre', hours: '13h-15h' },
-  { index: 8,  chinese: '申', pinyin: 'Shēn',  animal: 'Singe',   element: 'Métal', hours: '15h-17h' },
-  { index: 9,  chinese: '酉', pinyin: 'Yǒu',   animal: 'Coq',     element: 'Métal', hours: '17h-19h' },
-  { index: 10, chinese: '戌', pinyin: 'Xū',    animal: 'Chien',   element: 'Terre', hours: '19h-21h' },
-  { index: 11, chinese: '亥', pinyin: 'Hài',   animal: 'Cochon',  element: 'Eau',   hours: '21h-23h' }
+  { index: 0, chinese: '子', pinyin: 'Zi', animal: 'Rat', element: 'Eau', hours: '23h-01h', label: 'Rat' },
+  { index: 1, chinese: '丑', pinyin: 'Chou', animal: 'Bœuf', element: 'Terre', hours: '01h-03h', label: 'Bœuf' },
+  { index: 2, chinese: '寅', pinyin: 'Yin', animal: 'Tigre', element: 'Bois', hours: '03h-05h', label: 'Tigre' },
+  { index: 3, chinese: '卯', pinyin: 'Mao', animal: 'Lapin', element: 'Bois', hours: '05h-07h', label: 'Lapin' },
+  { index: 4, chinese: '辰', pinyin: 'Chen', animal: 'Dragon', element: 'Terre', hours: '07h-09h', label: 'Dragon' },
+  { index: 5, chinese: '巳', pinyin: 'Si', animal: 'Serpent', element: 'Feu', hours: '09h-11h', label: 'Serpent' },
+  { index: 6, chinese: '午', pinyin: 'Wu', animal: 'Cheval', element: 'Feu', hours: '11h-13h', label: 'Cheval' },
+  { index: 7, chinese: '未', pinyin: 'Wei', animal: 'Chèvre', element: 'Terre', hours: '13h-15h', label: 'Chèvre' },
+  { index: 8, chinese: '申', pinyin: 'Shen', animal: 'Singe', element: 'Métal', hours: '15h-17h', label: 'Singe' },
+  { index: 9, chinese: '酉', pinyin: 'You', animal: 'Coq', element: 'Métal', hours: '17h-19h', label: 'Coq' },
+  { index: 10, chinese: '戌', pinyin: 'Xu', animal: 'Chien', element: 'Terre', hours: '19h-21h', label: 'Chien' },
+  { index: 11, chinese: '亥', pinyin: 'Hai', animal: 'Cochon', element: 'Eau', hours: '21h-23h', label: 'Cochon' }
 ];
 
 // ─────────────────────────────────────────────
@@ -231,11 +242,11 @@ export const CLASHES: [number, number][] = [
 
 export const DAY_MASTER_INTERACTIONS: Record<string, { dynamique: string; conseil: string }> = {
   'same_positive': {
-    dynamique: 'Ton Maître du Jour du jour renforce naturellement ton identité profonde.',
+    dynamique: 'L\'énergie du jour est en résonance totale avec ta nature profonde.',
     conseil: 'Avance avec confiance — tes décisions sont alignées avec ta nature.'
   },
   'same_negative': {
-    dynamique: 'Ton Maître du Jour du jour renforce ton identité mais peut créer de la rigidité.',
+    dynamique: 'L\'énergie du jour amplifie ta nature profonde — puissant mais attention à la rigidité.',
     conseil: 'Introduis une légère flexibilité pour éviter la stagnation.'
   },
   'produces_positive': {
@@ -525,7 +536,7 @@ export function calcRealtimeBonus(
     (b === shichenIdx && a === natalBranchIndex)
   )) {
     score = SHICHEN_CLASH_SCORE;
-    advice = 'Période en clash avec ton animal natal — prudence requise.';
+    advice = 'Période en opposition avec ton animal natal — prudence requise.';
   }
   else {
     advice = shichen.conseil;
@@ -821,8 +832,8 @@ export function getPeachBlossom(natalBirthDate: Date, targetDate: Date): PeachBl
     peachBranch,
     dailyBranch: dailyPillar.branch,
     label: active
-      ? `🌸 Peach Blossom active — ${peachBranch.animal} (${peachBranch.chinese}) → charme & magnétisme`
-      : `Peach Blossom : ${peachBranch.animal} (${peachBranch.chinese})`,
+      ? `🌸 Fleur de Pêcher active — ${peachBranch.animal} (${peachBranch.chinese}) → charme & magnétisme`
+      : `Fleur de Pêcher : ${peachBranch.animal} (${peachBranch.chinese})`,
   };
 }
 
@@ -840,11 +851,11 @@ export interface HeavenlyCombination {
 }
 
 export const HEAVENLY_COMBINATIONS: HeavenlyCombination[] = [
-  { stemA: 0, stemB: 1, resultElement: 'Terre', label: '甲己 Jiǎ+Jǐ → Terre (Stabilité)' },    // Jia Yang Bois + Ji Yin Terre
+  { stemA: 0, stemB: 5, resultElement: 'Terre', label: '甲己 Jiǎ+Jǐ → Terre (Stabilité)' },    // Jia Yang Bois + Ji Yin Terre
   { stemA: 2, stemB: 7, resultElement: 'Eau',   label: '丙辛 Bǐng+Xīn → Eau (Fluidité)' },     // Bing Yang Feu + Xin Yin Métal
   { stemA: 4, stemB: 9, resultElement: 'Feu',   label: '戊癸 Wù+Guǐ → Feu (Passion)' },       // Wu Yang Terre + Gui Yin Eau
-  { stemA: 6, stemB: 3, resultElement: 'Métal',  label: '庚乙 Gēng+Yǐ → Métal (Structure)' },   // Geng Yang Métal + Yi Yin Bois
-  { stemA: 8, stemB: 5, resultElement: 'Bois',  label: '壬丁 Rén+Dīng → Bois (Croissance)' },  // Ren Yang Eau + Ding Yin Feu
+  { stemA: 6, stemB: 1, resultElement: 'Métal',  label: '庚乙 Gēng+Yǐ → Métal (Structure)' },   // Geng Yang Métal + Yi Yin Bois
+  { stemA: 8, stemB: 3, resultElement: 'Bois',  label: '壬丁 Rén+Dīng → Bois (Croissance)' },  // Ren Yang Eau + Ding Yin Feu
 ];
 
 /**
@@ -900,24 +911,24 @@ export interface Punishment {
 }
 
 export const PUNISHMENTS: Punishment[] = [
-  // Auto-punitions (自刑)
-  { branches: [0, 0],   type: 'self', label: '子自刑 Rat auto-punition — anxiété intérieure', severity: 1 },
-  { branches: [6, 6],   type: 'self', label: '午自刑 Cheval auto-punition — impulsivité', severity: 1 },
-  { branches: [9, 9],   type: 'self', label: '酉自刑 Coq auto-punition — perfectionnisme', severity: 1 },
-  { branches: [4, 4],   type: 'self', label: '辰自刑 Dragon auto-punition — orgueil', severity: 1 },
+  // Auto-punitions (自刑 zì xíng)
+  { branches: [0, 0],   type: 'self', label: 'Rat auto-punition — anxiété intérieure', severity: 1 },
+  { branches: [6, 6],   type: 'self', label: 'Cheval auto-punition — impulsivité', severity: 1 },
+  { branches: [9, 9],   type: 'self', label: 'Coq auto-punition — perfectionnisme', severity: 1 },
+  { branches: [4, 4],   type: 'self', label: 'Dragon auto-punition — orgueil', severity: 1 },
 
-  // Punitions mutuelles — Bully (恃势之刑)
-  { branches: [2, 5],   type: 'bully', label: '寅巳刑 Tigre↔Serpent — pouvoir vs stratégie', severity: 2 },
-  { branches: [5, 8],   type: 'bully', label: '巳申刑 Serpent↔Singe — manipulation mutuelle', severity: 2 },
-  { branches: [2, 8],   type: 'bully', label: '寅申刑 Tigre↔Singe — conflit direct', severity: 3 },
+  // Punitions mutuelles — Bully (恃势之刑 shì shì zhī xíng)
+  { branches: [2, 5],   type: 'bully', label: 'Tigre↔Serpent — pouvoir vs stratégie', severity: 2 },
+  { branches: [5, 8],   type: 'bully', label: 'Serpent↔Singe — manipulation mutuelle', severity: 2 },
+  { branches: [2, 8],   type: 'bully', label: 'Tigre↔Singe — conflit direct', severity: 3 },
 
-  // Punitions mutuelles — Ungrateful (无恩之刑)
-  { branches: [1, 10],  type: 'ungrateful', label: '丑戌刑 Bœuf↔Chien — ingratitude', severity: 2 },
-  { branches: [10, 7],  type: 'ungrateful', label: '戌未刑 Chien↔Chèvre — trahison ressentie', severity: 2 },
-  { branches: [7, 1],   type: 'ungrateful', label: '未丑刑 Chèvre↔Bœuf — cycle d\'amertume', severity: 2 },
+  // Punitions mutuelles — Ungrateful (无恩之刑 wú ēn zhī xíng)
+  { branches: [1, 10],  type: 'ungrateful', label: 'Bœuf↔Chien — cycle d\'ingratitude', severity: 2 },
+  { branches: [10, 7],  type: 'ungrateful', label: 'Chien↔Chèvre — trahison ressentie', severity: 2 },
+  { branches: [7, 1],   type: 'ungrateful', label: 'Chèvre↔Bœuf — cycle d\'amertume', severity: 2 },
 
-  // Punition civile (无礼之刑)
-  { branches: [3, 0],   type: 'civil', label: '卯子刑 Lapin↔Rat — manque de respect', severity: 1 },
+  // Punition civile (无礼之刑 wú lǐ zhī xíng)
+  { branches: [3, 0],   type: 'civil', label: 'Lapin↔Rat — manque de respect', severity: 1 },
 ];
 
 /**
@@ -947,6 +958,7 @@ export function checkHarm(branchIdxA: number, branchIdxB: number): boolean {
  * Vérifie si deux branches sont dans la même Triade (San He).
  */
 export function checkTriad(branchIdxA: number, branchIdxB: number): boolean {
+  if (branchIdxA === branchIdxB) return false; // même branche ≠ triade
   return TRIADS.some(t => t.includes(branchIdxA) && t.includes(branchIdxB));
 }
 
@@ -997,35 +1009,37 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
   const hc = checkHeavenlyCombination(pillarA.stem.index, pillarB.stem.index);
   if (hc) {
     score += 18;
-    signals.push(`🌟 Combinaison Divine ${hc.label} — lien karmique puissant`);
+    signals.push(`🌟 Combinaison Divine ${hc.label} — lien d'âme puissant`);
   }
 
   // ── 2. Liu He 六合 (+12) — inchangé ──
   const liuHe = checkLiuHe(pillarA.branch.index, pillarB.branch.index);
   if (liuHe) {
     score += 12;
-    signals.push(`🤝 Liu He — harmonie naturelle (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
+    signals.push(`🤝 Liù Hé — harmonie naturelle (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
   // ── 3. Triades San He (+14) — Ronde 9ter : réduit de +15 ──
   const triad = checkTriad(pillarA.branch.index, pillarB.branch.index);
   if (triad) {
     score += 14;
-    signals.push(`🔺 Triade San He — alliance stratégique (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
+    const triadGroup = TRIADS.find(t => t.includes(pillarA.branch.index) && t.includes(pillarB.branch.index));
+    const triadAnimals = triadGroup ? triadGroup.map(idx => EARTHLY_BRANCHES[idx].animal).join('·') : `${pillarA.branch.animal} ↔ ${pillarB.branch.animal}`;
+    signals.push(`🔺 Triade San He — alliance stratégique (${triadAnimals})`);
   }
 
   // ── 4. Clash 冲 (-13) — Ronde 9ter : réduit de -15 ──
   const clash = checkClash(pillarA.branch.index, pillarB.branch.index);
   if (clash) {
     score -= 13;
-    alerts.push(`⚔️ Clash — opposition frontale (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
+    alerts.push(`⚔️ Opposition — opposition frontale (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
   // ── 5. Harm 害 (-11) — Ronde 9ter : aggravé de -8 (érosion insidieuse sous-évaluée) ──
   const harm = checkHarm(pillarA.branch.index, pillarB.branch.index);
   if (harm) {
     score -= 11;
-    alerts.push(`💔 Harm — friction subtile (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
+    alerts.push(`💔 Friction subtile (${pillarA.branch.animal} ↔ ${pillarB.branch.animal})`);
   }
 
   // ── 6. Punishments 刑 (-10 max) ──
@@ -1048,8 +1062,9 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
   };
   const elemPts = elemScores[elementRelation];
   score += elemPts;
-  if (elemPts > 0) signals.push(`${pillarA.stem.element} ${elementRelation === 'same' ? '=' : '→'} ${pillarB.stem.element} — flux élémentaire favorable`);
-  if (elemPts < 0) alerts.push(`${pillarA.stem.element} ${elementRelation === 'destroys' ? '→×' : '×←'} ${pillarB.stem.element} — tension élémentaire`);
+  if (elemPts > 0) signals.push(`${pillarA.stem.element} ${elementRelation === 'same' ? '=' : 'nourrit'} ${pillarB.stem.element} — flux élémentaire favorable`);
+  const feminin = (e: string) => e === 'Eau' || e === 'Terre';
+  if (elemPts < 0) alerts.push(`${pillarA.stem.element} ${elementRelation === 'destroys' ? 'domine' : (feminin(pillarA.stem.element) ? 'dominée par' : 'dominé par')} ${pillarB.stem.element} — tension élémentaire`);
 
   // ── 8. Peach Blossom croisée (détection seule — score dans module séparé) ──
   // Ronde 9 (3/3) : PB retirée du BaZi → module séparé (50/65/80/90)
@@ -1060,9 +1075,9 @@ export function calcBaZiCompat(birthDateA: Date, birthDateB: Date): BaZiCompatRe
   const peachCrossed = peachAtoB || peachBtoA;
   const peachBlossomLevel: 0 | 1 | 2 = (peachAtoB && peachBtoA) ? 2 : peachCrossed ? 1 : 0;
   if (peachBlossomLevel === 2) {
-    signals.push('🌸🌸 Double Peach Blossom — attraction magnétique réciproque');
+    signals.push('🌸🌸 Double Fleur de Pêcher — attraction magnétique réciproque');
   } else if (peachBlossomLevel === 1) {
-    signals.push('🌸 Peach Blossom croisée — attraction magnétique');
+    signals.push('🌸 Fleur de Pêcher croisée — attraction magnétique');
   }
 
   return {
@@ -1092,6 +1107,8 @@ export interface LuckPillar {
   branch: EarthlyBranch;
   theme: string;
   themeKey: ElementRelation;
+  isCurrent?: boolean;  // Whether this is the current luck pillar
+  narrative?: string;   // Theme narrative for display
 }
 
 export interface LuckPillarResult {
@@ -1302,7 +1319,7 @@ export function calculateLuckPillars(
 
   // Pilier courant
   const now = new Date();
-  const currentAge = now.getFullYear() - birthYear;
+  const currentAge = calcAge(now, birthDate);
   const currentPillar = pillars.find(p => currentAge >= p.startAge && currentAge <= p.endAge) ?? null;
   const currentPillarYearsLeft = currentPillar
     ? currentPillar.endAge - currentAge
@@ -1425,9 +1442,9 @@ export function calcFourPillars(birthDate: Date, birthHour: number): FourPillars
 
   // Narrative : la relation DM × Hour Pillar
   const HOUR_NARRATIVES: Record<ElementRelation, string> = {
-    same:         'Ton Pilier de l\'Heure renforce ton Maître du Jour — énergie intérieure stable et cohérente.',
+    same:         'Ton heure de naissance renforce ta nature profonde — énergie intérieure stable et cohérente.',
     produces:     'Ton heure de naissance exprime ta créativité — tu crées naturellement dans l\'intimité.',
-    produced_by:  'Ton heure nourrit ton Maître du Jour — tu te ressources facilement, soutien intérieur fort.',
+    produced_by:  'Ton heure de naissance nourrit ton énergie profonde — tu te ressources facilement, soutien intérieur fort.',
     destroys:     'Ton heure montre une ambition profonde — tu conquiers même dans le silence.',
     destroyed_by: 'Ton heure te pousse à évoluer — tension intérieure productive, transformation constante.',
   };
@@ -1578,7 +1595,7 @@ const NAYIN_DATA: NaYinEntry[] = [
 // Interprétation stratégique par catégorie Na Yin
 export const NAYIN_CATEGORY_ADVICE: Record<NaYinEntry['category'], string> = {
   puissant:       'Énergie explosive disponible — agir vite, frapper fort.',
-  subtil:         'Force cachée — patience requise, le timing se révèlera.',
+  subtil:         'Force cachée — patience requise, le moment se révèlera.',
   stable:         'Socle solide — construire, consolider, durer.',
   fluide:         'Adaptabilité naturelle — surfer les changements.',
   transformateur: 'Mutation en cours — accepter l\'inconfort, la renaissance arrive.',
@@ -1643,19 +1660,19 @@ export interface ShenShaInfo {
 }
 
 export const SHEN_SHA_INFO: Record<ShenShaName, ShenShaInfo> = {
-  TianYi:   { name: 'TianYi',   chinese: '天乙貴人', label_fr: 'Noble Star — aide inattendue',          global: +2, business: +2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
-  YiMa:     { name: 'YiMa',     chinese: '驛馬',     label_fr: 'Travel Horse — mouvement favorable',     global: +1, business: +2, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
-  HuaGai:   { name: 'HuaGai',   chinese: '華蓋',     label_fr: 'Canopy Star — solitude créative',        global:  0, business:  0, amour:  0, creativite: +3, vitalite:  0, introspection: +2 },
-  HongLuan: { name: 'HongLuan', chinese: '紅鸞',     label_fr: 'Red Phoenix — énergie romantique',       global: +1, business:  0, amour: +3, creativite:  0, vitalite:  0, introspection:  0 },
+  TianYi:   { name: 'TianYi',   chinese: '天乙貴人', label_fr: 'Aide Providentielle — soutien inattendu',           global: +2, business: +2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  YiMa:     { name: 'YiMa',     chinese: '驛馬',     label_fr: 'Élan de Mouvement — dynamique favorable',         global: +1, business: +2, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
+  HuaGai:   { name: 'HuaGai',   chinese: '華蓋',     label_fr: 'Inspiration Solitaire — créativité profonde',    global:  0, business:  0, amour:  0, creativite: +3, vitalite:  0, introspection: +2 },
+  HongLuan: { name: 'HongLuan', chinese: '紅鸞',     label_fr: 'Magnétisme Social — charisme relationnel',         global: +1, business:  0, amour: +3, creativite:  0, vitalite:  0, introspection:  0 },
   // V8.9 Gemini Q2 : Shen Sha additionnels (San Ming Tong Hui / théorie standard)
   TaiSui:   { name: 'TaiSui',   chinese: '太歲',     label_fr: 'Tai Sui — Offense au Grand Duc',         global: -5, business: -5, amour: -2, creativite:  0, vitalite: -3, introspection:  0 },
-  SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Sui Po — Clash briseur d\'année',        global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
+  SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Sui Po — Opposition briseur d\'année',    global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
   WenChang: { name: 'WenChang', chinese: '文昌',     label_fr: 'Wen Chang — Étoile académique',          global: +2, business:  0, amour:  0, creativite: +4, vitalite:  0, introspection: +2 },
   LuShen:   { name: 'LuShen',   chinese: '祿神',     label_fr: 'Lu Shen — Étoile de prospérité',         global: +3, business: +5, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
   // Sprint AJ — 10 nouveaux Shen Sha (Chantier 5, consensus 3/3 IAs)
   // Sources : San Ming Tong Hui, Di Tian Sui, tradition Zi Ping standard
   YangRen:  { name: 'YangRen',  chinese: '羊刃',     label_fr: 'Yang Ren — Lame du bélier',              global: -2, business: +1, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
-  KongWang: { name: 'KongWang', chinese: '空亡',     label_fr: 'Kong Wang — Vide & Néant',               global: -2, business: -2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  KongWang: { name: 'KongWang', chinese: '空亡',     label_fr: 'Kong Wang — Vide et Néant',               global: -2, business: -2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
   TaoHua:   { name: 'TaoHua',   chinese: '桃花',     label_fr: 'Tao Hua — Fleur de pêcher',              global:  0, business:  0, amour: +1, creativite:  0, vitalite:  0, introspection:  0 },
   TianXi:   { name: 'TianXi',   chinese: '天喜',     label_fr: 'Tian Xi — Joie céleste',                 global:  0, business:  0, amour: +2, creativite:  0, vitalite:  0, introspection:  0 },
   JieSha:   { name: 'JieSha',   chinese: '劫煞',     label_fr: 'Jie Sha — Étoile de vol',                global: -1, business:  0, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },

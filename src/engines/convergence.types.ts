@@ -25,6 +25,24 @@ export const ALGO_VERSION = '8.0';
 export const SLOW_PLANETS = new Set(['jupiter', 'saturn', 'uranus', 'neptune', 'pluto']);
 
 // ══════════════════════════════════════
+// ═══ SIGNAL DISPLAY — Ronde #22 Progressive Disclosure ═══
+// ══════════════════════════════════════
+// Chaque signal/alerte porte 3 couches :
+//   L1 (cartes résumé) : human + source
+//   L2 (analyse détaillée) : human + technical + source + interpretation
+//   L3 (brief partageable) : human + polarity seulement
+// ══════════════════════════════════════
+
+export interface SignalDisplay {
+  human: string;          // "Énergie de gain stable"
+  technical: string;      // "Richesse Directe (正財)"
+  source: string;         // "BaZi" | "Astro" | "Yi Jing" | "Lune" | "Numéro" | "Vedique"
+  polarity: 'positive' | 'negative';
+  polarityLabel: string;  // "favorable" | "friction" | "épreuve" etc.
+  interpretation?: string; // "Signal de stabilité matérielle — bon jour pour sécuriser tes acquis."
+}
+
+// ══════════════════════════════════════
 // ═══ NIVEAUX DE SCORE ═══
 // ══════════════════════════════════════
 
@@ -149,6 +167,7 @@ export interface DayPreview {
   pdv: number;
   dayType: DayTypeInfo;
   score: number;
+  convergence?: number;     // Score displayed to user (alias for score)
   lCol: string;
   hexNum: number;
   hexName: string;
@@ -192,6 +211,8 @@ export interface ConvergenceResult {
   lCol: string;
   signals: string[];
   alerts: string[];
+  richSignals: SignalDisplay[];   // Ronde #22 — progressive disclosure
+  richAlerts: SignalDisplay[];    // Ronde #22 — progressive disclosure
   theme: string;
   dayType: DayTypeInfo;
   climate: ClimateResult;
@@ -214,7 +235,7 @@ export interface ConvergenceResult {
   profection?: ProfectionResult;
   rawFinal?: number;
   ctxMult?: number;        // V8 — multiplicateur terrain [0.88–1.12]
-  dashaMult?: number;      // V8 — multiplicateur karmique [0.91–1.09]
+  dashaMult?: number;      // V8 — multiplicateur de terrain [0.91–1.09]
   nuclearHex?: NuclearHexScore;       // V9 Sprint 1 — hex nucléaire câblé
   dashaCertainty?: DashaCertaintyResult; // V9 Sprint 1 — fiabilité Dasha sans heure
   shadowBaseSignal?: number;           // Y1 shadow — noyau védique ∈ [-1, +1] (0.55×S_dasha + 0.40×S_nak + 0.05×S_tithi)
@@ -306,6 +327,10 @@ export interface MonthForecast {
     criticalDays: number;
     goldDays: number;
   };
+  // ═══ V4.5 : Top 3 meilleurs jours du mois (pour affichage dans Horizon 36 mois) ═══
+  topDays: { date: string; score: number; dayType: string }[];
+  // ═══ FIX NARRATION — Climat numérologique du mois (Expansion/Intériorité/Harmonie/etc.) ═══
+  climateLabel?: string;
 }
 
 // ══════════════════════════════════════
@@ -320,7 +345,7 @@ export interface DailyVectorRaw {
   bazi_10g: number;     // delta brut [-6, +6]
   nak_total: number;    // delta brut [-7, +7]
   ctx_mult: number;     // multiplicateur terrain [0.88–1.12]
-  dasha_mult: number;   // multiplicateur karmique [0.91–1.09]
+  dasha_mult: number;   // multiplicateur de terrain [0.91–1.09]
 }
 
 export interface DailyVectorNarrative {

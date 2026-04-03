@@ -27,6 +27,8 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence, type Firestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
+import { sto } from './engines/storage';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -46,6 +48,8 @@ if (getApps().length === 0) {
 }
 
 export const db: Firestore = getFirestore(app);
+export const auth: Auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
 // Persistence offline (PWA — ne rate aucune donnée si l'utilisateur est hors ligne)
 enableIndexedDbPersistence(db).catch(err => {
@@ -67,10 +71,17 @@ enableIndexedDbPersistence(db).catch(err => {
 const UID_KEY = 'kaironaute_uid';
 
 export function getAnonymousUid(): string {
-  let uid = localStorage.getItem(UID_KEY);
+  let uid = sto.getRaw(UID_KEY);
   if (!uid) {
     uid = crypto.randomUUID();
-    localStorage.setItem(UID_KEY, uid);
+    sto.set(UID_KEY, uid);
   }
   return uid;
+}
+
+// Remplacement de getAnonymousUid — utilise l'uid Firebase Auth si connecté, sinon UUID local
+export function getCurrentUid(): string {
+  const user = auth.currentUser;
+  if (user) return user.uid;
+  return getAnonymousUid();
 }

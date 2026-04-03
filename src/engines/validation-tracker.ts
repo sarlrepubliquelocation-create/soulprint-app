@@ -4,7 +4,9 @@
 // Corrélation de Spearman ρ entre scores prédits et vécu utilisateur.
 // Après 10+ feedbacks slider, affiche ρ + p-value + significativité.
 // Fallback concordance binaire pour les anciens feedbacks 👍/😐/👎.
-// Zéro API, zéro serveur — tout en localStorage côté client.
+// Zéro API, zéro serveur — tout en sto wrapper côté client.
+
+import { sto } from './storage';
 
 // ── Types ──
 
@@ -49,9 +51,7 @@ const STORAGE_KEY = 'sp_validation_feedback';
 
 function loadFeedbacks(): DayFeedback[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as DayFeedback[];
+    return sto.get<DayFeedback[]>(STORAGE_KEY) || [];
   } catch { return []; }
 }
 
@@ -59,8 +59,8 @@ function saveFeedbacks(feedbacks: DayFeedback[]): void {
   try {
     // Garder max 365 jours de feedback
     const trimmed = feedbacks.slice(-365);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-  } catch { /* localStorage full or disabled */ }
+    sto.set(STORAGE_KEY, trimmed);
+  } catch { /* storage full or disabled */ }
 }
 
 // ── V4.3: Spearman Rank Correlation ──
@@ -474,8 +474,9 @@ export function getFeedbackHistory(limit: number = 30): DayFeedback[] {
 
 // ── Reset (pour debug) ──
 
-export function clearAllFeedbacks(): void {
-  try { localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
+/** @deprecated Dead code — debug only, not imported anywhere */
+function clearAllFeedbacks(): void {
+  try { sto.remove(STORAGE_KEY); } catch { /* */ }
 }
 
 // ── Breakdown par date (V5.0 — pour personnalisation future) ──
@@ -489,26 +490,25 @@ export function saveBreakdownForDate(
   breakdown: Array<{ system: string; points: number }>
 ): void {
   try {
-    const raw = localStorage.getItem(BREAKDOWN_KEY);
     const all: Record<string, Array<{ system: string; points: number }>> =
-      raw ? JSON.parse(raw) : {};
+      sto.get<Record<string, Array<{ system: string; points: number }>>>(BREAKDOWN_KEY) || {};
     all[date] = breakdown;
     // Garder seulement les 90 derniers jours pour éviter la croissance infinie
     const keys = Object.keys(all).sort().reverse();
     if (keys.length > 90) {
       keys.slice(90).forEach(k => delete all[k]);
     }
-    localStorage.setItem(BREAKDOWN_KEY, JSON.stringify(all));
+    sto.set(BREAKDOWN_KEY, all);
   } catch { /* fail silently */ }
 }
 
-export function getBreakdownForDate(
+/** @deprecated Dead code — not imported anywhere */
+function getBreakdownForDate(
   date: string
 ): Array<{ system: string; points: number }> | null {
   try {
-    const raw = localStorage.getItem(BREAKDOWN_KEY);
-    if (!raw) return null;
-    const all = JSON.parse(raw);
+    const all = sto.get<Record<string, Array<{ system: string; points: number }>>>(BREAKDOWN_KEY);
+    if (!all) return null;
     return all[date] ?? null;
   } catch { return null; }
 }
@@ -533,21 +533,18 @@ export function storeTodayDeltas(
   scoreBrut: number
 ): void {
   try {
-    const raw = localStorage.getItem(DAILY_DELTAS_KEY);
-    const all: Record<string, DailyDeltasEntry> = raw ? JSON.parse(raw) : {};
+    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(DAILY_DELTAS_KEY) || {};
     all[date] = { luneDelta, ephemDelta, baziDelta, scoreBrut };
     // Garder seulement les 90 derniers jours
     const keys = Object.keys(all).sort().reverse();
     if (keys.length > 90) keys.slice(90).forEach(k => delete all[k]);
-    localStorage.setItem(DAILY_DELTAS_KEY, JSON.stringify(all));
+    sto.set(DAILY_DELTAS_KEY, all);
   } catch { /* fail silently */ }
 }
 
 export function loadDeltas(date: string): DailyDeltasEntry | null {
   try {
-    const raw = localStorage.getItem(DAILY_DELTAS_KEY);
-    if (!raw) return null;
-    const all: Record<string, DailyDeltasEntry> = JSON.parse(raw);
+    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(DAILY_DELTAS_KEY) || {};
     return all[date] ?? null;
   } catch { return null; }
 }

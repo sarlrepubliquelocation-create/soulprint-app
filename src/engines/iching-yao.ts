@@ -203,8 +203,10 @@ export const YAO_ARCHETYPE_LABELS: Record<YaoArchetype, string> = {
 // Le Nuclear est FIXE pour chaque hexagramme (il ne dépend pas des lignes mutantes).
 //
 // Table précalculée algorithmiquement via :
-//   TRIGRAM_LINES[8] + KING_WEN[lower][upper] (64×8 King Wen order)
-// Vérifications : hex 1→1, hex 2→2, hex 63→64, hex 64→63 (valeurs canoniques connues).
+//   hexToLines(h) → lines[1,2,3] (nuclear lower) + lines[2,3,4] (nuclear upper) → KW lookup
+// Vérifications canoniques : hex 1→1, hex 2→2, hex 63→64, hex 64→63 ✓
+// V5.0 FIX : ancienne table avait 60/64 erreurs (trigrammes inversés dans le calcul original).
+// Recalculée le 2026-04-02 avec hexToLines() + trigramIndex() + KW[lower][upper].
 
 /**
  * NUCLEAR_HEX[n] = numéro de l'hexagramme nucléaire de l'hexagramme n (1-64).
@@ -213,21 +215,21 @@ export const YAO_ARCHETYPE_LABELS: Record<YaoArchetype, string> = {
 const NUCLEAR_HEX: readonly number[] = [
    0,                                      // [0]  padding
   // ─ Hex  1– 8 ─────────────────────────
-   1,  2, 23, 24, 38, 37, 24, 23,
+   1,  2, 64, 63, 50, 49, 15, 16,
   // ─ Hex  9–16 ─────────────────────────
-  38, 37, 54, 53, 44, 43, 40, 39,
+   1,  1, 18, 17, 10,  9,  2,  2,
   // ─ Hex 17–24 ─────────────────────────
-  53, 54, 24, 23, 39, 40,  2,  2,
+  64, 63, 18, 17, 61, 61,  3,  4,
   // ─ Hex 25–32 ─────────────────────────
-  53, 54,  2,  1, 27, 28, 44, 43,
+  10,  9, 61, 62, 62, 61, 16, 15,
   // ─ Hex 33–40 ─────────────────────────
-  44, 43, 39, 40, 64, 63, 64, 63,
+  17, 18,  3,  4, 10,  9, 16, 15,
   // ─ Hex 41–48 ─────────────────────────
-  24, 23,  1,  1, 53, 54, 37, 38,
+   9, 10, 50, 49, 16, 15, 62, 62,
   // ─ Hex 49–56 ─────────────────────────
-  44, 43, 39, 40, 64, 63, 28, 28,
+  64, 63,  4,  3, 17, 18,  4,  3,
   // ─ Hex 57–64 ─────────────────────────
-  38, 37, 27, 27, 27, 28, 64, 63,
+  49, 50, 49, 50,  1,  2, 64, 63,
 ];
 
 /**

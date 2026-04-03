@@ -3,16 +3,17 @@
 // Storage : localStorage 'kaironaute_onboarding_done' → jamais re-montré
 // Protocole : zéro régression App.tsx — composant autonome
 import { useState } from 'react';
+import { sto } from '../engines/storage';
 import { P } from './ui';
 
 const LS_KEY = 'kaironaute_onboarding_done';
 
 export function isOnboardingDone(): boolean {
-  try { return !!localStorage.getItem(LS_KEY); } catch { return false; }
+  try { return !!sto.getRaw(LS_KEY); } catch { return false; }
 }
 
 export function markOnboardingDone(): void {
-  try { localStorage.setItem(LS_KEY, '1'); } catch { /* silent */ }
+  try { sto.set(LS_KEY, '1'); } catch { /* silent */ }
 }
 
 interface Props {
@@ -54,9 +55,9 @@ const STEPS = [
         {[
           { icon: '⭐', label: 'Astrologie occidentale', detail: 'Transits, Dasha (astrologie indienne), Retours solaires' },
           { icon: '🀄', label: 'BaZi & Zodiaque chinois', detail: '4 Piliers du Destin, 12 Officers, NaYin' },
-          { icon: '☯️', label: 'Yi King', detail: '64 hexagrammes, Mei Hua, Tirage conscient' },
-          { icon: '🔢', label: 'Numérologie Pythagoricienne', detail: 'Chemin de vie, Pinnacles, Inclusion' },
-          { icon: '🃏', label: 'Tarot des Arcanes Majeurs', detail: 'Miroir archétypal jungien — pas oracle' },
+          { icon: '☯️', label: 'Yi King', detail: '64 hexagrammes, Fleur de Prunier, Tirage conscient' },
+          { icon: '🔢', label: 'Numérologie Pythagoricienne', detail: 'Chemin de vie, Sommets, Inclusion' },
+          { icon: '🃏', label: 'Tarot des Arcanes Majeurs', detail: 'Miroir archétypal jungien' },
         ].map(({ icon, label, detail }) => (
           <div key={label} style={{
             display: 'flex', alignItems: 'center', gap: 12,
@@ -75,7 +76,7 @@ const STEPS = [
   },
   {
     icon: '🚀',
-    title: 'Activez ton profil complet',
+    title: 'Active ton profil complet',
     subtitle: 'Tes données restent sur ton appareil — jamais partagées',
     body: (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -84,7 +85,7 @@ const STEPS = [
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { icon: '🔓', text: 'Chemin de vie + Pinnacles' },
+            { icon: '🔓', text: 'Chemin de vie + Sommets de vie' },
             { icon: '🔓', text: 'Carte Natale Tarot' },
             { icon: '🔓', text: 'ADN Numérologique complet' },
             { icon: '🔓', text: 'Portrait Astral par IA' },

@@ -52,6 +52,14 @@ const PLANET_FR: Record<PlanetaryRuler, string> = {
 
 export function planetFr(p: PlanetaryRuler): string { return PLANET_FR[p]; }
 
+// Ronde #3 2026-04-01 — Maîtres traditionnels (7 planètes chaldéennes uniquement)
+// Scorpion→Mars, Verseau→Saturne, Poissons→Jupiter (pas de trans-saturniennes)
+const TRAD_RULER: Record<string, PlanetaryRuler> = {
+  Aries:'Mars', Taurus:'Venus', Gemini:'Mercury', Cancer:'Moon', Leo:'Sun', Virgo:'Mercury',
+  Libra:'Venus', Scorpio:'Mars', Sagittarius:'Jupiter', Capricorn:'Saturn',
+  Aquarius:'Saturn', Pisces:'Jupiter',
+};
+
 // ══════════════════════════════════════
 // ═══ LATITUDE ESTIMÉE DEPUIS TIMEZONE ═══
 // Mapping offset (heures est de UTC) → latitude approximative.
@@ -177,14 +185,36 @@ export function getCurrentPlanetaryHour(now: Date = new Date()): PlanetaryHour |
 }
 
 /** Prochaines heures favorables restant dans la journée (triées par début).
- *  Ronde Pilotage P5 : filtre heures raisonnables (7h–22h) — pas de créneaux à 01h du matin. */
-export function getBestHoursToday(now: Date = new Date(), topN = 3): PlanetaryHour[] {
+ *  Ronde Pilotage P5 : filtre heures raisonnables (7h–22h) — pas de créneaux à 01h du matin.
+ *  Ronde #3 2026-04-01 : personnalisation via ascSign (surclassement heures du maître ASC). */
+export function getBestHoursToday(now: Date = new Date(), topN = 3, ascSign?: string): PlanetaryHour[] {
   const ms = now.getTime();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const h7  = midnight + 7  * 3_600_000;  // 07:00
   const h22 = midnight + 22 * 3_600_000;  // 22:00
-  return calcPlanetaryHours(now)
+  const ascRuler = ascSign ? TRAD_RULER[ascSign] : undefined;
+  // Ronde #3 fix : surclassement + priorisation du maître ASC
+  const hours = calcPlanetaryHours(now).map(h => {
+    const isAscHour = ascRuler && h.planet === ascRuler;
+    if (isAscHour && h.quality === 'neutre') {
+      return { ...h, quality: 'favorable' as const, label: `${h.label} ★` };
+    }
+    if (isAscHour && h.quality === 'challenging') {
+      return { ...h, quality: 'neutre' as const, label: `${h.label} ★` };
+    }
+    if (isAscHour && h.quality === 'favorable') {
+      return { ...h, label: `${h.label} ★` };  // marque "power hour" même si déjà favorable
+    }
+    return h;
+  });
+  return hours
     .filter(h => h.quality === 'favorable' && h.endMs > ms && h.startMs >= h7 && h.startMs < h22)
-    .sort((a, b) => a.startMs - b.startMs)
+    // Prioriser les heures du maître ASC (★) en tête, puis par heure
+    .sort((a, b) => {
+      const aIsAsc = a.label.includes('★') ? 0 : 1;
+      const bIsAsc = b.label.includes('★') ? 0 : 1;
+      if (aIsAsc !== bIsAsc) return aIsAsc - bIsAsc;
+      return a.startMs - b.startMs;
+    })
     .slice(0, topN);
 }

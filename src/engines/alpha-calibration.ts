@@ -9,6 +9,7 @@
 //   getAdaptedAlphaG()  → singleton cached, lu par calcMainScore()
 //   runWeeklyAlphaGUpdate() → moteur principal, appelé 1×/semaine via useEffect
 
+import { sto } from './storage';
 import { computeKendallTauB, getFeedbackHistory } from './validation-tracker';
 import type { DayFeedback } from './validation-tracker';
 
@@ -85,16 +86,15 @@ function round4(x: number): number {
 
 function loadAlphaGState(): AlphaGState {
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return { ...ALPHAG_STATE_DEFAULT };
-    const parsed = JSON.parse(raw) as AlphaGState;
+    const parsed = sto.get<AlphaGState>(STORE_KEY);
+    if (!parsed) return { ...ALPHAG_STATE_DEFAULT };
     if (
       parsed.version !== 1 ||
       typeof parsed.current?.lune  !== 'number' ||
       typeof parsed.current?.ephem !== 'number' ||
       typeof parsed.current?.bazi  !== 'number'
     ) {
-      localStorage.setItem(STORE_KEY, JSON.stringify(ALPHAG_STATE_DEFAULT));
+      sto.set(STORE_KEY, ALPHAG_STATE_DEFAULT);
       return { ...ALPHAG_STATE_DEFAULT };
     }
     return parsed;
@@ -105,7 +105,7 @@ function loadAlphaGState(): AlphaGState {
 
 function saveAlphaGState(state: AlphaGState): void {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    sto.set(STORE_KEY, state);
   } catch { /* fail silently */ }
 }
 
@@ -118,7 +118,8 @@ export function getAdaptedAlphaG(): AlphaGState {
   return _cachedState;
 }
 
-export function invalidateAlphaGCache(): void {
+/** @deprecated Dead code — not imported anywhere */
+function invalidateAlphaGCache(): void {
   _cachedState = null;
 }
 

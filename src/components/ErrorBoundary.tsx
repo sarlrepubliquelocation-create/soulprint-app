@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </h2>
           <p style={{ color: P.textDim, maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>
             Une erreur inattendue s'est produite.
-            Vos données sont intactes — essayez de recharger.
+            Tes données sont intactes — essaie de recharger.
           </p>
           <div style={{ display: 'flex', gap: 12 }}>
             <button

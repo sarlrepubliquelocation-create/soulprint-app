@@ -11,7 +11,7 @@ const ORACLE_TYPE_OPTIONS: { id: OracleType; icon: string; label: string; placeh
   { id: 'date',    icon: '📅', label: 'Date',            placeholder: 'JJ/MM/AAAA' },
   { id: 'adresse', icon: '🏠', label: 'Adresse',         placeholder: 'Ex: 14 rue Victor Hugo' },
   { id: 'numero',  icon: '🔢', label: 'Numéro',          placeholder: 'Ex: 0612345678, SIRET...' },
-  { id: 'sujet',   icon: '🎯', label: 'Sujet',           placeholder: 'Choisissez un sujet ci-dessous' },
+  { id: 'sujet',   icon: '🎯', label: 'Sujet',           placeholder: 'Choisis un sujet ci-dessous' },
   { id: 'bebe',    icon: '👶', label: 'Prénom bébé',     placeholder: 'Jusqu\'à 5 prénoms séparés par des virgules' },
 ];
 const ORACLE_SUJET_LIST: { id: OracleSujet; icon: string; label: string }[] = [
@@ -67,7 +67,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
   }, [parent2Bd]);
 
   const doOracleCalc = () => {
-    if (oracleType !== 'sujet' && !oracleInput.trim()) { setOracleError('Entrez une valeur à tester'); return; }
+    if (oracleType !== 'sujet' && !oracleInput.trim()) { setOracleError('Entre une valeur à tester'); return; }
     setOracleError('');
     setOracleCompareResults([]);
     try {
@@ -109,7 +109,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
   };
 
   const doCalc = () => {
-    if (!bdB) { setError('Entrez une date de naissance'); return; }
+    if (!bdB) { setError('Entre une date de naissance'); return; }
     setError('');
     try {
       const r = calcBond(bd, nameA, bdB, nameB, mode, mode === 'famille' ? familleSubType : undefined);
@@ -149,7 +149,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
       {/* ═══ FORMULAIRE ═══ */}
       <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: P.textMid, fontStyle: 'italic' }}>
-          Ta date : <span style={{ color: P.text, fontWeight: 700 }}>{bd}</span>
+          Ta date : <span style={{ color: P.text, fontWeight: 700 }}>{bd.split('-').reverse().join('/')}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <input placeholder="Ton prénom (optionnel)" value={nameA} onChange={e => setNameA(e.target.value)}
@@ -167,7 +167,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
             { id: 'pro',     icon: '💼', label: 'Pro',      color: '#4ade80' },
             { id: 'famille', icon: '👨‍👩‍👧', label: 'Famille', color: '#60a5fa' },
           ] as { id: BondMode; icon: string; label: string; color: string }[]).map(m => (
-            <button key={m.id} onClick={() => { setMode(m.id); setResult(null); }} style={{
+            <button key={m.id} onClick={() => { setMode(m.id); setResult(null); }} aria-label={`Mode ${m.label}`} style={{
               flex: 1, padding: '8px 0', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
               background: mode === m.id ? `${m.color}18` : P.surface,
               border: `1.5px solid ${mode === m.id ? `${m.color}40` : P.cardBdr}`,
@@ -184,7 +184,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
           <div style={{ display: 'grid', gap: 6 }}>
             <div className="grid-responsive-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 5 }}>
               {FAMILLE_CATS.map(cat => (
-                <button key={cat.id} onClick={() => { setFamilleCategory(cat.id); setFamilleSubType(cat.defaultSub); setResult(null); }} style={{
+                <button key={cat.id} onClick={() => { setFamilleCategory(cat.id); setFamilleSubType(cat.defaultSub); setResult(null); }} aria-label={`Catégorie ${cat.label}`} style={{
                   padding: '7px 4px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
                   background: familleCategory === cat.id ? '#60a5fa18' : P.surface,
                   border: `1px solid ${familleCategory === cat.id ? '#60a5fa60' : P.cardBdr}`,
@@ -200,7 +200,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
             {FAMILLE_SUBS[familleCategory].length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(FAMILLE_SUBS[familleCategory].length, 2)}, 1fr)`, gap: 5 }}>
                 {FAMILLE_SUBS[familleCategory].map(sub => (
-                  <button key={sub.id} onClick={() => { setFamilleSubType(sub.id); setResult(null); }} style={{
+                  <button key={sub.id} onClick={() => { setFamilleSubType(sub.id); setResult(null); }} aria-label={`Relation: ${sub.label}`} style={{
                     padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
                     background: familleSubType === sub.id ? '#60a5fa12' : '#ffffff04',
                     border: `1px solid ${familleSubType === sub.id ? '#60a5fa35' : P.cardBdr}`,
@@ -215,7 +215,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
           </div>
         )}
 
-        <button onClick={doCalc} style={{
+        <button onClick={doCalc} aria-label="Calculer la compatibilité" style={{
           padding: '10px 0', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
           background: 'linear-gradient(135deg, #E0B0FF18, #9333ea1a)', border: '1.5px solid #E0B0FF40',
           color: '#E0B0FF', fontSize: 14, fontWeight: 700, letterSpacing: 1,
@@ -309,7 +309,12 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
             {result.breakdown.filter(b => !(mode === 'famille' && b.system === 'Peach Blossom')).map((b, i) => (
               <div key={i} style={{ padding: '10px 12px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{b.icon} {b.system}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>
+                    {b.icon} {b.system === 'Peach Blossom' ? 'Fleur de Pêcher' : b.system}
+                    {b.system === 'BaZi' && <span style={{ fontSize: 10, fontWeight: 400, color: P.textDim, marginLeft: 4 }}>(Quatre Piliers)</span>}
+                    {b.system === 'Yi King' && <span style={{ fontSize: 10, fontWeight: 400, color: P.textDim, marginLeft: 4 }}>(Livre des Mutations)</span>}
+                    {b.system === 'Peach Blossom' && <span style={{ fontSize: 10, fontWeight: 400, color: P.textDim, marginLeft: 4 }}>(Attraction magnétique)</span>}
+                  </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 10, color: P.textDim }}>{b.weight}</span>
                     <span style={{ fontSize: 15, fontWeight: 800, color: b.score >= 65 ? '#4ade80' : b.score >= 40 ? P.textMid : '#ef4444' }}>
@@ -346,6 +351,9 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
               <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                 📊 Comment ce score est calculé
               </div>
+              <div style={{ fontSize: 10, color: P.textDim, lineHeight: 1.6, marginBottom: 8, padding: '4px 0', borderBottom: `1px solid #60a5fa10` }}>
+                BaZi (40%) — Numérologie (30%) — Yi King (30%). La Fleur de Pêcher n'intervient pas dans les liens familiaux. Le score final passe par une courbe gaussienne pour une distribution réaliste.
+              </div>
               <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.7 }}>
                 {narrativeFamille.poids}
               </div>
@@ -358,22 +366,26 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
               </div>
               <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.7 }}>
                 {mode === 'amour'
-                  ? 'BaZi (40%) — Numérologie (30%) — Yi King (20%) — Peach Blossom (10%). Le score final passe par une courbe gaussienne (médiane 65) pour refléter une distribution réaliste des compatibilités.'
-                  : 'BaZi (30%) — Numérologie (35%) — Yi King (25%) — Peach Blossom (10%). La Numérologie prime en mode Pro pour la vision commune et la complémentarité intellectuelle.'}
+                  ? 'BaZi (45%) — Numérologie (25%) — Yi King (20%) — Fleur de Pêcher (10%). Le score final passe par une courbe gaussienne (médiane 65) pour refléter une distribution réaliste des compatibilités.'
+                  : 'BaZi (35%) — Numérologie (30%) — Yi King (25%) — Fleur de Pêcher (10%). Le BaZi prime en mode Pro pour la compatibilité de caractère et la dynamique de travail. Le score final passe par une courbe gaussienne (médiane 65) pour une distribution réaliste.'}
               </div>
             </div>
           )}
 
-          {/* Alertes uniquement — les signaux positifs sont intégrés dans le breakdown (Ronde 11) */}
-          {result.alerts.length > 0 && (
-            <div style={{ display: 'grid', gap: 4 }}>
-              {result.alerts.slice(0, 5).map((a, i) => (
-                <div key={i} style={{ fontSize: 12, color: '#f59e0b', padding: '6px 10px', background: '#f59e0b08', borderRadius: 6, border: '1px solid #f59e0b15' }}>
-                  {a}
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Alertes non-dupliquées — exclure celles déjà visibles dans les technicals du breakdown */}
+          {(() => {
+            const shownTechs = new Set(result.breakdown.flatMap(b => b.technicals));
+            const uniqueAlerts = result.alerts.filter(a => !shownTechs.has(a));
+            return uniqueAlerts.length > 0 ? (
+              <div style={{ display: 'grid', gap: 4 }}>
+                {uniqueAlerts.slice(0, 5).map((a, i) => (
+                  <div key={i} style={{ fontSize: 12, color: '#f59e0b', padding: '6px 10px', background: '#f59e0b08', borderRadius: 6, border: '1px solid #f59e0b15' }}>
+                    {a}
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {/* Conseil */}
           <div style={{ padding: '12px 14px', borderRadius: 10, background: `${result.label.color}08`, border: `1px solid ${result.label.color}20` }}>
@@ -392,17 +404,17 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
       )}
     </Cd>
 
-      {/* ═══ ORACLE DES CHOIX (ex-OracleTab Part B) ═══ */}
+      {/* ═══ YI KING DES CHOIX (ex-OracleTab Part B) ═══ */}
       <div style={{ marginTop: 24 }}>
         <Cd>
           <div style={{ fontSize: 11, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700, marginBottom: 16 }}>
-            🔮 Oracle des Choix
+            🔮 Yi King des Choix
           </div>
 
           {/* Type selector */}
-          <div className="oracle-type-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 12 }}>
+          <div className="oracle-type-grid grid-responsive-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 12 }}>
             {ORACLE_TYPE_OPTIONS.map(t => (
-              <button key={t.id} onClick={() => { setOracleType(t.id); setOracleResult(null); setOracleCompareResults([]); }} style={{
+              <button key={t.id} onClick={() => { setOracleType(t.id); setOracleResult(null); setOracleCompareResults([]); }} aria-label={`Type: ${t.label}`} style={{
                 padding: '8px 4px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
                 background: oracleType === t.id ? `${P.gold}18` : P.surface,
                 border: `1.5px solid ${oracleType === t.id ? P.gold + '50' : P.cardBdr}`,
@@ -431,7 +443,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
               )}
               {oracleType === 'bebe' && (
                 <div style={{ display: 'grid', gap: 6 }}>
-                  <button onClick={() => setShowParent2(!showParent2)} style={{
+                  <button onClick={() => setShowParent2(!showParent2)} aria-label={showParent2 ? 'Masquer le 2e parent' : 'Ajouter le 2e parent'} style={{
                     background: 'none', border: `1px solid ${P.cardBdr}`, borderRadius: 6, padding: '6px 10px',
                     color: P.textDim, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}>
@@ -450,7 +462,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
           {oracleType === 'sujet' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
               {ORACLE_SUJET_LIST.map(s => (
-                <button key={s.id} onClick={() => setOracleSujet(s.id)} style={{
+                <button key={s.id} onClick={() => setOracleSujet(s.id)} aria-label={`Sujet: ${s.label}`} style={{
                   padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   background: oracleSujet === s.id ? `${P.gold}15` : P.surface,
                   border: `1px solid ${oracleSujet === s.id ? P.gold + '40' : P.cardBdr}`,
@@ -467,7 +479,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
           {(oracleType === 'nom' || oracleType === 'numero') && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 12 }}>
               {ORACLE_DOMAINS.map(d => (
-                <button key={d.id} onClick={() => setOracleDomain(d.id)} style={{
+                <button key={d.id} onClick={() => setOracleDomain(d.id)} aria-label={`Domaine: ${d.label}`} style={{
                   padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
                   background: oracleDomain === d.id ? `${P.gold}15` : '#ffffff04',
                   border: `1px solid ${oracleDomain === d.id ? P.gold + '40' : P.cardBdr}`,
@@ -481,7 +493,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
           )}
 
           {/* Calc button */}
-          <button onClick={doOracleCalc} style={{
+          <button onClick={doOracleCalc} aria-label="Tester avec le Yi King" style={{
             width: '100%', padding: '10px 0', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
             background: `linear-gradient(135deg, ${P.gold}18, ${P.gold}1a)`, border: `1.5px solid ${P.gold}40`,
             color: P.gold, fontSize: 14, fontWeight: 700, letterSpacing: 1, marginBottom: 12,
@@ -541,7 +553,7 @@ export default function BondTab({ data, bd }: { data: SoulData; bd: string }) {
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: 11, color: P.textDim }}>Score intrinsèque</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: oracleResult.verdict.color }}>{oracleResult.domainScore}%</div>
-                      <div style={{ fontSize: 10, color: P.textDim }}>100% intrinsèque — indépendant du timing</div>
+                      <div style={{ fontSize: 10, color: P.textDim }}>100% intrinsèque — indépendant du moment</div>
                     </div>
                   </div>
                   {oracleResult.intrinsicVerdict && (

@@ -14,6 +14,13 @@ export interface ForecastWorkerRequest {
   cz: ChineseZodiac;
   transitBonus: number;
   astro: AstroChart | null;
+  // ═══ FIX COHÉRENCE — Même terrain que Calendrier/Pilotage ═══
+  ctxMult: number;
+  dashaMult: number;
+  baseSignal: number;
+  bt?: string;
+  liveScore?: number; // ═══ V4.5 : score LIVE Pilotage pour GAP=0 ═══
+  historicalScores?: Record<string, number>; // ═══ V4.5 : scores LIVE passés ═══
 }
 
 export interface ForecastWorkerResponse {
@@ -33,6 +40,12 @@ self.addEventListener('message', (e: MessageEvent<ForecastWorkerRequest>) => {
         new Date(),
         e.data.transitBonus,
         e.data.astro,
+        e.data.ctxMult,
+        e.data.dashaMult,
+        e.data.baseSignal,
+        e.data.bt,
+        e.data.liveScore,
+        e.data.historicalScores,
       );
       const resp: ForecastWorkerResponse = {
         type: 'forecast-result',

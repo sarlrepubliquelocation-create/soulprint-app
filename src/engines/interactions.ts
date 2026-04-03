@@ -121,7 +121,7 @@ const RULES: Rule[] = [
   },
   {
     id: 4,
-    label: 'Hong Luan + Peach Blossom → Attraction amplifiée',
+    label: 'Hong Luan + Fleur de Pêcher → Attraction amplifiée',
     bonus: 4,
     domains: ['AMOUR'],
     tradition: 'Shen Sha 紅鸞×桃花',
@@ -216,12 +216,12 @@ const RULES: Rule[] = [
     test: (ctx: InteractionContext): boolean => ctx.hexLower >= 0 && !!ctx.dmElement,
   },
 
-  // ── R29 : Profection Maison 7 + Dasha Vénus → Double timing Amour ──
-  // Doctrine : Timing hellénistique (Maison 7 = Amour) × Timing védique Dasha Vénus.
+  // ── R29 : Profection Maison 7 + Dasha Vénus → Double fenêtre Amour ──
+  // Doctrine : Moment hellénistique (Maison 7 = Amour) × Moment védique Dasha Vénus.
   // Convergence rare de deux systèmes sur le même thème = signal exceptionnel.
   {
     id: 29,
-    label: 'Maison 7 profectée + Dasha Vénus → Double timing Amour',
+    label: 'Maison 7 profectée + Dasha Vénus → Double fenêtre Amour',
     bonus: 3,
     domains: ['AMOUR', 'RELATIONS'],
     tradition: 'Profections hellénistiques × Vimshottari Dasha',
@@ -229,12 +229,12 @@ const RULES: Rule[] = [
       ctx.profectionHouse === 7 && ctx.dashaLord === 'Vénus',
   },
 
-  // ── R30 : Profection Maison 10 + Dasha Saturne → Double timing Carrière ──
+  // ── R30 : Profection Maison 10 + Dasha Saturne → Double fenêtre Carrière ──
   // Doctrine : Maison 10 = sommet professionnel annuel × Saturne Maha Dasha 19 ans.
   // Convergence lente-annuelle = signal business structurant et durable.
   {
     id: 30,
-    label: 'Maison 10 profectée + Dasha Saturne → Double timing Carrière',
+    label: 'Maison 10 profectée + Dasha Saturne → Double fenêtre Carrière',
     bonus: 2,
     domains: ['BUSINESS'],
     tradition: 'Profections hellénistiques × Vimshottari Dasha',
@@ -275,7 +275,7 @@ const RULES: Rule[] = [
 
   {
     id: 14,
-    label: 'Pleine Lune + Peach Blossom → Intensité relationnelle',
+    label: 'Pleine Lune + Fleur de Pêcher → Intensité relationnelle',
     bonus: 3,
     domains: ['AMOUR'],
     tradition: 'Symbolique lunaire × 桃花',
@@ -365,7 +365,7 @@ const RULES: Rule[] = [
   // Année 9 + retour Jupiter actif = récolte expansive en fin de cycle.
   {
     id: 25,
-    label: 'Couronnement — Finalise et récoltez',
+    label: 'Couronnement — Finalise et récolte',
     bonus: 4,
     domains: ['BUSINESS', 'RELATIONS'],
     tradition: 'Numérologie année 9 × Retours planétaires Jupiter',

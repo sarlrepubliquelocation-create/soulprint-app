@@ -254,7 +254,7 @@ function detectCycleMirrors(
         (p: { closureYear: number; launchYear: number; age: number }, tr: { name: string }) =>
           `Vers ${p.age}-${p.age + 1} ans (${p.closureYear}-${p.launchYear}), la fin d'un grand cycle intérieur a coïncidé avec ton ${tr.name}. Un ancien toi s'est effacé pour laisser place à une version plus alignée — cette mutation t'a probablement surpris par sa force.`,
         (p: { closureYear: number; launchYear: number; age: number }, tr: { name: string }) =>
-          `${p.closureYear}-${p.launchYear} (${p.age}-${p.age + 1} ans) : ton ${tr.name} a percuté une année de fermeture karmique. Ce qui restait de l'ancien cycle a été brûlé — le terrain s'est vidé pour accueillir quelque chose de neuf.`,
+          `${p.closureYear}-${p.launchYear} (${p.age}-${p.age + 1} ans) : ton ${tr.name} a percuté une année de fin de cycle (année 9 → nouvelle année 1). Ce qui restait de l'ancien cycle a été brûlé — le terrain s'est vidé pour accueillir quelque chose de neuf.`,
       ];
       const PORTAL_INSIGHTS = [
         (p: { launchYear: number }, tr: { name: string }) =>
@@ -276,7 +276,7 @@ function detectCycleMirrors(
             narrative: PORTAL_NARRATIVES[ni](portal, transit),
             insight: PORTAL_INSIGHTS[ii](portal, transit),
             years: [portal.closureYear, portal.launchYear],
-            systems: ['PY 9→1', transit.name, 'Portail karmique'],
+            systems: ['PY 9→1', transit.name, 'Portail de changement'],
             intensity: 'flippant',
             predictive: false,
           });
@@ -370,12 +370,12 @@ function detectKarmicEchoes(
     }
 
     const narrative = activations.length >= 3
-      ? `Ta leçon karmique ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t\'a rendu plus fort sur exactement ce point.`
-      : `Ta leçon karmique ${kl.num} (${kl.info.k}) a été testée de manière intense en ${strongest.year} (${strongest.age} ans) via ${strongest.trigger}. Ce n'est pas une coïncidence : c'est le moment où tu as été confronté à ce que tu évitais le plus.`;
+      ? `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t\'a rendu plus fort sur exactement ce point.`
+      : `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée de manière intense en ${strongest.year} (${strongest.age} ans) via ${strongest.trigger}. Ce n'est pas une coïncidence : c'est le moment où tu as été confronté à ce que tu évitais le plus.`;
 
     patterns.push({
       type: 'karmic_echo',
-      title: `Écho karmique : ${kl.info.k}`,
+      title: `Écho de vie : ${kl.info.k}`,
       narrative,
       insight: futureActivation
         ? `Prochaine confrontation prévue en ${futureActivation}. Cette fois, tu as l'expérience de ${activations.length} test${activations.length > 1 ? 's' : ''} — tu es prêt.`
@@ -856,7 +856,7 @@ function detectEclipseKarmique(
     patterns.push({
       type: 'eclipse_karmique',
       title: `${eclType} × Challenge ${activeChallenge.v}`,
-      narrative: `${eclType} (${timing}) pendant ton Défi de vie ${activeChallenge.v} (${getNumberInfo(activeChallenge.v).k}).${baziMatch ? ` Le BaZi du jour ${baziStem} résonne avec le même élément — triple convergence exceptionnelle (~1% de probabilité).` : ''} Les éclipses karmiques catalysent les leçons que tu dois intégrer dans cette phase de vie.`,
+      narrative: `${eclType} (${timing}) pendant ton Défi de vie ${activeChallenge.v} (${getNumberInfo(activeChallenge.v).k}).${baziMatch ? ` Le BaZi du jour ${baziStem} résonne avec le même élément — triple convergence exceptionnelle (~1% de probabilité).` : ''} Les éclipses catalysent les leçons que tu dois intégrer dans cette phase de vie.`,
       insight: activeChallenge.v <= 4
         ? `Ce défi te demande de structurer ce que tu évites. L'éclipse accélère le processus — ce que tu repousses depuis des mois va se présenter. Accueille-le.`
         : activeChallenge.v <= 7
@@ -967,11 +967,11 @@ function detectVoidCourse(
   if (isVOC && isReflectPD) {
     patterns.push({
       type: 'void_course',
-      title: 'Void of Course — Pause Imposée',
-      narrative: `La Lune quitte ${moonTr.sign} pour ${moonTrTomorrow.sign} aujourd'hui — période "Void of Course" en astrologie horaire. Combiné avec ton PD ${pdv} (${getNumberInfo(pdv).k.toLowerCase()}), c'est un signal clair : toute action lancée maintenant risque de ne mener nulle part. Ce n'est pas un mauvais jour — c'est un jour de NON-action stratégique.`,
+      title: 'Lune en Pause — Non-action Stratégique',
+      narrative: `La Lune quitte ${moonTr.sign} pour ${moonTrTomorrow.sign} aujourd'hui — période dite "Void of Course" (Lune hors cours) en astrologie horaire. Combiné avec ton Jour Personnel ${pdv} (${getNumberInfo(pdv).k.toLowerCase()}), c'est un signal clair : toute action lancée maintenant risque de ne mener nulle part. Ce n'est pas un mauvais jour — c'est un jour de NON-action stratégique.`,
       insight: `Ne lance rien d'important aujourd'hui. Pas de signature, pas de pitch, pas de première impression. Utilise ce temps pour réfléchir, planifier, et attendre que la Lune entre en ${moonTrTomorrow.sign} demain.`,
       years: [parseInt(todayStr.slice(0, 4))],
-      systems: ['Lune Void of Course', `PD ${pdv}`, `Transit ${moonTr.sign}→${moonTrTomorrow.sign}`],
+      systems: ['Lune en pause', `Jour ${pdv}`, `Transit ${moonTr.sign}→${moonTrTomorrow.sign}`],
       intensity: 'fort',
       predictive: false,
     });

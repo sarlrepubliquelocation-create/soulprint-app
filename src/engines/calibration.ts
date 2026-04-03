@@ -46,18 +46,19 @@ export const PROFILE_LABELS: Record<CalibProfile, { label: string; icon: string;
   exigeant:  { label: 'Exigeant',  icon: '🎯', desc: 'Standards élevés',   color: '#f59e0b' },
 };
 
+import { sto } from './storage';
+
 // ── I/O localStorage ──
 
 function loadCalib(): CalibState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...EMPTY_STATE };
-    return JSON.parse(raw) as CalibState;
+    const loaded = sto.get<CalibState>(STORAGE_KEY);
+    return loaded ?? { ...EMPTY_STATE };
   } catch { return { ...EMPTY_STATE }; }
 }
 
 function saveCalib(s: CalibState): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* localStorage indisponible */ }
+  try { sto.set(STORAGE_KEY, s); } catch { /* localStorage indisponible */ }
 }
 
 function addDays(dateStr: string, n: number): string {

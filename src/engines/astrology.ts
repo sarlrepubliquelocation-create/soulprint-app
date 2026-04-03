@@ -1,8 +1,11 @@
-// ═══ ASTROLOGY ENGINE V3.1 ═══
+// ═══ ASTROLOGY ENGINE V3.2 ═══
 // Positions, Aspects, Transits, Elements, Modalities, Placidus, Noeuds, Chiron, Lilith
+// V3.2: Chiron → table éphémérides JPL Horizons (Ronde #1+#2, consensus 3/3 GPT/Grok/Gemini)
 // V3.1: +Grand Trigone, +T-Carré, +Quinconce, +Sesqui-carré
 // V3.0: +Nœuds Lunaires, +Chiron, +Lilith, +Maisons Placidus, +Stelliums, +Dominante Planétaire
 // V2.7: Auto-détection DST France
+
+import { calcChironFromTable } from './chiron-ephemeris';
 
 const PI = Math.PI, D2R = PI / 180, R2D = 180 / PI;
 const sin = (a: number) => Math.sin(a * D2R);
@@ -69,6 +72,7 @@ export interface AstroChart {
   pof: number;      // V3.0: Part of Fortune (longitude 0-360)
   pos: number;      // R25: Part of Spirit (longitude 0-360)
   hs: string[];     // cuspides maisons (signe de chaque cuspide 0-11)
+  hsCusps: number[];  // Ronde #3 F1: longitudes réelles des cusps (0-360°) pour placement Placidus exact
   houseSystem: HouseSystem; // R25: système de maisons utilisé
   as: Aspect[];     // aspects
   el: Record<string, number>;  // elements
@@ -111,6 +115,15 @@ export const SIGN_RULER: Record<string, string> = {
 export const ASPECT_SYM: Record<string, string> = {
   conjunction:'☌', opposition:'☍', trine:'△', square:'□', sextile:'⚹',
   quincunx:'⚻', sesquisquare:'⊼'
+};
+export const ASPECT_FR: Record<string, string> = {
+  conjunction: 'conjonction (fusion d\'énergies)',
+  opposition: 'opposition (tension créatrice)',
+  trine: 'trigone (harmonie naturelle)',
+  square: 'carré (défi à surmonter)',
+  sextile: 'sextile (opportunité à saisir)',
+  quincunx: 'quinconce (ajustement nécessaire)',
+  sesquisquare: 'sesqui-carré (irritation latente)',
 };
 export const ASPECT_COL: Record<string, string> = {
   conjunction:'#FFD700', opposition:'#FF4444', trine:'#4ade80', square:'#ef4444', sextile:'#60a5fa',
@@ -263,8 +276,13 @@ export function calcNodes(dd: number): { northNode: number; southNode: number } 
   return { northNode: NN, southNode: norm(NN + 180) };
 }
 
-// Chiron — formule Meeus, précision < 0.5° sur 1900-2100
+// Chiron — table d'éphémérides JPL Horizons (Ronde #1+#2, consensus 3/3)
+// Précision cible : < 0.3° sur 1920-2100
+// Fallback sur l'ancienne formule polynomiale si la table n'est pas encore chargée
 export function calcChiron(dd: number): number {
+  const fromTable = calcChironFromTable(dd);
+  if (fromTable !== null) return fromTable;
+  // Fallback : ancienne formule (erreur 10-56°, à supprimer quand table JPL intégrée)
   const T = dd / 36525;
   return norm(209.366 + 0.019985 * dd + 0.000207 * T * T);
 }
@@ -361,7 +379,8 @@ function calcPlacidusHouses(asc: number, mc: number, ramc: number, obl: number, 
 }
 
 // Trouver la maison d'une planète selon les cuspides (gère le franchissement de 0°)
-function getPlanetHousePlacidus(lon: number, cusps: number[]): number {
+// Ronde #3 F1: exporté pour permettre le placement exact des Parts dans AstroTab
+export function getPlanetHousePlacidus(lon: number, cusps: number[]): number {
   const l = norm(lon);
   for (let i = 0; i < 12; i++) {
     const c1 = cusps[i];
@@ -618,7 +637,7 @@ export function calcChart(
       ? ((Math.floor(norm(pp.lon) / 30) - Math.floor(norm(asc) / 30) + 12) % 12) + 1
       : getPlanetHousePlacidus(pp.lon, cusps);
     return {
-      k: pp.k, s: sign, d: +( norm(pp.lon) % 30).toFixed(2),
+      k: pp.k, s: sign, d: Math.min(+(norm(pp.lon) % 30).toFixed(2), 29.99),
       h: house,
       retro: ['northNode','southNode','chiron','lilith'].includes(pp.k) ? false : isRetrograde(pp.k, dd),
       dig: getDignity(pp.k, sign) || undefined,
@@ -674,6 +693,9 @@ export function calcChart(
   as.sort((a, b) => a.o - b.o);
 
   // ── Éléments & Modalités ──
+  // Ronde #3 F6 : comptage documenté — 10 planètes classiques (Sun→Pluto) + ASC
+  // Poids : Luminaires 2, Personnelles 1.5, Sociales 1, Transpersonnelles 0.5, ASC 2
+  // Total pondéré = 14 (pas de points fictifs : Chiron/Nœuds/Lilith exclus)
   const el: Record<string, number> = { fire: 0, earth: 0, air: 0, water: 0 };
   const moo: Record<string, number> = { cardinal: 0, fixed: 0, mutable: 0 };
   const W: Record<string, number> = { sun: 2, moon: 2, mercury: 1.5, venus: 1.5, mars: 1.5, jupiter: 1, saturn: 1, uranus: .5, neptune: .5, pluto: .5 };
@@ -681,7 +703,7 @@ export function calcChart(
     const w = W[pp.k] || 0;
     if (w) { el[SIGN_ELEM[pp.s]] += w; moo[SIGN_MODE[pp.s]] += w; }
   });
-  el[SIGN_ELEM[ascSign]] += 2;
+  el[SIGN_ELEM[ascSign]] += 2;  // ASC comme 11e facteur (tradition tempérament)
   moo[SIGN_MODE[ascSign]] += 2;
 
   // ── V3.0 : Stelliums + Dominante ──
@@ -695,10 +717,10 @@ export function calcChart(
 
   return {
     pl, b3,
-    ad: +(norm(asc) % 30).toFixed(2),
-    mcSign, mcDeg: +(norm(mc) % 30).toFixed(2),
+    ad: Math.min(+(norm(asc) % 30).toFixed(2), 29.99),
+    mcSign, mcDeg: Math.min(+(norm(mc) % 30).toFixed(2), 29.99),
     pof, pos,
-    hs, houseSystem: resolvedHouseSystem, as, el, mo: moo,
+    hs, hsCusps: cusps, houseSystem: resolvedHouseSystem, as, el, mo: moo,
     stelliums, dominant,
     grandTrines, tSquares,
   };
@@ -732,13 +754,64 @@ export function calcTransits(natal: Omit<AstroChart, 'tr' | 'noTime'>, y: number
 
 // === CITIES ===
 export const CITIES: Record<string, [number, number]> = {
+  // --- France ---
   macon:[46.31,4.83],paris:[48.86,2.35],lyon:[45.76,4.84],marseille:[43.3,5.37],
   toulouse:[43.6,1.44],nice:[43.71,7.26],bordeaux:[44.84,-.58],nantes:[47.22,-1.55],
   strasbourg:[48.57,7.75],lille:[50.63,3.06],carcassonne:[43.21,2.35],grenoble:[45.19,5.72],
   dijon:[47.32,5.04],montpellier:[43.61,3.88],rennes:[48.12,-1.68],rouen:[49.44,1.1],
   tours:[47.39,.68],brest:[48.39,-4.49],clermont:[45.78,3.09],perpignan:[42.7,2.9],
   toulon:[43.12,5.93],angers:[47.47,-.56],limoges:[45.83,1.26],pau:[43.3,-.37],
-  lamongielesisere:[42.91,0.18],lamongie:[42.91,0.18]
+  lamongielesisere:[42.91,0.18],lamongie:[42.91,0.18],
+  reims:[49.25,3.88],metz:[49.12,6.18],besancon:[47.24,6.02],orleans:[47.9,1.9],
+  mulhouse:[47.75,7.34],caen:[49.18,-.37],nancy:[48.69,6.18],nimes:[43.84,4.36],
+  avignon:[43.95,4.81],aix:[43.53,5.45],bagneres:[43.06,0.15],tarbes:[43.23,0.08],
+  lourdes:[43.09,-.05],foix:[42.97,1.61],biarritz:[43.48,-1.56],bayonne:[43.49,-1.47],
+  ajaccio:[41.93,8.74],bastia:[42.7,9.45],
+  // --- Espagne ---
+  barcelone:[41.39,2.17],barcelona:[41.39,2.17],madrid:[40.42,-3.7],
+  valence:[39.47,-.38],valencia:[39.47,-.38],seville:[37.39,-5.98],sevilla:[37.39,-5.98],
+  malaga:[36.72,-4.42],bilbao:[43.26,-2.93],saragosse:[41.65,-.89],zaragoza:[41.65,-.89],
+  palma:[39.57,2.65],palmademallorca:[39.57,2.65],
+  // --- Italie ---
+  rome:[41.9,12.5],roma:[41.9,12.5],milan:[45.46,9.19],milano:[45.46,9.19],
+  naples:[40.85,14.27],napoli:[40.85,14.27],turin:[45.07,7.69],torino:[45.07,7.69],
+  florence:[43.77,11.25],firenze:[43.77,11.25],venise:[45.44,12.32],venezia:[45.44,12.32],
+  bologne:[44.49,11.34],bologna:[44.49,11.34],genes:[44.41,8.93],genova:[44.41,8.93],
+  // --- Belgique ---
+  bruxelles:[50.85,4.35],brussels:[50.85,4.35],anvers:[51.22,4.4],antwerpen:[51.22,4.4],
+  gand:[51.05,3.72],gent:[51.05,3.72],liege:[50.63,5.57],namur:[50.47,4.87],
+  charleroi:[50.41,4.44],
+  // --- Allemagne ---
+  berlin:[52.52,13.41],munich:[48.14,11.58],munchen:[48.14,11.58],
+  hambourg:[53.55,9.99],hamburg:[53.55,9.99],francfort:[50.11,8.68],frankfurt:[50.11,8.68],
+  cologne:[50.94,6.96],koln:[50.94,6.96],dusseldorf:[51.23,6.78],
+  stuttgart:[48.78,9.18],dresde:[51.05,13.74],dresden:[51.05,13.74],
+  // --- Suisse ---
+  geneve:[46.2,6.14],zurich:[47.37,8.54],berne:[46.95,7.45],bern:[46.95,7.45],
+  lausanne:[46.52,6.63],bale:[47.56,7.59],basel:[47.56,7.59],
+  // --- Portugal ---
+  lisbonne:[38.72,-9.14],lisboa:[38.72,-9.14],porto:[41.15,-8.61],
+  // --- Royaume-Uni ---
+  londres:[51.51,-.13],london:[51.51,-.13],manchester:[53.48,-2.24],
+  birmingham:[52.49,-1.9],edinburgh:[55.95,-3.19],edimbourg:[55.95,-3.19],
+  glasgow:[55.86,-4.25],liverpool:[53.41,-2.98],
+  // --- Pays-Bas ---
+  amsterdam:[52.37,4.9],rotterdam:[51.92,4.48],lahaye:[52.08,4.3],denhaag:[52.08,4.3],
+  utrecht:[52.09,5.12],
+  // --- Autres Europe ---
+  vienne:[48.21,16.37],wien:[48.21,16.37],prague:[50.08,14.44],praha:[50.08,14.44],
+  varsovie:[52.23,21.01],warszawa:[52.23,21.01],budapest:[47.5,19.04],
+  bucarest:[44.43,26.1],bucuresti:[44.43,26.1],athenes:[37.98,23.73],
+  copenhague:[55.68,12.57],kobenhavn:[55.68,12.57],stockholm:[59.33,18.07],
+  oslo:[59.91,10.75],helsinki:[60.17,24.94],dublin:[53.35,-6.26],
+  luxembourg:[49.61,6.13],
+  // --- Amérique du Nord ---
+  newyork:[40.71,-74.01],losangeles:[34.05,-118.24],montreal:[45.5,-73.57],
+  quebec:[46.81,-71.21],toronto:[43.65,-79.38],
+  // --- Afrique du Nord / Proche-Orient ---
+  alger:[36.75,3.04],tunis:[36.81,10.17],casablanca:[33.57,-7.59],rabat:[34.02,-6.84],
+  marrakech:[31.63,-8.01],beyrouth:[33.89,35.5],beirut:[33.89,35.5],
+  lecaire:[30.04,31.24],cairo:[30.04,31.24],
 };
 
 export function findCity(s: string): [number, number] | null {
@@ -760,7 +833,7 @@ function lastSundayOfMonth(year: number, month: number): number {
   return last.getDate() - dow;
 }
 
-function isFranceDST(year: number, month: number, day: number): boolean {
+export function isFranceDST(year: number, month: number, day: number): boolean {
   if (year < 1976) return false;
 
   // DST start: dernier dimanche de mars
@@ -780,25 +853,64 @@ function isFranceDST(year: number, month: number, day: number): boolean {
   return false;
 }
 
-// Villes françaises connues → auto-détection
-const FRENCH_CITIES = new Set([
+// Villes CET/CEST (UTC+1 hiver / UTC+2 été) : France, Espagne, Italie, Belgique, Allemagne, Suisse, Pays-Bas, Autriche, etc.
+// Les règles DST EU s'appliquent uniformément depuis 1996 (dernier dim mars → dernier dim octobre)
+// Note : L'Espagne utilise CET/CEST bien qu'elle soit géographiquement en WET (décision Franco 1940, jamais annulée)
+const CET_CITIES = new Set([
+  // France
   'paris', 'lyon', 'marseille', 'toulouse', 'nice', 'nantes', 'strasbourg',
   'montpellier', 'bordeaux', 'lille', 'rennes', 'reims', 'toulon', 'grenoble',
   'dijon', 'angers', 'nimes', 'clermont', 'macon', 'perpignan', 'metz',
   'besancon', 'orleans', 'rouen', 'mulhouse', 'caen', 'nancy', 'pau',
   'carcassonne', 'bagneres', 'lamongie', 'tarbes', 'lourdes', 'foix',
   'biarritz', 'bayonne', 'ajaccio', 'bastia', 'avignon', 'aix',
+  // Espagne
+  'barcelone', 'barcelona', 'madrid', 'valence', 'valencia', 'seville', 'sevilla',
+  'malaga', 'bilbao', 'saragosse', 'zaragoza', 'palma', 'palmademallorca',
+  // Italie
+  'rome', 'roma', 'milan', 'milano', 'naples', 'napoli', 'turin', 'torino',
+  'florence', 'firenze', 'venise', 'venezia', 'bologne', 'bologna', 'genes', 'genova',
+  // Belgique
+  'bruxelles', 'brussels', 'anvers', 'antwerpen', 'gand', 'gent', 'liege', 'namur', 'charleroi',
+  // Allemagne
+  'berlin', 'munich', 'munchen', 'hambourg', 'hamburg', 'francfort', 'frankfurt',
+  'cologne', 'koln', 'dusseldorf', 'stuttgart', 'dresde', 'dresden',
+  // Suisse
+  'geneve', 'zurich', 'berne', 'bern', 'lausanne', 'bale', 'basel',
+  // Pays-Bas
+  'amsterdam', 'rotterdam', 'lahaye', 'denhaag', 'utrecht',
+  // Autres CET
+  'vienne', 'wien', 'prague', 'praha', 'varsovie', 'warszawa', 'budapest',
+  'copenhague', 'kobenhavn', 'stockholm', 'oslo', 'luxembourg',
+]);
+
+// Villes WET/WEST (UTC+0 hiver / UTC+1 été) : Portugal, Royaume-Uni, Irlande
+// Mêmes dates de changement DST que CET (harmonisation EU)
+const WET_CITIES = new Set([
+  'lisbonne', 'lisboa', 'porto',
+  'londres', 'london', 'manchester', 'birmingham', 'edinburgh', 'edimbourg',
+  'glasgow', 'liverpool', 'dublin',
+]);
+
+// Villes EET/EEST (UTC+2 hiver / UTC+3 été) : Grèce, Roumanie, Finlande, etc.
+const EET_CITIES = new Set([
+  'athenes', 'bucarest', 'bucuresti', 'helsinki',
 ]);
 
 /**
  * Suggère le fuseau UTC correct basé sur la ville et la date de naissance.
- * Retourne null si la ville n'est pas reconnue comme française.
+ * Supporte CET (France/Espagne/Italie/…), WET (UK/Portugal), EET (Grèce/Roumanie/Finlande).
+ * Retourne null si la ville n'est pas reconnue.
  */
 export function suggestTimezone(bd: string, city: string): number | null {
   const normalized = city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
-  if (!FRENCH_CITIES.has(normalized)) return null;
   const [y, m, d] = bd.split('-').map(Number);
-  return isFranceDST(y, m, d) ? 2 : 1;
+  // isFranceDST fonctionne pour toute l'Europe (mêmes règles EU de changement d'heure)
+  const isDST = isFranceDST(y, m, d);
+  if (CET_CITIES.has(normalized)) return isDST ? 2 : 1;
+  if (WET_CITIES.has(normalized)) return isDST ? 1 : 0;
+  if (EET_CITIES.has(normalized)) return isDST ? 3 : 2;
+  return null;
 }
 
 // ══════════════════════════════════════════════════

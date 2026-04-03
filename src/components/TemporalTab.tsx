@@ -243,9 +243,9 @@ const EVENT_DETAILS = {
       `Conseil : les 2-3 mois autour de cette transition sont souvent ressentis comme un "entre-deux". C'est normal — le nouveau thème s'installe progressivement.`;
   },
   pinnacle: (age: number) => (
-    `À ${age} ans, tu entres dans une nouvelle grande phase de vie. Les Pinnacles sont les 4 grandes saisons de ton existence.\n\n` +
+    `À ${age} ans, tu entres dans une nouvelle grande phase de vie. Les Sommets sont les 4 grandes saisons de ton existence.\n\n` +
     `Ce changement redéfinit tes priorités profondes, ton environnement, et la nature des défis que tu rencontres.\n\n` +
-    `Conseil : anticipe cette transition en observant ce qui "ne fonctionne plus" dans ta vie actuelle — c'est souvent le signe que le nouveau pinnacle prépare le terrain.`
+    `Conseil : anticipe cette transition en observant ce qui "ne fonctionne plus" dans ta vie actuelle — c'est souvent le signe que la nouvelle phase prépare le terrain.`
   ),
   retrograde: (planet: string, isEnd: boolean) => {
     const energies: Record<string, string> = {
@@ -322,6 +322,7 @@ export default function TemporalTab({ data, psi }: Props) {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
+                aria-label={`Mode ${mode === 'essentiel' ? 'Essentiel' : 'Complet'}`}
                 style={{
                   padding: '6px 14px', fontSize: 11, fontWeight: 600,
                   cursor: 'pointer', border: 'none', outline: 'none',
@@ -416,7 +417,7 @@ export default function TemporalTab({ data, psi }: Props) {
           <div style={{ marginBottom: 12 }}>
             <Sparkline scores={momentum.scores} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <div className="grid-responsive-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
             <div style={{ padding: '8px 10px', borderRadius: 8, background: P.surface, textAlign: 'center' }}>
               <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>Tendance</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: trendColor[momentum.trend], marginTop: 2 }}>{trendLabel[momentum.trend]}</div>
@@ -515,7 +516,7 @@ export default function TemporalTab({ data, psi }: Props) {
             <div style={{ fontSize: 11, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 8 }}>
               7 prochains jours
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div className="grid-responsive-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ padding: '8px 10px', borderRadius: 8, background: '#4ade800a', border: '1px solid #4ade8018' }}>
                 <div style={{ fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1 }}>Meilleur</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80', marginTop: 2 }}>
@@ -528,7 +529,7 @@ export default function TemporalTab({ data, psi }: Props) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{Math.round(forecast.next7.avg)}</div>
               </div>
               <div style={{ padding: '8px 10px', borderRadius: 8, background: '#ef44440a', border: '1px solid #ef444418' }}>
-                <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1 }}>Énergie basse</div>
+                <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1 }}>Score le plus bas</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginTop: 2 }}>
                   {Math.round(forecast.next7.worst.score)}
                 </div>
@@ -811,7 +812,7 @@ export default function TemporalTab({ data, psi }: Props) {
           {/* Pinnacle */}
           <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>Pinnacle actif</div>
+              <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>Sommet actif</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa' }}>
                 #{present.cyclePosition.pinnacle.number} · {present.cyclePosition.pinnacle.position === 'early' ? 'Début' : present.cyclePosition.pinnacle.position === 'late' ? 'Fin' : 'Milieu'}
               </div>
@@ -889,14 +890,21 @@ export default function TemporalTab({ data, psi }: Props) {
                     {psi.pastMatches.map((m, i) => {
                       const ago = Math.round((Date.now() - new Date(m.date).getTime()) / 86400000);
                       const mColor = m.resonanceLabel === 'forte' ? '#f59e0b' : m.resonanceLabel === 'modérée' ? '#60a5fa' : P.textDim;
-                      // Raison contextuelle du match
+                      // Raison contextuelle du match — en langage humain
                       const cycleDays = [7, 14, 28, 30, 60, 90, 180, 365];
                       const nearCycle = cycleDays.find(c => Math.abs(ago - c) <= 2);
                       const matchReason = nearCycle
-                        ? `cycle ~${nearCycle}j`
-                        : ago < 10 ? 'configuration récente'
-                        : ago % 30 < 3 ? 'cycle mensuel'
-                        : 'configuration cyclique';
+                        ? nearCycle === 7 ? 'il y a exactement une semaine'
+                        : nearCycle === 14 ? 'il y a 2 semaines'
+                        : nearCycle === 28 || nearCycle === 30 ? 'il y a un mois'
+                        : nearCycle === 60 ? 'il y a 2 mois'
+                        : nearCycle === 90 ? 'il y a 3 mois'
+                        : nearCycle === 180 ? 'il y a 6 mois'
+                        : 'il y a un an'
+                        : ago < 10 ? 'récemment — motif qui se répète'
+                        : ago % 30 < 3 ? 'motif mensuel'
+                        : 'motif récurrent';
+                      const resonanceHuman = m.resonanceLabel === 'forte' ? 'très proche' : m.resonanceLabel === 'modérée' ? 'proche' : 'assez proche';
                       return (
                         <div key={i} style={{
                           padding: '8px 10px', borderRadius: 7,
@@ -908,7 +916,7 @@ export default function TemporalTab({ data, psi }: Props) {
                               Il y a {ago} jour{ago > 1 ? 's' : ''}
                             </div>
                             <div style={{ fontSize: 10, color: P.textDim, marginTop: 1 }}>
-                              {distanceLabel(m.distance)} · {m.resonanceLabel} · {matchReason}
+                              {resonanceHuman} · {matchReason}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>

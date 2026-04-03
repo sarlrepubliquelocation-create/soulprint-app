@@ -1,3 +1,4 @@
+import { COSMIC_THRESHOLD } from './convergence';
 // ═══ ALIGNMENT ENGINE — V4.5 ═══
 // Indicateur d'alignement global : 8 états Fond/Tendance/Signal
 // 5 patterns de contradiction narratifs
@@ -93,9 +94,9 @@ export interface AlignmentResult {
 const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
   autoroute_cosmique: {
     name: 'autoroute_cosmique',
-    label: 'Autoroute cosmique',
+    label: 'Tes 3 cycles alignés',
     fondPolarity: '+', tendancePolarity: '+', signalPolarity: '+',
-    uxText: 'Alignement total — la voie est libre.',
+    uxText: 'Ton cycle de vie, ta période annuelle et ton énergie du jour convergent — la voie est libre.',
     color: 'cyan',
     colorHex: '#00CED1',
     action: 'Fonce, matérialise.',
@@ -118,7 +119,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Fond solide, mais brouillard immédiat.',
     color: 'blue-grey',
     colorHex: '#6699CC',
-    action: 'Ne forcez pas les événements.',
+    action: 'Ne force pas les événements.',
     icon: '🌫',
   },
   tempete_cosmique: {
@@ -158,7 +159,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     uxText: 'Brève accalmie au cœur de la tempête.',
     color: 'magenta',
     colorHex: '#FF00FF',
-    action: 'Prends l\'énergie, ne signez rien à long terme.',
+    action: 'Prends l\'énergie, ne signe rien à long terme.',
     icon: '🌺',
   },
   tension_de_surface: {
@@ -182,7 +183,7 @@ const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
     name: 'fenetre_dans_tempete',
     label: 'Fenêtre dans la tempête',
     condition: { fondNegative: true, signalHigh: true },
-    template: "Bien que tu sois dans une phase de [FOND_LABEL], aujourd'hui la fenêtre est [SIGNAL_LABEL]. Utilise cette ouverture avec stratégie plutôt qu'impulsion.",
+    template: "Bien que tu sois dans une phase de [FOND_LABEL], aujourd'hui l'énergie s'élève jusqu'à [SIGNAL_LABEL]. Utilise cette ouverture avec stratégie plutôt qu'impulsion.",
     domainVariants: {
       BUSINESS: 'Opportunité tactique dans un climat exigeant — agis, mais protège tes arrières.',
       AMOUR: 'Moment lumineux dans une période relationnelle instable — connecte, sans tout miser.',
@@ -193,7 +194,7 @@ const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
     name: 'rafale_vent_porteur',
     label: 'Rafale dans le vent porteur',
     condition: { fondPositive: true, signalLow: true },
-    template: "Tu es dans une phase de [FOND_LABEL], mais aujourd'hui l'énergie est [SIGNAL_LABEL]. Ce ralentissement est ponctuel, pas structurel.",
+    template: "Tu es dans une phase de [FOND_LABEL], mais aujourd'hui l'énergie descend en [SIGNAL_LABEL]. Ce ralentissement est lié à aujourd'hui — ta dynamique de fond reste intacte.",
     domainVariants: {
       BUSINESS: 'Ne remets pas en cause la stratégie à cause d\'un contretemps tactique.',
       AMOUR: 'Une tension passagère ne définit pas la relation — le fond reste solide.',
@@ -202,9 +203,9 @@ const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
   },
   {
     name: 'spike_isole',
-    label: 'Spike isolé',
+    label: 'Pic isolé',
     condition: { fondNeutral: true, signalExtreme: true },
-    template: "Ta phase actuelle est stable, mais aujourd'hui l'énergie est exceptionnellement [SIGNAL_LABEL]. Ce pic est circonstanciel, pas structurel.",
+    template: "Ta phase actuelle est stable, mais aujourd'hui l'énergie monte jusqu'à [SIGNAL_LABEL]. Ce pic est lié à aujourd'hui spécifiquement — pas à une tendance de fond.",
     domainVariants: {
       BUSINESS: 'Une fenêtre tactique dans un contexte neutre — agis avec lucidité.',
       AMOUR: 'Intensité émotionnelle passagère — observe avant de t\'engager.',
@@ -217,7 +218,7 @@ const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
     condition: { allDivergent: true },
     template: "Les dynamiques longues et courtes ne vont pas dans la même direction. Cette dissociation indique un ajustement en cours — laisse la poussière retomber avant d'agir.",
     domainVariants: {
-      BUSINESS: 'Période de repositionnement — ne signez rien d\'irréversible.',
+      BUSINESS: 'Période de repositionnement — ne signe rien d\'irréversible.',
       AMOUR: 'Signaux contradictoires dans la relation — attends la clarté.',
       VITALITE: 'Corps et cycles désynchronisés — priorité au repos réparateur.',
     },
@@ -256,8 +257,8 @@ export type TendanceLabel =
   | 'Introspection';
 
 export type SignalLabel =
-  | 'Cosmique'
-  | 'Gold'
+  | 'Convergence rare'
+  | 'Élan fort'
   | 'Favorable'
   | 'Routine'
   | 'Prudence'
@@ -265,8 +266,8 @@ export type SignalLabel =
 
 // Mapping score → SignalLabel
 export function getSignalLabel(score: number): SignalLabel {
-  if (score >= 90) return 'Cosmique';
-  if (score >= 80) return 'Gold';
+  if (score >= COSMIC_THRESHOLD) return 'Convergence rare';
+  if (score >= 80) return 'Élan fort';
   if (score >= 65) return 'Favorable';
   if (score >= 40) return 'Routine';
   if (score >= 25) return 'Prudence';
@@ -281,18 +282,18 @@ function getSignalPolarity(score: number): AlignmentPolarity {
 // Connecteurs selon Fond → Signal contradiction
 const CONTRADICTION_CONNECTORS: Partial<Record<FondLabel, Partial<Record<SignalLabel, string>>>> = {
   Consolidation: {
-    Cosmique: 'Dans cette phase de consolidation, aujourd\'hui offre une accélération inhabituelle.',
-    Gold:     'Un élan inattendu dans une période de consolidation — saisis-le prudemment.',
-    Tempête:  'La consolidation en cours absorbe la turbulence du jour.',
-    Prudence: 'Période de consolidation + journée prudente — double signal de patience.',
+    'Convergence rare': 'Dans cette phase de consolidation, aujourd\'hui offre une accélération inhabituelle.',
+    'Élan fort':        'Un élan inattendu dans une période de consolidation — saisis-le prudemment.',
+    Tempête:            'La consolidation en cours absorbe la turbulence du jour.',
+    Prudence:           'Période de consolidation + journée prudente — double signal de patience.',
   },
   Expansion: {
     Tempête:  'L\'expansion de fond reste intacte — cette résistance du jour est passagère.',
     Prudence: 'La dynamique d\'expansion n\'est pas remise en cause par ce ralentissement.',
   },
   Épuration: {
-    Cosmique: 'Un signal fort pendant l\'épuration — une opportunité à saisir avec discernement.',
-    Gold:     'Une fenêtre lumineuse dans le travail d\'épuration en cours.',
+    'Convergence rare': 'Un signal fort pendant l\'épuration — une opportunité à saisir avec discernement.',
+    'Élan fort':        'Une fenêtre lumineuse dans le travail d\'épuration en cours.',
   },
 };
 
@@ -368,9 +369,9 @@ function modulateDisplay(state: AlignmentState, score: number): AlignmentDisplay
 
   if (state.name === 'autoroute_cosmique' && isModeratePositive) {
     return {
-      label: 'Alignement total',
+      label: 'Tes 3 cycles alignés',
       action: 'Avance avec confiance — le terrain est porteur, même si l\'intensité reste modérée.',
-      uxText: 'Tous tes cycles sont alignés, mais l\'énergie du jour reste calme — journée routine sur terrain favorable.',
+      uxText: 'Tes 3 cycles sont alignés, mais l\'énergie du jour reste calme — journée routine sur terrain favorable.',
     };
   }
   if (state.name === 'percee_lumineuse' && isModeratePositive) {
@@ -520,14 +521,17 @@ export function buildSynthesisPhrase(
   const { fond, tendance, signal, connector } = result.synthesisPhraseComponents;
   const { state } = result;
 
+  // Helper : liaison "de/d'" selon voyelle initiale
+  const de = (s: string) => /^[aeiouyéèêëàâäùûüôöîïh]/i.test(s) ? `d'${s}` : `de ${s}`;
+
   // Partie Fond
-  const fondPart = `Ancré·e dans un cycle de ${fond}`;
+  const fondPart = `En plein cycle ${de(fond)}`;
 
   // Partie Tendance
-  const tendancePart = `tu traverses une période de ${tendance.toLowerCase()}`;
+  const tendancePart = `tu traverses une période ${de(tendance.toLowerCase())}`;
 
   // Partie Signal
-  const signalPart = `aujourd'hui est une journée ${signal.toLowerCase()} — ${state.uxText}`;
+  const signalPart = `Aujourd'hui est une journée ${signal.toLowerCase()} — ${state.uxText}`;
 
   // Alerte transition LP
   let transitionPart = '';
@@ -544,7 +548,7 @@ export function buildSynthesisPhrase(
   // Connecteur correctif si contradiction
   const connPart = connector ? `\n${connector}` : '';
 
-  return `${fondPart}, ${tendancePart}. ${signalPart}.${transitionPart}${mutationPart}${connPart}`;
+  return `${fondPart}, ${tendancePart}. ${signalPart.replace(/\.$/, '')}. ${transitionPart}${mutationPart}${connPart}`.replace(/\s+/g, ' ').trim();
 }
 
 // Exports pour usage externe

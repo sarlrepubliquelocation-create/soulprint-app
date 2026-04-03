@@ -159,7 +159,7 @@ export function calcTransitStellium(
   const narrativeLabel = `${mainStellium.planets.length} planètes lentes en ${mainStellium.signFR} (${planetsLabel})`;
 
   breakdown.push({
-    system: 'Transit Stellium',
+    system: 'Concentration planétaire',
     icon: '🌌',
     value: `${mainStellium.planets.length} lentes en ${mainStellium.signFR}`,
     points: totalBonus,

@@ -1,0 +1,294 @@
+Building master number dates cache...
+Master dates found:
+  CdV 11: [
+  '1950-01-04',
+  '1950-01-13',
+  '1950-01-22',
+  '1950-02-03',
+  '1950-02-12'
+]
+  CdV 22: [
+  '1950-05-11',
+  '1950-07-09',
+  '1950-07-18',
+  '1950-07-27',
+  '1950-08-08'
+]
+  CdV 33: [
+  '1950-05-22',
+  '1951-04-22',
+  '1952-03-22',
+  '1952-12-22',
+  '1953-02-22'
+]
+
+═══ TEST A: LP_PAIR_TEXT (1-1 to 9-9) ═══
+
+❌ 1-1 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 1-1 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 1-1 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+✅ 1-2 (amour)
+✅ 1-2 (pro)
+✅ 1-2 (famille)
+✅ 1-3 (amour)
+✅ 1-3 (pro)
+✅ 1-3 (famille)
+✅ 1-4 (amour)
+✅ 1-4 (pro)
+✅ 1-4 (famille)
+✅ 1-5 (amour)
+✅ 1-5 (pro)
+✅ 1-5 (famille)
+❌ 1-6 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 1-6 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 1-6 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+✅ 1-7 (amour)
+✅ 1-7 (pro)
+✅ 1-7 (famille)
+✅ 1-8 (amour)
+✅ 1-8 (pro)
+✅ 1-8 (famille)
+❌ 1-9 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+❌ 1-9 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+❌ 1-9 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+✅ 2-2 (amour)
+✅ 2-2 (pro)
+✅ 2-2 (famille)
+❌ 2-3 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 2-3 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 2-3 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 2-4 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 2-4 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+❌ 2-4 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+✅ 2-5 (amour)
+✅ 2-5 (pro)
+✅ 2-5 (famille)
+❌ 2-6 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 2-6 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 2-6 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 2-7 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+❌ 2-7 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+❌ 2-7 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+✅ 2-8 (amour)
+✅ 2-8 (pro)
+✅ 2-8 (famille)
+✅ 2-9 (amour)
+✅ 2-9 (pro)
+✅ 2-9 (famille)
+✅ 3-3 (amour)
+✅ 3-3 (pro)
+✅ 3-3 (famille)
+✅ 3-4 (amour)
+✅ 3-4 (pro)
+✅ 3-4 (famille)
+✅ 3-5 (amour)
+✅ 3-5 (pro)
+✅ 3-5 (famille)
+❌ 3-6 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+❌ 3-6 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+❌ 3-6 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+✅ 3-7 (amour)
+✅ 3-7 (pro)
+✅ 3-7 (famille)
+✅ 3-8 (amour)
+✅ 3-8 (pro)
+✅ 3-8 (famille)
+✅ 3-9 (amour)
+✅ 3-9 (pro)
+✅ 3-9 (famille)
+✅ 4-4 (amour)
+✅ 4-4 (pro)
+✅ 4-4 (famille)
+✅ 4-5 (amour)
+✅ 4-5 (pro)
+✅ 4-5 (famille)
+✅ 4-6 (amour)
+✅ 4-6 (pro)
+✅ 4-6 (famille)
+❌ 4-7 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 4-7 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 4-7 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+✅ 4-8 (amour)
+✅ 4-8 (pro)
+✅ 4-8 (famille)
+✅ 4-9 (amour)
+✅ 4-9 (pro)
+✅ 4-9 (famille)
+❌ 5-5 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+❌ 5-5 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+❌ 5-5 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+✅ 5-6 (amour)
+✅ 5-6 (pro)
+✅ 5-6 (famille)
+❌ 5-7 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+❌ 5-7 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+❌ 5-7 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+✅ 5-8 (amour)
+✅ 5-8 (pro)
+✅ 5-8 (famille)
+✅ 5-9 (amour)
+✅ 5-9 (pro)
+✅ 5-9 (famille)
+✅ 6-6 (amour)
+✅ 6-6 (pro)
+✅ 6-6 (famille)
+✅ 6-7 (amour)
+✅ 6-7 (pro)
+✅ 6-7 (famille)
+✅ 6-8 (amour)
+✅ 6-8 (pro)
+✅ 6-8 (famille)
+✅ 6-9 (amour)
+✅ 6-9 (pro)
+✅ 6-9 (famille)
+❌ 7-7 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 7-7 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 7-7 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+✅ 7-8 (amour)
+✅ 7-8 (pro)
+✅ 7-8 (famille)
+✅ 7-9 (amour)
+✅ 7-9 (pro)
+✅ 7-9 (famille)
+✅ 8-8 (amour)
+✅ 8-8 (pro)
+✅ 8-8 (famille)
+✅ 8-9 (amour)
+✅ 8-9 (pro)
+✅ 8-9 (famille)
+❌ 9-9 (amour): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 9-9 (pro): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+❌ 9-9 (famille): Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+
+═══ TEST B: LP_MASTER_TEXT (6 master pairs) ═══
+
+❌ Master 11-11 (amour): No master number reference in text
+❌ Master 11-11 (pro): No master number reference in text
+❌ Master 11-11 (famille): No master number reference in text
+✅ Master 11-22 (amour)
+✅ Master 11-22 (pro)
+✅ Master 11-22 (famille)
+✅ Master 11-33 (amour)
+✅ Master 11-33 (pro)
+✅ Master 11-33 (famille)
+✅ Master 22-22 (amour)
+✅ Master 22-22 (pro)
+✅ Master 22-22 (famille)
+✅ Master 22-33 (amour)
+✅ Master 22-33 (pro)
+✅ Master 22-33 (famille)
+✅ Master 33-33 (amour)
+✅ Master 33-33 (pro)
+✅ Master 33-33 (famille)
+
+═══ TEST C: Mixed Regular × Master Edge Cases ═══
+
+✅ Mixed 5-11 (amour) — falls back to reduced pair
+✅ Mixed 3-22 (amour) — falls back to reduced pair
+✅ Mixed 7-33 (amour) — falls back to reduced pair
+
+════════════════════════════════════════════════════════════
+═══ FINAL REPORT ═══
+════════════════════════════════════════════════════════════
+
+✅ Total Tests Run: 156
+✅ Passed: 114
+❌ Failed: 42
+
+❌ ERRORS FOUND:
+
+1-1 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-1 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-1 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-6 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-6 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-6 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+1-9 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+1-9 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+1-9 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton co
+2-3 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-3 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-3 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-4 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-4 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-4 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton li
+2-6 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+2-6 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+2-6 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+2-7 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+2-7 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+2-7 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+3-6 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+3-6 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+3-6 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton ra
+4-7 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+4-7 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+4-7 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+5-5 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+5-5 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+5-5 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton mo
+5-7 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+5-7 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+5-7 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): ton be
+7-7 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+7-7 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+7-7 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+9-9 (amour)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+9-9 (pro)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+9-9 (famille)
+  - Incorrect grammar: "ton" before consonant+vowel (feminine): Ton li
+11-11 (amour)
+  - No master number reference in text
+11-11 (pro)
+  - No master number reference in text
+11-11 (famille)
+  - No master number reference in text
+
+📊 TEXT UNIQUENESS:
+
+✅ All texts appear unique per pair (no duplicates across modes detected)
+
+📊 LP_PAIR_TEXT Coverage: 45 of 45 pairs tested
+📊 LP_MASTER_TEXT Coverage: 6 of 6 master pairs tested
+📊 Edge Cases: 3 tested
+
+✅ TEST COMPLETE
+

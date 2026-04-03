@@ -50,12 +50,12 @@ export const P95_G = { lune: 9, ephem: 7, bazi: 11, indiv: 6 } as const;
  * Après pondération αG, chaque groupe est plafonné :
  *   XG = clamp(αG × xG, -G_CAP, +G_CAP)
  *
- * G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 }
+ * G_CAP = { lune: 0.80, ephem: 0.80, bazi: 0.85, indiv: 0.70 }  // Ronde #22 : lune 0.90→0.80
  *   Rôle : empêcher un seul groupe de dominer le score total.
  *   Si tous à 1.0 : un groupe extrême pourrait écraser les autres.
  *   Indiv le plus bas (0.70) car composé de systèmes moins fiables.
  */
-export const G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+export const G_CAP = { lune: 0.80, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;  // Ronde #22 : lune 0.90→0.80
 
 /**
  * ALPHA_I (poids groupe Individuel)
@@ -98,16 +98,19 @@ export const SS_K = 0.80;
 export const SS_C = 0.50;
 
 /**
- * TERRAIN (branche FUTURE)
- * terrainBonus = TERRAIN_PTS × tanh((dashaMult - 1) / TERRAIN_WIDTH)
+ * DASHA-GRAVITY (branche FUTURE) — Ronde #16 unanimité 3/3
+ * Le Dasha module gravity dans le Gravity Well (climat védique).
+ * dashaTilt = 1 - DASHA_LAMBDA × tanh((dashaMult - 1) / DASHA_WIDTH)
+ * gravity_eff = gravity_base × dashaTilt
  *
- * TERRAIN_PTS = 1.0 → amplitude max du bonus terrain (±1 point)
- * TERRAIN_WIDTH = 0.06 → sensibilité au dashaMult
- *   Si WIDTH augmenté : terrain moins sensible (bonus plus progressif).
- *   Si WIDTH diminué : seuil brutal (tout ou rien).
+ * DASHA_LAMBDA = 0.15 → amplitude max du modificateur (±15% de gravity)
+ * DASHA_WIDTH = 0.06 → sensibilité au dashaMult
+ *
+ * Ancien terrain additif post-GW supprimé (R16).
+ * Rollback : remettre TERRAIN_PTS=0.20 + terrainBonus dans convergence.ts
  */
-export const TERRAIN_PTS = 1.0;
-export const TERRAIN_WIDTH = 0.06;
+export const DASHA_LAMBDA = 0.15;
+export const DASHA_WIDTH = 0.06;
 
 /**
  * ALPHA RAMP (transition LIVE → FUTURE)
@@ -132,7 +135,6 @@ export const V5E_ALPHA_RAMP = 90;
  * ANNUAL_PEAK_FLOOR = 82 → garantit des "Pic de l'année"
  *   Même en année faible (ex: 2027 pic=84 > 82 ✓).
  */
-export const COSMIC_THRESHOLD = 86;
 export const ANNUAL_PEAK_FLOOR = 82;
 
 /**

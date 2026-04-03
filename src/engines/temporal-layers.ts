@@ -13,6 +13,7 @@
 // Dépendances : bazi.ts, numerology.ts, convergence.ts (lecture seule)
 
 import type { LuckPillarResult, LuckPillar, Element } from './bazi';
+import { COSMIC_THRESHOLD } from './convergence';
 import type { NumerologyProfile } from './numerology';
 import type { FondLabel, TendanceLabel } from './alignment';
 
@@ -394,7 +395,7 @@ export function buildTransitionAlerts(
 // ──────────────────────────────────────────────
 
 function getSignalLabel(score: number): { label: string; color: string } {
-  if (score >= 90) return { label: 'Cosmique',  color: '#E0B0FF' };
+  if (score >= COSMIC_THRESHOLD) return { label: 'Cosmique',  color: '#E0B0FF' };
   if (score >= 80) return { label: 'Gold',      color: '#FFD700' };
   if (score >= 65) return { label: 'Favorable', color: '#4ade80' };
   if (score >= 40) return { label: 'Routine',   color: '#60a5fa' };

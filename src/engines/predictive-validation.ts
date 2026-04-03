@@ -13,6 +13,7 @@
 
 import { computeKendallTauB, getFeedbackHistory } from './validation-tracker';
 import type { DayFeedback, KendallResult } from './validation-tracker';
+import { sto } from './storage';
 
 // ── Constantes du protocole (gelées — pré-enregistrement) ──
 
@@ -379,9 +380,8 @@ function defaultState(): PredictiveState {
 
 function loadState(): PredictiveState {
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw) as PredictiveState;
+    const parsed = sto.get<PredictiveState>(STORE_KEY);
+    if (!parsed) return defaultState();
     if (parsed.version !== PROTOCOL_VERSION) return defaultState();
     return parsed;
   } catch {
@@ -395,7 +395,7 @@ function saveState(state: PredictiveState): void {
     if (state.records.length > 52) {
       state.records = state.records.slice(-52);
     }
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    sto.set(STORE_KEY, state);
   } catch { /* fail silently */ }
 }
 
@@ -480,11 +480,8 @@ export function runWeeklyPredictiveValidation(now: Date = new Date()): Predictiv
   // Lire αG actuels pour le PROCHAIN snapshot (seront gelés la semaine prochaine)
   let currentAlphaG = { lune: 1.20, ephem: 1.10, bazi: 1.00 };
   try {
-    const raw = localStorage.getItem('kairo_alphag_v1');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.current) currentAlphaG = parsed.current;
-    }
+    const parsed = sto.get<{ current?: { lune: number; ephem: number; bazi: number } }>('kairo_alphag_v1');
+    if (parsed?.current) currentAlphaG = parsed.current;
   } catch { /* use defaults */ }
 
   // Calculer τ-b + permutation pour chaque groupe

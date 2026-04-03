@@ -1,8 +1,9 @@
-// ═══ Kaironaute — Service Worker V9 Sprint 8c ═══
+// ═══ Kaironaute — Service Worker V10 — Push Notifications ═══
 // Stratégie : Cache-first pour assets statiques, network-only pour Firebase.
 // Mise à jour : skipWaiting() + clientsClaim() pour déploiements Netlify.
+// Nouveau : gestion push notifications + clic notification.
 
-const CACHE_VERSION = 'kaironaute-v9';
+const CACHE_VERSION = 'kaironaute-v10';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -64,6 +65,44 @@ self.addEventListener('fetch', (event) => {
           return caches.match('/index.html');
         }
       });
+    })
+  );
+});
+
+// ── Push : notification envoyée depuis le serveur (future Cloud Function) ──
+self.addEventListener('push', (event) => {
+  let data = { title: 'Kaironaute', body: 'Ton score du jour t\'attend !', url: '/' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch { /* fallback au message par défaut */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'daily-score',
+      renotify: true,
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+// ── Clic sur notification : ouvrir l'app ──
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Si l'app est déjà ouverte, focus dessus
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Sinon, ouvrir un nouvel onglet
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

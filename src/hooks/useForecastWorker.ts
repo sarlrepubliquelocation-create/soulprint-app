@@ -22,6 +22,13 @@ export function useForecastWorker(
   cz: ChineseZodiac,
   astro: AstroChart | null,
   transitBonus: number = 0,
+  // ═══ FIX COHÉRENCE — Même terrain que Calendrier/Pilotage ═══
+  ctxMult: number = 1.0,
+  dashaMult: number = 1.0,
+  baseSignal: number = 0,
+  bt?: string,
+  liveScore?: number, // ═══ V4.5 : score LIVE Pilotage pour GAP=0 dans forecast ═══
+  historicalScores?: Record<string, number>, // ═══ V4.5 : scores LIVE passés ═══
 ): ForecastResult {
   const [forecast, setForecast] = useState<MonthForecast[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,14 +37,14 @@ export function useForecastWorker(
   const workerRef = useRef<Worker | null>(null);
 
   // Stable serialized deps key to trigger recompute
-  const depsKey = `${bd}_${num.lp.v}_${cz.animal}_${transitBonus}`;
+  const depsKey = `${bd}_${num.lp.v}_${cz.animal}_${transitBonus}_${ctxMult.toFixed(3)}_${dashaMult.toFixed(3)}_${baseSignal.toFixed(3)}_${liveScore !== undefined ? Math.round(liveScore) : ''}_${historicalScores ? Object.keys(historicalScores).length : 0}`;
 
   const fallback = useCallback(() => {
     setLoading(true);
     const t0 = performance.now();
     setTimeout(() => {
       try {
-        const result = generateForecast36Months(bd, num, cz, new Date(), transitBonus, astro);
+        const result = generateForecast36Months(bd, num, cz, new Date(), transitBonus, astro, ctxMult, dashaMult, baseSignal, bt, liveScore, historicalScores);
         setForecast(result);
         setDurationMs(Math.round(performance.now() - t0));
         setWorkerUsed(false);
@@ -47,7 +54,7 @@ export function useForecastWorker(
       }
       setLoading(false);
     }, 0);
-  }, [bd, num, cz, astro, transitBonus]);
+  }, [bd, num, cz, astro, transitBonus, ctxMult, dashaMult, baseSignal, bt, liveScore, historicalScores]);
 
   useEffect(() => {
     setLoading(true);
@@ -84,7 +91,7 @@ export function useForecastWorker(
 
       const msg: ForecastWorkerRequest = {
         type: 'compute-forecast',
-        bd, num, cz, transitBonus, astro,
+        bd, num, cz, transitBonus, astro, ctxMult, dashaMult, baseSignal, bt, liveScore, historicalScores,
       };
       worker.postMessage(msg);
     } catch {

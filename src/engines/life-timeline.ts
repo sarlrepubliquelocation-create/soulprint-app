@@ -16,6 +16,7 @@ import { type NumerologyProfile, type Reduced,
   reduce, calcPersonalYear, calcPinnacles, calcChallenges,
   getNumberInfo, getActivePinnacleIdx,
 } from './numerology';
+import { calcAgeFromStrings } from './date-utils';
 import { type ChineseZodiac } from './chinese-zodiac';
 import { calcNatalIChing, getHexProfile, getHexTier } from './iching';
 import { getNodeKeyMoments, calcLunarNodes } from './moon';
@@ -72,7 +73,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 17, ageMax: 19, name: 'Premier retour Nœuds Lunaires',
     planet: 'Nœuds', theme: 'karma',
-    phrase: 'Vers 18-19 ans, un nouveau cycle karmique s\'est ouvert — un sentiment de direction, de choix engageant, de bifurcation intérieure.',
+    phrase: 'Vers 18-19 ans, un nouveau cycle de vie s\'est ouvert — un sentiment de direction, de choix engageant, de bifurcation intérieure.',
     force: 'forte',
   },
   {
@@ -96,7 +97,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 36, ageMax: 38, name: 'Deuxième retour Nœuds Lunaires',
     planet: 'Nœuds', theme: 'karma',
-    phrase: 'Vers 37-38 ans, un nouveau chapitre karmique s\'est ouvert — les relations et les alliances ont pris un sens nouveau.',
+    phrase: 'Vers 37-38 ans, un nouveau chapitre de vie s\'est ouvert — les relations et les alliances ont pris un sens nouveau.',
     force: 'forte',
   },
   {
@@ -120,7 +121,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 50, ageMax: 52, name: 'Troisième retour Nœuds Lunaires',
     planet: 'Nœuds', theme: 'karma',
-    phrase: 'Vers 50-52 ans, un cycle karmique majeur — le moment de transmettre ce que la vie t\'a enseigné.',
+    phrase: 'Vers 50-52 ans, un cycle de vie majeur — le moment de transmettre ce que la vie t\'a enseigné.',
     force: 'forte',
   },
   {
@@ -304,6 +305,7 @@ function generatePeriodInsights(
   currentAge: number,
   czAnimal: string,
   czElem: string,
+  prevPinnacleV?: number,
 ): { insights: string[]; sources: string[] } {
   const insights: string[] = [];
   const sources: string[] = [];
@@ -319,10 +321,21 @@ function generatePeriodInsights(
   const isLived = period.ageEnd !== null && period.ageEnd <= currentAge;
   const isCurrent = !isLived && period.ageStart <= currentAge;
 
+  const samePinnAsPrev = prevPinnacleV !== undefined && prevPinnacleV === period.pinnacle.v;
+  const continuityNote = samePinnAsPrev
+    ? ` Cette grande phase de vie (phase ${period.pinnacle.v}, nombre maître) a été une période d'intensité exceptionnelle — visibilité accrue, tensions nerveuses, mais potentiel de réalisation hors norme.`
+    : '';
+
   if (isLived) {
-    insights.push(
-      `Durant cette période (${period.ageStart}-${period.ageEnd} ans), ta ${period.pinnacleIdx + 1}e grande phase de vie (phase ${period.pinnacle.v} — ${pInfo.k}) a orienté ta vie vers ${pinnTheme}. Le défi associé ${period.challenge.v} (${cInfo.k}) t\'a imposé de travailler ${challTheme}.`
-    );
+    if (samePinnAsPrev) {
+      insights.push(
+        `Durant cette période (${period.ageStart}-${period.ageEnd} ans), ta ${period.pinnacleIdx + 1}e grande phase de vie a prolongé l\'énergie ${period.pinnacle.v} (${pInfo.k}) mais avec une maturité nouvelle. Le défi associé ${period.challenge.v} (${cInfo.k}) t\'a imposé de travailler ${challTheme} — une leçon différente de la phase précédente malgré la même énergie de fond.${continuityNote}`
+      );
+    } else {
+      insights.push(
+        `Durant cette période (${period.ageStart}-${period.ageEnd} ans), ta ${period.pinnacleIdx + 1}e grande phase de vie (phase ${period.pinnacle.v} — ${pInfo.k}) a orienté ta vie vers ${pinnTheme}. Le défi associé ${period.challenge.v} (${cInfo.k}) t\'a imposé de travailler ${challTheme}.`
+      );
+    }
     sources.push('Phase de vie ' + (period.pinnacleIdx + 1), 'Défi ' + (period.pinnacleIdx + 1));
   } else if (isCurrent) {
     insights.push(
@@ -385,7 +398,7 @@ function generatePeriodInsights(
         dated.push({
           age: ry.age,
           order: 1,
-          text: `🔄 En ${ry.year} (${ry.age} ans), fin de cycle karmique (Année Perso 9) synchronisée avec le changement de grande phase de vie ${period.pinnacleIdx + 1}→${period.pinnacleIdx + 2}. Changement de direction majeur.`,
+          text: `🔄 En ${ry.year} (${ry.age} ans), fin de cycle de vie (Année Perso 9) synchronisée avec le changement de grande phase de vie ${period.pinnacleIdx + 1}→${period.pinnacleIdx + 2}. Changement de direction majeur.`,
           source: 'AP9 × Changement de phase',
         });
       }
@@ -470,8 +483,7 @@ export function generateLifeTimeline(
 
   const t = today || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const birthYear = parseInt(bd.split('-')[0]);
-  const currentYear = parseInt(t.split('-')[0]);
-  const currentAge = currentYear - birthYear;
+  const currentAge = calcAgeFromStrings(t, bd);
 
   const pinnacles = calcPinnacles(bd);
   const challenges = calcChallenges(bd);
@@ -490,6 +502,7 @@ export function generateLifeTimeline(
     const pinnacle = pinnacles[idx];
     const challenge = challenges[idx];
 
+    const prevPinnV = idx > 0 ? pinnacles[idx - 1].v : undefined;
     const { insights, sources } = generatePeriodInsights(
       { pinnacleIdx: idx, pinnacle, challenge, ageStart, ageEnd: pp.end ?? 99 },
       transits,
@@ -497,6 +510,7 @@ export function generateLifeTimeline(
       currentAge,
       cz.animal,
       cz.elem,
+      prevPinnV,
     );
 
     // Intensité selon nombre de convergences
@@ -632,7 +646,7 @@ function buildIdentityPortrait(
     );
   } else {
     lines.push(
-      `Tu es né sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ta énergie est d\'initiative et d\'action' : 'Ta énergie est de réceptivité et de stratégie'}.`
+      `Tu es né sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ton énergie est d\'initiative et d\'action' : 'Ton énergie est de réceptivité et de stratégie'}.`
     );
   }
 
@@ -677,7 +691,7 @@ function buildIdentityPortrait(
   };
   const trait = animalTraits[cz.animal] || 'une capacité de transformation qui te rend imprévisible';
   lines.push(
-    `Ton ${cz.animal} de ${cz.elem} te donne ${trait}. ${cz.elem === 'Feu' ? 'Le Feu amplifie ta intensité naturelle.' : cz.elem === 'Eau' ? 'L\'Eau te donne profondeur et intuition.' : cz.elem === 'Bois' ? 'Le Bois nourrit ta croissance constante.' : cz.elem === 'Métal' ? 'Le Métal aiguise ta détermination.' : 'La Terre ancre ta vision dans le concret.'}`
+    `Ton ${cz.animal} de ${cz.elem} te donne ${trait}. ${cz.elem === 'Feu' ? 'Le Feu amplifie ton intensité naturelle.' : cz.elem === 'Eau' ? 'L\'Eau te donne profondeur et intuition.' : cz.elem === 'Bois' ? 'Le Bois nourrit ta croissance constante.' : cz.elem === 'Métal' ? 'Le Métal aiguise ta détermination.' : 'La Terre ancre ta vision dans le concret.'}`
   );
 
   // ── 5. Le guide qui doute ──
@@ -728,7 +742,7 @@ function buildIdentityPortrait(
   // Source: GPT phrase 10 — "ton défi n'est pas la réussite"
   if (masters.length >= 2 || cz.elem === 'Feu') {
     lines.push(
-      `Ton défi n'est pas la réussite — c'est la canalisation de ta intensité. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
+      `Ton défi n'est pas la réussite — c'est la canalisation de ton intensité. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
     );
   } else {
     lines.push(
@@ -777,7 +791,7 @@ function buildIdentityPortrait(
   // ── 16. Leçon karmique = CdV + Nœud Sud → "Mission double"
   if (num.kl.includes(num.lp.v) && ['Scorpion', 'Cancer', 'Poissons'].includes(southSign)) {
     lines.push(
-      `Ta leçon karmique ${num.lp.v} est aussi ton Chemin de Vie, et ton Nœud Sud en ${southSign} confirme : tu es venu transformer exactement ce que tu portais en héritage.`
+      `Ta qualité à développer ${num.lp.v} est aussi ton Chemin de Vie, et ton Nœud Sud en ${southSign} confirme : tu es venu transformer exactement ce que tu portais en héritage.`
     );
   }
 
@@ -805,7 +819,7 @@ function buildIdentityPortrait(
   // ── 20. Nœud Sud Scorpion/Capricorne + Leçon 8 → "Pouvoir karmique"
   if (['Scorpion', 'Capricorne'].includes(southSign) && num.kl.includes(8)) {
     lines.push(
-      `Nœud Sud en ${southSign} + Leçon 8 : ta relation au pouvoir est karmique. Tu as déjà connu l'autorité dans d'autres formes — cette vie te demande de l'exercer avec sagesse.`
+      `Nœud Sud en ${southSign} + Leçon 8 : ta relation au pouvoir est profonde et naturelle. Tu as déjà connu l'autorité dans d'autres formes — cette vie te demande de l'exercer avec sagesse.`
     );
   }
 

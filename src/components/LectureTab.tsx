@@ -1,15 +1,19 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { sto } from '../engines/storage';
 import { type SoulData } from '../App';
 import { generateStrategicReading, type StrategicReading, type ReadingInsight, type Crossing, type ActionItem, type Contradiction, type MicroDetail } from '../engines/strategic-reading';
+import { type DayPreview } from '../engines/convergence';
 import { getCalibOffset } from '../engines/calibration';
 import { Cd, P } from './ui';
 
 interface Props {
   data: SoulData;
   bd: string;
+  bt?: string;  // FIX COHÉRENCE — heure naissance pour natalCtx
   narr: string;
   narrLoad: boolean;
   genNarr: () => void;
+  yearPreviews: DayPreview[] | null;
 }
 
 // ── V5.4: Micro-validation "ça me parle" (Point 4) ──
@@ -25,10 +29,10 @@ const MAX_RESONANCE_ENTRIES = 200;
 
 function logResonance(entry: Omit<ResonanceEntry, 'date'>) {
   try {
-    const stored = localStorage.getItem(RESONANCE_KEY);
+    const stored = sto.getRaw(RESONANCE_KEY);
     const log: ResonanceEntry[] = stored ? JSON.parse(stored) : [];
     log.push({ ...entry, date: (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })() });
-    localStorage.setItem(RESONANCE_KEY, JSON.stringify(log.slice(-MAX_RESONANCE_ENTRIES)));
+    sto.set(RESONANCE_KEY, JSON.stringify(log.slice(-MAX_RESONANCE_ENTRIES)));
     // V5.5 fix: notifier ResonanceNarrative pour recalcul
     window.dispatchEvent(new Event('resonance-updated'));
   } catch { /* localStorage indisponible */ }
@@ -40,6 +44,7 @@ function ResonanceButton({ category, snippet, sources }: {
   sources: string[];
 }) {
   const [clicked, setClicked] = useState(false);
+  const [hovered, setHovered] = useState(false);
   if (clicked) {
     return (
       <span style={{
@@ -57,14 +62,14 @@ function ResonanceButton({ category, snippet, sources }: {
         setClicked(true);
       }}
       style={{
-        background: 'none', border: `1px solid ${P.cardBdr}`,
+        background: 'none', border: `1px solid ${hovered ? P.gold : P.cardBdr}`,
         borderRadius: 6, padding: '2px 8px',
-        fontSize: 10, color: P.textDim, cursor: 'pointer',
+        fontSize: 10, color: hovered ? P.gold : P.textDim, cursor: 'pointer',
         fontFamily: 'inherit', transition: 'all 0.2s',
-        opacity: 0.7,
+        opacity: hovered ? 1 : 0.7,
       }}
-      onMouseOver={e => { e.currentTarget.style.borderColor = P.gold; e.currentTarget.style.color = P.gold; e.currentTarget.style.opacity = '1'; }}
-      onMouseOut={e => { e.currentTarget.style.borderColor = P.cardBdr; e.currentTarget.style.color = P.textDim; e.currentTarget.style.opacity = '0.7'; }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       ça me parle
     </button>
@@ -95,17 +100,30 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Transition PY': 'Changement de cycle',
   'Portail annuel': 'Portail annuel',
   'Nombre de Maturité': 'Maturité',
+  'Maturité': 'Cap d\'épanouissement',
   'Chemin de vie': 'Chemin de vie',
   'Expression': 'Potentiel inné',
+  'Expression 4': 'Mode d\'expression',
+  'Année 9': 'Fin de cycle',
+  'Année personnelle': 'Thème de l\'année',
+  'Jour personnel': 'Climat du jour',
+  'Âme 11': 'Élan intérieur',
+  'Chaldéen': 'Résonance du prénom',
   'Essence = CdV': 'Essence = Chemin de vie',
   'Essence = Soul': 'Essence = Désir profond',
   '10 Gods créativité': 'Archétype créatif',
   '10 Gods 食神': 'Archétype Créateur',
+  'Tarabala': 'Résonance lunaire',
+  'Panchanga': 'Calendrier védique',
+  'Transit Stellium': 'Concentration planétaire',
+  'Jian Chu': 'Cycle des 12 Officiers',
   // ── Oracle chinois (Yi King) ──
   'Yi King': 'Yi King',
   'Yi King du jour': 'Yi King',
   'Yi King natal': 'Yi King natal',
   'Hexagramme Nucléaire': 'Courant profond',
+  'I Ching surface': 'Tendance immédiate',
+  'Hex Nucléaire profondeur': 'Courant profond',
   'Ligne mutante': 'Message clé',
   // ── Astrologie chinoise (BaZi) ──
   'BaZi Day Master': 'Énergie du jour',
@@ -124,6 +142,13 @@ const TAG_FRIENDLY: Record<string, string> = {
   '10 Gods 正官': 'Archétype Organisateur',
   'BaZi same element': 'Même élément',
   'BaZi same': 'Même énergie',
+  'BaZi Liu He': 'Synergie fluide',
+  'BaZi conflit': 'Point de friction',
+  'Clash chinois': 'Opposition énergétique',
+  'Opposition chinoise': 'Opposition énergétique',
+  'Opposition zodiacale': 'Opposition des signes',
+  'Peach Blossom': 'Fleur de romance',
+  'Shen Sha': 'Étoiles symboliques',
   // ── Astrologie occidentale ──
   'Transits astrologiques': 'Transits planétaires',
   'Transits universels': 'Transits planétaires',
@@ -140,22 +165,57 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Lune Hors Cours': 'Lune en pause',
   'Éléments natal': 'Thème natal',
   'Lune croissante': 'Lune croissante',
+  // ── Transits de vie (cycles planétaires biographiques) ──
+  'Opposition Saturne': 'Cap de vie — Saturne',
+  'Opposition Uranus': 'Libération — Uranus',
+  'Retour Chiron': 'Guérison profonde — Chiron',
+  'Retour Saturne': 'Bilan de vie — Saturne',
+  'Carré Saturne': 'Épreuve structurante — Saturne',
+  'Retour Nœuds': 'Cap de vie réactivé',
+  'Retour des Nœuds': 'Réalignement profond',
+  'Retour de Saturne': 'Cap de maturité',
+  'Retour Jupiter': 'Cycle de chance',
+  'Transit Jupiter exact': 'Fenêtre d\'expansion',
+  'Éclipse': 'Point de bascule',
+  'Éclipse solaire': 'Point de bascule solaire',
+  'Éclipse lunaire': 'Point de bascule lunaire',
+  'Cycles de 10 ans': 'Cycle majeur',
+  'Portail karmique': 'Portail de changement',
+  'Essence karmique': 'Essence de vie',
+  'Portail de changement': 'Portail de changement',
+  'PY 9→1': 'Fin et nouveau départ',
+  'Année 9—1': 'Fin et nouveau départ',
   // ── Score & analyse ──
   'Convergence (14+ systèmes)': 'Score global',
   'Convergence scoring': 'Score global',
-  'Confiance temporelle': 'Fiabilité',
+  'Confiance temporelle': 'Lisibilité',
   'Cycles longs': 'Cycles longs',
   'Forecast 36 mois': 'Prévision 36 mois',
   'Monte Carlo': 'Simulation statistique',
   'Pattern Detection': 'Schéma détecté',
   'Profil multi-facettes sans dominance unique': 'Profil multi-facettes',
   'Analyse cyclique 20+ ans': 'Analyse des cycles',
+  'Scoring contextuel': 'Ajustement conjoncturel',
+  'Meta-Score confirmé': 'Validation multi-systèmes',
   // ── Zodiaque & biorythmes ──
   'Zodiaque chinois V3': 'Zodiaque chinois',
   'Biorhythmes': 'Biorythmes',
+  'Bio bas': 'Baisse d\'énergie',
+  'Bio triple pic': 'Alignement vital optimal',
+  'Biorhythmes critiques': 'Énergie fluctuante',
   'Biorhythmes triple pic': 'Biorythmes (pic)',
   'Pinnacle = Expression': 'Phase de vie = Potentiel',
 };
+
+function dedupTags(sources: string[]): string[] {
+  const seen = new Set<string>();
+  return sources.filter(s => {
+    const friendly = friendlyTag(s);
+    if (seen.has(friendly)) return false;
+    seen.add(friendly);
+    return true;
+  });
+}
 
 function friendlyTag(tag: string): string {
   if (TAG_FRIENDLY[tag]) return TAG_FRIENDLY[tag];
@@ -176,9 +236,17 @@ function friendlyTag(tag: string): string {
   if (tag.startsWith('10 Gods')) return 'Archétype du jour';
   if (tag === 'Business' || tag === 'BUSINESS') return 'Affaires';
   if (tag.startsWith('Yi King')) return tag;
-  if (tag.startsWith('PD maître')) return tag.replace('PD maître', 'Jour maître');
-  if (tag.startsWith('AP ')) return tag.replace('AP ', 'Année perso ');
+  if (tag.startsWith('Jour Maître')) return tag;
+  if (tag.startsWith('PD maître') || tag.startsWith('PD Maître')) return tag.replace(/PD [mM]aître/, 'Jour Maître');
+  if (tag.startsWith('AP ')) return tag.replace('AP ', 'Année ');
   if (tag.startsWith('Essence ')) return tag.replace('Essence ', 'Énergie ');
+  if (tag.startsWith('Mois personnel')) return 'Mois personnel';
+  if (tag.startsWith('Nœud Sud ')) return 'Acquis passés';
+  if (tag.startsWith('Année ') && /^\d/.test(tag.slice(6))) return 'Année ' + tag.slice(6);
+  // Dev warning : tag non traduit → visible en console pour détection
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(`[TAG_FRIENDLY] Tag non traduit : "${tag}"`);
+  }
   return tag;
 }
 
@@ -198,7 +266,7 @@ function InsightCard({ insight }: { insight: ReadingInsight }) {
             {insight.text}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {insight.sources.map((s, i) => (
+            {dedupTags(insight.sources).map((s, i) => (
               <span key={i} style={{
                 fontSize: 9, padding: '2px 7px', borderRadius: 4,
                 background: insight.intensity === 'forte' ? '#D4A01718' : '#27272a',
@@ -304,7 +372,7 @@ function TensionCard({ contradiction, idx }: { contradiction: Contradiction; idx
 const ROLE_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
   focus:   { icon: '🟢', label: 'FOCUS', color: '#22c55e' },
   avoid:   { icon: '🔴', label: 'À ÉVITER', color: '#ef4444' },
-  timing:  { icon: '⏱️', label: 'TIMING', color: '#D4A017' },
+  timing:  { icon: '⏱️', label: 'MOMENT', color: '#D4A017' },
   conseil: { icon: '👁️', label: 'CONSEIL', color: '#60a5fa' },
 };
 
@@ -335,7 +403,7 @@ function ActionCardV5({ item, idx }: { item: ActionItem; idx: number }) {
         {item.why}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 6, marginLeft: 28 }}>
-        {item.sources.map((s, i) => (
+        {dedupTags(item.sources).map((s, i) => (
           <span key={i} style={{
             fontSize: 9, padding: '2px 6px', borderRadius: 3,
             background: '#27272a', color: P.textDim, fontWeight: 500,
@@ -363,7 +431,7 @@ function MicroDetailCard({ detail }: { detail: MicroDetail }) {
             {detail.text}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4, alignItems: 'center' }}>
-            {detail.sources.map((s, i) => (
+            {dedupTags(detail.sources).map((s, i) => (
               <span key={i} style={{
                 fontSize: 9, padding: '2px 6px', borderRadius: 3,
                 background: `${reliabilityColor}15`, color: reliabilityColor, fontWeight: 500,
@@ -431,6 +499,7 @@ function ReadingBlockUI({ block, defaultOpen, maxVisible }: { block: { title: st
           {hasMore && !showAll && (
             <button
               onClick={() => setShowAll(true)}
+              aria-label={`Voir l'analyse complète, ${hiddenCount} signaux supplémentaires`}
               style={{
                 width: '100%', padding: '8px', background: '#27272a', border: `1px solid ${P.cardBdr}`,
                 borderRadius: 8, color: P.textDim, fontSize: 11, cursor: 'pointer',
@@ -443,6 +512,7 @@ function ReadingBlockUI({ block, defaultOpen, maxVisible }: { block: { title: st
           {hasMore && showAll && (
             <button
               onClick={() => setShowAll(false)}
+              aria-label="Réduire l'analyse complète"
               style={{
                 width: '100%', padding: '8px', background: 'transparent', border: `1px solid ${P.cardBdr}`,
                 borderRadius: 8, color: P.textDim, fontSize: 11, cursor: 'pointer',
@@ -472,7 +542,7 @@ const PORTRAIT_VISIBLE = 3;
 // Seuil : ≥12 validations. Intégré au portrait, pas en bloc séparé.
 function getResonanceNarrative(): string | null {
   try {
-    const stored = localStorage.getItem('k_resonance_log');
+    const stored = sto.getRaw('k_resonance_log');
     if (!stored) return null;
     const log: ResonanceEntry[] = JSON.parse(stored);
     const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
@@ -495,7 +565,7 @@ function getResonanceNarrative(): string | null {
     // Formulation diégétique (Gemini : "ne pas briser le 4ème mur")
     const CANAL_LABELS: Record<string, string> = {
       'Numérologie': 'la Numérologie',
-      'I Ching': 'le Yi King',
+      'Yi King': 'le Yi King',
       'Yi King nucléaire': 'le Yi King nucléaire',
       'Transits': 'les Transits planétaires',
       'Pinnacles': 'les Phases de vie',
@@ -572,6 +642,7 @@ function PortraitSection({ text, overlay }: { text: string; overlay: string }) {
       {hasMore && (
         <button
           onClick={() => setExpanded(!expanded)}
+          aria-label={expanded ? 'Réduire le portrait' : `Lire la suite du portrait, ${paragraphs.length - PORTRAIT_VISIBLE} paragraphes supplémentaires`}
           style={{
             marginTop: 10, padding: '6px 12px', background: 'transparent',
             border: `1px solid ${P.cardBdr}`, borderRadius: 6, color: P.textDim,
@@ -706,14 +777,14 @@ interface DailyMemory {
 function saveDailyMemory(data: DailyMemory): void {
   try {
     const key = 'k_daily_memory';
-    const stored = localStorage.getItem(key);
+    const stored = sto.getRaw(key);
     let history: DailyMemory[] = stored ? JSON.parse(stored) : [];
     // Écraser si même date, sinon ajouter
     history = history.filter(h => h.date !== data.date);
     history.push(data);
     // Garder 14 jours max
     if (history.length > 14) history = history.slice(-14);
-    localStorage.setItem(key, JSON.stringify(history));
+    sto.set(key, history);
   } catch { /* */ }
 }
 
@@ -765,7 +836,7 @@ function getYesterdaySnippet(todayScore: number, todayUndercurrent?: string, tod
 
   try {
     const key = 'k_daily_memory';
-    const stored = localStorage.getItem(key);
+    const stored = sto.getRaw(key);
     if (!stored) return null;
 
     const history: DailyMemory[] = JSON.parse(stored);
@@ -791,7 +862,7 @@ function getYesterdaySnippet(todayScore: number, todayUndercurrent?: string, tod
 
     // Partie 3: Changement d'hexagramme du jour
     if (yesterday.hexName && todayHex && yesterday.hexName !== todayHex) {
-      parts.push(`L'oracle est passé de ${yesterday.hexName} à ${todayHex}.`);
+      parts.push(`Le Yi King est passé de ${yesterday.hexName} à ${todayHex}.`);
     }
 
     // Partie 4: Transition qualitative sur fenêtre glissante (Ronde #5)
@@ -830,15 +901,42 @@ function getYesterdaySnippet(todayScore: number, todayUndercurrent?: string, tod
 // 10. Futur / Passé (accordéons)
 // 11. Portrait permanent contextualisé
 
-export default function LectureTab({ data, bd, narr, narrLoad, genNarr }: Props) {
+export default function LectureTab({ data, bd, bt, narr, narrLoad, genNarr, yearPreviews }: Props) {
+  // ═══ FIX COHÉRENCE RARETÉ — Même baseline que Pilotage/Calendrier ═══
+  // Recalculer la rareté depuis les vrais scores soft-shiftés de l'année,
+  // puis overrider conv.rarityIndex avant de le passer à generateStrategicReading.
+  const calibOff = getCalibOffset();
+  const displayScore = Math.max(0, Math.min(100, Math.round(data.conv.score + calibOff)));
+
+  const dataWithCorrectedRarity = useMemo(() => {
+    if (!yearPreviews || yearPreviews.length === 0) return data;
+    try {
+      const yearScores = yearPreviews.map(p => p.score);
+      const higherOrEqual = yearScores.filter(s => s >= displayScore).length;
+      const percentage = Math.max(0.1, (higherOrEqual / yearScores.length) * 100);
+      const rank = yearScores.filter(s => s > displayScore).length + 1;
+      let label: string, icon: string;
+      if (percentage <= 1) { label = 'Extrêmement rare'; icon = '💎'; }
+      else if (percentage <= 5) { label = 'Rare'; icon = '🌟'; }
+      else if (percentage <= 15) { label = 'Peu commun'; icon = '✦'; }
+      else if (percentage <= 50) { label = 'Modéré'; icon = '◆'; }
+      else { label = 'Courant'; icon = '○'; }
+      return {
+        ...data,
+        conv: { ...data.conv, rarityIndex: { ...data.conv.rarityIndex, percentage: Math.round(percentage * 10) / 10, label, icon, rank } },
+      };
+    } catch {
+      return data;  // fallback MC si erreur
+    }
+  }, [yearPreviews, data, displayScore]);
+
   const reading = useMemo<StrategicReading>(
-    () => generateStrategicReading(data, bd),
-    [data, bd]
+    () => generateStrategicReading(dataWithCorrectedRarity, bd),
+    [dataWithCorrectedRarity, bd]
   );
 
   // GAP=0 : calibrer le score brut partout (identique Pilotage/Calendrier/Astro)
-  const calibOff = getCalibOffset();
-  const displayScore = Math.max(0, Math.min(100, Math.round(data.conv.score + calibOff)));
+  // calibOff et displayScore déjà calculés plus haut (FIX RARETÉ)
   const rawScore = data.conv.score;
   const ct = (t: string) => calibOff !== 0 ? t.split(`${rawScore}%`).join(`${displayScore}%`) : t;
   const calibInsight = (ins: ReadingInsight): ReadingInsight => calibOff !== 0 ? { ...ins, text: ct(ins.text), sources: ins.sources.map(ct) } : ins;
@@ -890,7 +988,7 @@ export default function LectureTab({ data, bd, narr, narrLoad, genNarr }: Props)
   // V5.5: Scores récents pour sparkline "vague d'énergie" (Ronde #5 — Prop 1)
   const recentScores = useMemo(() => {
     try {
-      const stored = localStorage.getItem('k_daily_memory');
+      const stored = sto.getRaw('k_daily_memory');
       if (!stored) return [];
       const history: DailyMemory[] = JSON.parse(stored);
       const today = (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
@@ -1110,7 +1208,7 @@ export default function LectureTab({ data, bd, narr, narrLoad, genNarr }: Props)
                 {teaser}
               </div>
             )}
-            <button onClick={genNarr} style={{
+            <button onClick={genNarr} aria-label="Voir ma lecture approfondie" style={{
               padding: '12px 32px', background: `linear-gradient(135deg,${P.gold},#C9A84C)`,
               border: 'none', borderRadius: 10, color: '#09090b', fontSize: 15, fontWeight: 700,
               cursor: 'pointer', letterSpacing: 1, fontFamily: 'inherit',
@@ -1123,14 +1221,14 @@ export default function LectureTab({ data, bd, narr, narrLoad, genNarr }: Props)
         {narrLoad && (
           <div style={{ textAlign: 'center', padding: 30 }}>
             <div style={{ fontSize: 30, animation: 'pulse 1.5s infinite' }}>🔮</div>
-            <div style={{ fontSize: 13, color: P.gold, marginTop: 10 }}>L'oracle consulte les astres...</div>
+            <div style={{ fontSize: 13, color: P.gold, marginTop: 10 }}>Kaironaute analyse les cycles...</div>
           </div>
         )}
         {narr && (
           <TypewriterText text={narr} speed={12} />
         )}
         {narr && (
-          <button onClick={genNarr} style={{
+          <button onClick={genNarr} aria-label="Régénérer la lecture approfondie" style={{
             marginTop: 18, padding: '9px 22px', background: P.surface,
             border: `1px solid ${P.cardBdr}`, borderRadius: 8, color: P.gold,
             fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600

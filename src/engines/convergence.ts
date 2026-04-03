@@ -46,6 +46,7 @@ import { calcSlowModules, buildNatalDashaCtx, calcDashaMultLite, calcBaseSignalL
 // Ronde 27 : imports fixed-stars, kinetic-shocks, panchanga retirés (délégués à calcDailyModules)
 import { getAdaptedAlphaG } from './alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
+import { saveScoreLive } from './score-history'; // Score historique LIVE pour cohérence calendrier
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -86,71 +87,267 @@ function decompressApprox(score: number, maxDelta = 22, p = 1.05): number {
 }
 
 // ══════════════════════════════════════
+// ═══ INJECTION CONTEXTUELLE (R20) ═══
+// ══════════════════════════════════════
+
+// R20 — Segments narratifs liés aux doctrines du jour
+// Phase lunaire : 8 phases → 2 variantes chacune (rotation par dayOfYear)
+const MOON_PHASE_TEXT: Record<number, string[]> = {
+  0: ["Dans ce creux lunaire, l'introspection prime", "Sous un ciel sans lune, ton instinct travaille en sourdine"],
+  1: ["Portée par une lune naissante, ton intention se cristallise", "Le croissant pousse doucement — tes projets aussi"],
+  2: ["Sous une lune qui gonfle, ta détermination grandit", "La lumière croît chaque nuit, et ta clarté avec elle"],
+  3: ["L'énergie lunaire monte et amplifie tes intuitions", "Porté par la lune gibbeuse, tu gagnes en assurance"],
+  4: ["Sous pleine lune, tout ce qui couve émerge à la surface", "Baigné de lumière lunaire, ta perception est à son maximum"],
+  5: ["La lune commence à relâcher — bon moment pour faire le tri", "L'intensité redescend doucement, laisse décanter"],
+  6: ["En lune descendante, ton regard se tourne vers l'essentiel", "Le cycle lunaire s'apaise — simplifie, allège"],
+  7: ["Sous un mince croissant, le calme revient naturellement", "La lune s'efface — dernière fenêtre pour clore ce qui traîne"],
+};
+
+// Élément Bazi du jour → segment sensoriel (2 variantes)
+const ELEMENT_TEXT: Record<string, string[]> = {
+  Wood:  ["Un élan de croissance t'accompagne — quelque chose pousse en toi", "Le Bois du jour invite au mouvement : étire-toi, déploie-toi"],
+  Fire:  ["Une chaleur vive circule dans ton corps, le feu intérieur est allumé", "L'intensité du Feu aiguise tes réflexes — agis vite, agis juste"],
+  Earth: ["Tes appuis sont solides aujourd'hui, un ancrage profond stabilise tes gestes", "La Terre du jour t'enracine — idéal pour les fondations durables"],
+  Metal: ["Tes pensées sont tranchantes et précises, une netteté qui aiguise ton focus", "Le Métal affine ta perception — coupe dans le superflu"],
+  Water: ["Tout coule avec moins de résistance, une fluidité naturelle porte tes mouvements", "L'Eau du jour invite à contourner plutôt qu'à forcer"],
+};
+
+// Matrice d'exclusion R20 — combinaisons interdites
+// Retourne true si le segment est incompatible avec le contexte
+function hasNarrativeConflict(
+  baseText: string,
+  moonPhase: number,
+  baziElement: string,
+  isVoC: boolean,
+  scoreLevel: number, // 0=retrait, 1=basse, 2=ordinaire, 3=fenêtre, 4=fort, 5=cosmique
+): boolean {
+  const lower = baseText.toLowerCase();
+  // Nouvelle lune + mots lumineux
+  if (moonPhase === 0 && /lumi[eè]re|brille|clart[eé]|rayonn|vive?/.test(lower)) return true;
+  // Void of Course + mots d'action directe
+  if (isVoC && /fonce|lance|signe|feu vert|engage/.test(lower)) return true;
+  // Élément Eau + mots de feu
+  if (baziElement === 'Water' && /br[uû]le|enflamm|feu|incendi/.test(lower)) return true;
+  // Élément Feu + mots de froid
+  if (baziElement === 'Fire' && /glace|g[eè]le|froid|giv?r/.test(lower)) return true;
+  // Score très bas + injection expansive
+  if (scoreLevel <= 1 && /croissance|déploie|amplifie|intensité/.test(lower)) return true;
+  return false;
+}
+
+// Enrichit un narratif statique avec un segment contextuel
+// Règle Gemini : injection 1 jour sur 3 lune, 1 jour sur 3 élément, 1 jour sur 3 silence
+// Règle Grok : matrice d'exclusion, fallback vers statique pur si conflit
+function enrichNarrative(
+  base: string,
+  moonPhase: number,
+  baziElement: string,
+  dayOfYear: number,
+  profileSeed: number,
+  isVoC: boolean,
+  scoreLevel: number,
+): string {
+  // R20 — Rotation 3 modes : 0=lune, 1=élément, 2=silence
+  // Hash dispersif : XOR + multiplication par premier pour casser les patterns linéaires
+  const _hash = ((profileSeed * 31) ^ (dayOfYear * 17)) % 3;
+  // Correction du modulo négatif possible avec XOR
+  const _mode = ((_hash % 3) + 3) % 3;
+
+  if (_mode === 0 && moonPhase >= 0 && moonPhase <= 7) {
+    // Injection phase lunaire
+    const pool = MOON_PHASE_TEXT[moonPhase];
+    if (pool) {
+      const seg = pool[(profileSeed * 3 + dayOfYear) % pool.length];
+      if (seg && !hasNarrativeConflict(seg, moonPhase, baziElement, isVoC, scoreLevel)) {
+        return `${base} ${seg}.`;
+      }
+    }
+  }
+
+  if (_mode === 1 && baziElement) {
+    // Injection élément Bazi
+    const pool = ELEMENT_TEXT[baziElement];
+    if (pool) {
+      const seg = pool[(profileSeed * 3 + dayOfYear) % pool.length];
+      if (seg && !hasNarrativeConflict(seg, moonPhase, baziElement, isVoC, scoreLevel)) {
+        return `${base} ${seg}.`;
+      }
+    }
+  }
+
+  // mode === 2 ou fallback : silence — phrase statique pure
+  return base;
+}
+
+// ══════════════════════════════════════
 // ═══ NIVEAUX DE SCORE (6 niveaux) ═══
 // ══════════════════════════════════════
 
-function getScoreLevel(score: number, mercuryPts: number): ScoreLevel {
+// R20 — getScoreLevel enrichi : reçoit les données contextuelles pour injection dynamique
+function getScoreLevel(
+  score: number, mercuryPts: number,
+  sunSign?: string, ascSign?: string,
+  moonPhase?: number, baziElement?: string, isVoC?: boolean,
+): ScoreLevel {
+  // Ronde #3 + R19 — Rotation narrative : profil × jour → anti-doublon entre profils
+  // profileSeed = empreinte fixe du profil (0-11 via signe solaire)
+  // variant = (profileSeed + dayOfYear) % 6 → chaque profil voit une phrase différente
+  //   ET le même profil voit une phrase différente chaque jour
+  const SIGN_IDX: Record<string, number> = { Aries:0,Taurus:1,Gemini:2,Cancer:3,Leo:4,Virgo:5,Libra:6,Scorpio:7,Sagittarius:8,Capricorn:9,Aquarius:10,Pisces:11 };
+  const profileSeed = (sunSign ? SIGN_IDX[sunSign] ?? 0 : 0) + (ascSign ? SIGN_IDX[ascSign] ?? 0 : 0);
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  const variant = dayOfYear % 3;
+  const variant = (profileSeed + dayOfYear) % 12;
+
+  // R20 — scoreLevel numérique pour la matrice d'exclusion
+  const _sLvl = score < 25 ? 0 : score < 40 ? 1 : score < 65 ? 2 : score < 80 ? 3 : score < COSMIC_THRESHOLD ? 4 : 5;
+  const _mp = moonPhase ?? -1;
+  const _be = baziElement ?? '';
+  const _voc = isVoC ?? false;
+
+  // R20 — helper d'enrichissement contextuel
+  const enrich = (text: string) => enrichNarrative(text, _mp, _be, dayOfYear, profileSeed, _voc, _sLvl);
 
   if (score === 50) {
     return {
       name: '☯ Équilibre parfait', icon: '☯', color: '#60a5fa',
-      narrative: "Ton corps est au point zéro — ni tension ni élan. C'est une page blanche sensorielle : chaque micro-décision pèsera plus lourd que d'habitude."
+      narrative: enrich("Ton corps est au point zéro — ni tension ni élan. C'est une page blanche sensorielle : chaque micro-décision pèsera plus lourd que d'habitude.")
     };
   }
   if (score >= COSMIC_THRESHOLD && mercuryPts < 0) {
-    return {
-      name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF',
-      narrative: "Tu sens une puissance brute dans la poitrine, mais ta gorge bloque — les mots veulent sortir trop vite. Agis en silence, relis avant d'envoyer, et laisse la force couler sans bruit."
-    };
+    const narratives = [
+      "Tu sens une puissance brute dans la poitrine, mais ta gorge bloque — les mots veulent sortir trop vite. Agis en silence, relis avant d'envoyer, et laisse la force couler sans bruit.",
+      "L'énergie monte en flèche mais ta communication peut trahir — chaque phrase mérite deux lectures. Canalise cette force dans l'action concrète plutôt que dans les mots.",
+      "Journée cosmique sous tension communicationnelle : l'intuition est cristalline, mais l'expression peut trahir. Écris, dessine, construis — laisse les conversations pour demain.",
+      // R19 — variantes 4-6
+      "Une force dense monte du ventre, prête à s'exprimer, mais ta bouche ne suit pas le rythme. Laisse tes actes parler pour toi aujourd'hui, et garde tes mots au chaud avant de les libérer.",
+      "La charge électrique est immense, garde-la dans tes mains plutôt que sur tes lèvres. Modèle, construis ou bâtis en solitaire, loin du bruit.",
+      "Tes mains vibrent d'une force précise mais ta langue se sent lourde. Comme si un fleuve puissant coulait juste sous une fine couche de glace — agis d'abord, verbalise demain.",
+      // R19b — variantes 7-12
+      "Un courant chaud traverse tes épaules et tes bras, mais il bute contre ta mâchoire. Transforme cette tension en gestes concrets — tes mains savent ce que tes mots ne diront pas aujourd'hui.",
+      "Tout s'illumine à l'intérieur, mais un filtre se pose sur ta voix. Comme un musicien qui entend la mélodie parfaite sans pouvoir la chanter — sculpte en silence, le résultat parlera.",
+      "L'instinct est affûté comme une lame, mais chaque tentative d'explication l'émousse. Protège cette clarté brute : note, dessine, schématise — ne discute pas.",
+      "Ton regard capte tout avec une précision rare, mais tes phrases arrivent en décalé. Fais confiance à ce décalage : c'est ton corps et tes actes qui mènent aujourd'hui — les mots suivront au bon moment.",
+      "Une marée haute d'intuition monte en toi, mais le canal de l'expression est étroit. Ne force pas le passage — laisse couler par les actes, goutte à goutte.",
+      "Tu sens l'alignement parfait dans les tripes — cette puissance est réelle et disponible. Dirige-la vers l'action, la création, la décision. Les échanges verbaux méritent juste plus d'attention : relis avant d'envoyer.",
+    ];
+    return { name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF', narrative: enrich(narratives[variant]) };
   }
   if (score >= COSMIC_THRESHOLD) {
     const narratives = [
       "Ton corps vibre à une fréquence que tu reconnais immédiatement : tout est ouvert. La poitrine est large, le souffle profond, la vision nette. Bouge maintenant — cette fenêtre ne dure pas.",
       "Une chaleur dorée irradie depuis le plexus solaire. Chaque pas semble plus léger, chaque décision plus évidente. C'est le jour où tu signes, tu lances, tu oses.",
-      "Tu te réveilles avec cette certitude rare dans les os : aujourd'hui, le courant te porte. Ne résiste pas, ne planifie pas — surfe."
+      "Tu te réveilles avec cette certitude rare dans les os : aujourd'hui, le courant te porte. Ne résiste pas, ne planifie pas — surfe.",
+      // R19 — variantes 4-6
+      "Le tempo s'accélère sans te brusquer, comme si l'horloge jouait enfin en ta faveur. Ne remets rien à plus tard, l'instant présent a une densité exceptionnelle.",
+      "Tu sens une netteté inhabituelle derrière les yeux, comme si le monde répondait plus vite que d'habitude. Ce genre de fluidité ne dure pas — avance pendant que tout coopère.",
+      "Tes os chantent une note grave et stable que tu sens jusqu'aux chevilles. Le temps s'étire juste assez pour que chaque choix soit évident — rare moment où ton corps sait avant toi.",
+      // R19b — variantes 7-12
+      "Un silence puissant s'installe au centre de ta tête, comme si le bruit du monde s'était éteint d'un coup. Dans cette clarté absolue, chaque décision devient évidente — saisis cet instant.",
+      "La gravité a changé de camp : tu te sens plus léger, plus rapide, plus précis. Les obstacles habituels semblent s'effacer d'eux-mêmes — c'est le jour où tu franchis ce que tu contournais.",
+      "Quelque chose pulse dans tes paumes, une chaleur qui te dit d'agir maintenant. Ton corps a pris sa décision avant toi — fais-lui confiance, il voit plus loin que ta tête.",
+      "Comme un arc bandé au maximum, tout en toi est prêt à se déployer. La moindre action aura un impact disproportionné — choisis ta cible et lâche la corde.",
+      "Chaque son autour de toi semble plus net, chaque couleur plus vive. Tes sens sont en mode haute résolution — utilise cette lucidité pour les choix que tu repousses depuis trop longtemps.",
+      "Ton souffle s'est allongé naturellement, profond et régulier. C'est le signe que tout ton système est synchronisé — avance en confiance, cet instant est rare et parfait.",
     ];
-    return { name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF', narrative: narratives[variant] };
+    return { name: '🌟 Convergence rare', icon: '🌟', color: '#E0B0FF', narrative: enrich(narratives[variant]) };
   }
   if (score >= 80) {
     const narratives = [
       "Le vent souffle dans ton dos — tu le sens physiquement entre les omoplates. L'énergie est là, dense et disponible. Avance avec confiance, les résistances fondent.",
       "Tes mains veulent créer, ta voix porte plus loin que d'habitude. C'est un jour d'exécution rapide — les portes s'ouvrent avant que tu ne frappes.",
-      "Une clarté mentale inhabituellement aiguë, comme si le brouillard s'était levé d'un coup. Profites-en pour les décisions que tu repousses depuis des jours."
+      "Une clarté mentale inhabituellement aiguë, comme si le brouillard s'était levé d'un coup. Profites-en pour les décisions que tu repousses depuis des jours.",
+      // R19 — variantes 4-6
+      "Tu sens une cohérence tranquille dans ton corps, comme si tout répondait sans friction. C'est le bon moment pour poser des actions qui demandent confiance et continuité.",
+      "L'inertie a changé de camp : une fois lancé, tu auras du mal à t'arrêter. Profite de cette traction naturelle pour franchir les caps difficiles.",
+      "Tes pieds se plantent plus fermement au sol, comme si la terre te répondait. L'élan est là, solide, sans urgence — avance avec cette assurance tranquille.",
+      // R19b — variantes 7-12
+      "Un calme inhabituel s'installe dans ta poitrine, celui des jours où tout semble à portée. Tes gestes ont de l'autorité naturelle — utilise-la pour débloquer ce qui traîne.",
+      "Ta colonne vertébrale se redresse d'elle-même, comme si ton corps prenait de l'assurance sans demander la permission. Profite de cette stature pour les rendez-vous importants.",
+      "Les pensées s'enchaînent avec une logique limpide, sans ce bruit de fond habituel. Ton esprit est en mode résolution — attaque les dossiers complexes.",
+      "Quelque chose dans l'air te donne envie de bouger, de créer, de contacter. Le moment est excellent — chaque initiative lancée aujourd'hui bénéficie d'un courant porteur.",
+      "Ta respiration est plus ample que d'habitude, signe que ton système nerveux est détendu et prêt. Cet état de disponibilité intérieure démultiplie l'impact de tes actions.",
+      "Un sentiment de justesse t'accompagne depuis le réveil. Pas d'exaltation, juste la certitude tranquille que les choses vont dans le bon sens — surfe cette vague sans hésiter.",
     ];
-    return { name: '🌟 Alignement fort', icon: '🌟', color: '#FFD700', narrative: narratives[variant] };
+    // Cliff effect 85→86 : bridge text pour les scores proches du seuil Cosmique
+    const bridgeHint = score >= 84
+      ? ' Tu frôles une Convergence rare — chaque petit geste conscient peut faire basculer la balance.'
+      : '';
+    return { name: '🔥 Alignement fort', icon: '🔥', color: '#FFD700', narrative: enrich(narratives[variant]) + bridgeHint };
   }
   if (score >= 65) {
     const narratives = [
       "Le corps est coopératif — pas de tension parasite, pas de fatigue fantôme. L'énergie coule régulièrement. Bonne fenêtre pour exécuter ce qui est déjà planifié.",
       "Tu ressens un calme productif dans la mâchoire et les épaules. Pas d'euphorie, mais un socle solide. Avance à ton rythme — le terrain est stable.",
-      "Les gestes sont fluides, les conversations tombent juste. Rien de spectaculaire, mais tout fonctionne. Maintiens le cap sans forcer."
+      "Les gestes sont fluides, les conversations tombent juste. Rien de spectaculaire, mais tout fonctionne. Maintiens le cap sans forcer.",
+      // R19 — variantes 4-6
+      "L'esprit est clair, débarrassé de son brouillard habituel. Tranche les tâches en attente avec une précision chirurgicale.",
+      "Tu avances sans à-coups, avec une constance simple et fiable. Rien d'explosif, mais tout est assez stable pour construire efficacement.",
+      "Un tempo de croisière s'installe naturellement dès le matin. Maintiens cette cadence régulière, c'est elle qui te mènera exactement au but ce soir.",
+      // R19b — variantes 7-12
+      "Tes épaules sont relâchées, ta nuque souple. Le corps ne résiste à rien — signe que la journée se prête bien aux tâches qui demandent de la constance.",
+      "Une envie discrète mais persistante de ranger, classer, finaliser. Ton instinct organisateur est actif — donne-lui ce qu'il demande.",
+      "Le monde extérieur coopère sans s'imposer. Pas de surprise, pas de friction — le contexte idéal pour avancer sur tes vrais chantiers.",
+      "Ton rythme cardiaque est posé, tes mains sont chaudes. Le système nerveux est en mode productif — c'est le bon moment pour la concentration longue.",
+      "Une légèreté physique t'accompagne, comme si tu pesais un peu moins qu'hier. Bon signe pour les déplacements, les rencontres et les négociations.",
+      "Les idées arrivent dans le bon ordre, sans effort de tri. Laisse cette organisation naturelle guider ta journée — elle sait ce qu'elle fait.",
     ];
-    return { name: '✦ Bonne fenêtre', icon: '✦', color: '#4ade80', narrative: narratives[variant] };
+    return { name: '✦ Bonne fenêtre', icon: '✦', color: '#4ade80', narrative: enrich(narratives[variant]) };
   }
   if (score >= 40) {
     const narratives = [
-      "L'énergie est plate — ni porteuse, ni bloquante. Ton corps te dit : pas de grands gestes aujourd'hui. Tête baissée, Deep Work, avance sur ce qui ne demande pas d'inspiration.",
+      "L'énergie est plate — ni porteuse, ni bloquante. Ton corps te dit : pas de grands gestes aujourd'hui. Tête baissée, travail de fond, avance sur ce qui ne demande pas d'inspiration.",
       "Tu sens une légère lourdeur dans les jambes, un rythme plus lent que d'habitude. C'est un jour de maintenance — range, classe, prépare le terrain pour demain.",
-      "Les sensations sont en sourdine. Pas de signal fort dans aucune direction. Concentre-toi sur l'essentiel et économise ton énergie pour les fenêtres à venir."
+      "Les sensations sont en sourdine. Pas de signal fort dans aucune direction. Concentre-toi sur l'essentiel et économise ton énergie pour les fenêtres à venir.",
+      // R19 — variantes 4-6
+      "La journée est une page blanche : rien ne te dicte quoi faire. C'est ta seule volonté qui servira de moteur du matin au soir.",
+      "Rien ne te pousse ni ne te retient vraiment aujourd'hui, et ça se sent dans le corps. Tu avances à la force de ta décision, pas de l'élan.",
+      "L'attention n'est pas happée par de grands vents. C'est le climat idéal pour te concentrer sur les finitions, l'entretien et ce qui demande de la minutie.",
+      // R19b — variantes 7-12
+      "Ton corps est en mode veille active — présent mais sans urgence. Le bon plan : avancer méthodiquement sur une seule tâche plutôt que papillonner.",
+      "La température intérieure est tiède, ni froide ni brûlante. Journée sans éclat mais sans piège — parfaite pour les corvées utiles qu'on remet toujours à plus tard.",
+      "Tes réflexes sont un peu plus lents, ton attention un peu plus dispersée. Rien d'inquiétant — adapte ta charge en conséquence et reste simple.",
+      "Pas de grand appel intérieur, juste un ronronnement régulier. Profite de cette neutralité pour faire du tri : dans tes fichiers, tes idées, tes priorités.",
+      "Le ciel est gris mais sec — métaphore parfaite de ta journée. On n'annule rien, on ne lance rien de majeur. On avance, tranquillement.",
+      "Ton souffle est régulier mais peu profond. Le corps ne demande ni exploit ni repos — donne-lui une charge modérée et constante.",
     ];
-    return { name: '☉ Flux ordinaire', icon: '☉', color: '#60a5fa', narrative: narratives[variant] };
+    return { name: '🔄 Phase de Consolidation', icon: '🔄', color: '#60a5fa', narrative: enrich(narratives[variant]) };
   }
   if (score >= 25) {
     const narratives = [
       "Une tension sourde dans la nuque — ton corps résiste avant même que tu commences. Ne force pas les portes fermées. Reporte les signatures, les confrontations, les paris.",
       "Le souffle est court, les pensées tournent en boucle. Les cycles sont désynchronisés. Ralentis, observe, note ce qui coince — mais n'agis pas dessus maintenant.",
-      "Tu sens une friction invisible sur chaque initiative. Comme marcher dans du sable. Avance avec tact, protège tes arrières, et garde l'énergie pour le rebond."
+      "Tu sens une friction invisible sur chaque initiative. Comme marcher dans du sable. Avance avec tact, protège tes arrières, et garde l'énergie pour le rebond.",
+      // R19 — variantes 4-6
+      "L'extérieur te paraît bruyant ou envahissant aujourd'hui. Réduis ton périmètre, reste dans tes zones de confort et limite les stimulations inutiles.",
+      "Tu ressens une légère résistance de l'air, comme si tout avançait au ralenti. Ne cherche pas à accélérer, épouse cette lenteur pour éviter la casse.",
+      "Ton plexus se resserre légèrement, comme une fleur qui referme ses pétales à la nuit tombée. Écoute ce ralentissement naturel et repose-toi profondément.",
+      // R19b — variantes 7-12
+      "Tes paupières sont lourdes et ton focus vacille. Le corps demande moins de stimulation — annule les réunions non essentielles et protège ta concentration.",
+      "Une brume légère flotte entre tes pensées, rendant chaque choix plus difficile que d'habitude. Ne décide rien d'important — note et reviens-y demain.",
+      "Tes avant-bras sont tendus sans raison. Le stress monte sans objet clair — signe que les cycles jouent contre toi. Détends, étire, respire.",
+      "Le monde semble plus rugueux aujourd'hui, les interactions plus abrasives. Ce n'est pas toi, c'est le contexte — garde tes distances et reste bienveillant envers toi-même.",
+      "Ton instinct te dit de te replier, et il a raison. Pas de grandes conversations, pas de signatures — une journée de maintenance silencieuse.",
+      "Chaque tâche prend deux fois plus de temps et coûte trois fois plus d'effort. C'est normal : le terrain est lourd. Fais le minimum vital et garde le reste.",
     ];
-    return { name: '☽ Énergie basse', icon: '☽', color: '#9890aa', narrative: narratives[variant] };
+    return { name: '☽ Mode Maintenance', icon: '☽', color: '#9890aa', narrative: enrich(narratives[variant]) };
   }
   const narratives = [
     "Ton corps tire le frein à main — écoute-le. Reste dans ta forteresse. Annule ce qui peut l'être, reporte le reste. Ce n'est pas de la faiblesse, c'est de l'intelligence tactique.",
     "Une lourdeur dans tout le corps, comme un orage intérieur. Les cycles sont en collision. Aujourd'hui tu protèges, tu ne conquiers pas. Demain le ciel se dégage.",
-    "Tout résiste : l'énergie, la concentration, la patience. Journée de haute turbulence sensorielle. Un seul objectif : traverser sans casse. Le rebond arrive."
+    "Tout résiste : l'énergie, la concentration, la patience. Journée de haute turbulence sensorielle. Un seul objectif : traverser sans casse. Le rebond arrive.",
+    // R19 — variantes 4-6
+    "Tes sens te demandent de baisser le volume du monde. Déconnecte, annule ce qui n'est pas vital et offre-toi le luxe d'une journée en creux.",
+    "Imagine un arbre qui rentre sa sève en profondeur. Ton énergie fait exactement la même chose — accepte ce retrait, il est intelligent.",
+    "Le corps est à l'arrêt, mais la régénération profonde a commencé. Ne confonds pas cette pause avec de la paresse : c'est une maintenance vitale.",
+    // R19b — variantes 7-12
+    "Un froid léger s'installe dans tes extrémités, comme si ton corps concentrait toute sa chaleur au centre. Protège ce noyau — reste au chaud, au calme, à l'abri.",
+    "Le temps semble visqueux, chaque minute s'étire. Ne lutte pas contre cette lenteur : elle est le signe que ton système se recalibre en profondeur.",
+    "Tes mains sont froides, ton regard se perd. Le corps a enclenché le mode économie — respecte-le. Tout ce que tu forces aujourd'hui coûtera double demain.",
+    "Comme après un effort intense que tu n'as pas choisi. La fatigue n'est pas logique mais elle est réelle. Donne-toi le droit de ne rien produire.",
+    "Le sol semble moins stable sous tes pieds aujourd'hui. Ce n'est pas un malaise, c'est un signal : le moment n'est pas propice aux décisions engageantes.",
+    "Ton système nerveux demande une trêve. Pas de stimulation, pas de conflit, pas d'effort — juste l'espace pour récupérer. Demain, les fondations seront plus solides.",
   ];
-  return { name: '⛈ Temps de retrait', icon: '⛈', color: '#ef4444', narrative: narratives[variant] };
+  return { name: '🛡️ Mode Bouclier', icon: '🛡️', color: '#ef4444', narrative: enrich(narratives[variant]) };
 }
 
 function scoreLevelColor(score: number): string {
@@ -173,7 +370,8 @@ const ACTION_DEFS: Record<ActionVerb, Omit<ActionReco, 'conseil'>> = {
   ralentir: { verb: 'ralentir', icon: '🛡', label: 'RALENTIR', color: '#ef4444' },
 };
 
-function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string): ActionReco {
+function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string, profileSeed = 0,
+  moonPhase = -1, baziElement = '', isVoC = false): ActionReco {
   // Ronde 20 : le SCORE est le verdict, le dayType ne peut jamais le contredire
   let verb: ActionVerb;
   if (score >= 65)      verb = 'agir';
@@ -185,34 +383,84 @@ function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string)
   const isRetrait = dayType.type === 'retrait' || dayType.type === 'observation';
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
 
+  // R19b — 12 variantes par catégorie pour rotation profil × jour sur ~2 semaines
   const conseils: Record<ActionVerb, string[]> = {
     agir: isRetrait ? [
       `Bonne énergie — canalise-la dans la réflexion et les décisions mûries. ${hexKeyword}.`,
       `Le potentiel est là. Avance sur l\'essentiel, garde le reste pour demain. ${hexKeyword}.`,
-      `Journée riche en énergie. Prends du recul stratégique pour mieux viser. ${hexKeyword}.`,
+      `Journée riche en énergie. Choisis bien tes cibles avant de foncer. ${hexKeyword}.`,
+      `Canalise ton énergie sur un point précis — moins tu disperses, plus ça porte. ${hexKeyword}.`,
+      `Agis depuis les coulisses. Prépare, rédige, conçois, mais évite la ligne de front. ${hexKeyword}.`,
+      `Mouvement lent mais puissant. Pose un acte décisif, puis retourne immédiatement au calme. ${hexKeyword}.`,
+      `Ton corps a les ressources, mais le jour demande de la retenue. Concentre cette force sur un seul dossier clé. ${hexKeyword}.`,
+      `Avance en sous-marin : travaille en profondeur, ne montre le résultat que quand il est solide. ${hexKeyword}.`,
+      `La puissance est là, mais elle gagne à être contenue. Un tir précis vaut mieux qu'une rafale. ${hexKeyword}.`,
+      `Utilise cette journée calme pour préparer le terrain de demain — tu poses les bases, demain tu exécutes. ${hexKeyword}.`,
+      `Ton instinct pousse à foncer, mais le contexte invite à la précision. Écoute les deux : agis, mais chirurgicalement. ${hexKeyword}.`,
+      `Journée d'action silencieuse. Les résultats ne seront visibles que demain, mais c'est aujourd'hui qu'ils se construisent. ${hexKeyword}.`,
     ] : [
       `Feu vert — agis sur tes décisions clés. ${hexKeyword}.`,
       `Conditions optimales pour lancer, signer, avancer. ${hexKeyword}.`,
       `L'alignement est fort — c'est le moment d'agir avec conviction. ${hexKeyword}.`,
+      `Passe à l'action sans hésiter — ce que tu enclenches maintenant a de la tenue. ${hexKeyword}.`,
+      `Engage-toi pleinement — tes actions trouvent un écho naturel aujourd'hui. ${hexKeyword}.`,
+      `La mécanique est huilée. Déploie tes projets avec audace et confiance. ${hexKeyword}.`,
+      `Ton élan et le contexte sont synchronisés — chaque initiative lancée maintenant porte plus loin. ${hexKeyword}.`,
+      `Le terrain est dégagé, les feux sont au vert. Lance ce que tu repousses depuis des jours. ${hexKeyword}.`,
+      `Ta voix porte, tes idées percutent — journée idéale pour convaincre, présenter ou négocier. ${hexKeyword}.`,
+      `Le vent est dans ton dos. Avance vite sur les projets prioritaires avant que le courant change. ${hexKeyword}.`,
+      `Tes décisions ont du poids aujourd'hui — signe, engage, officialise ce qui est mûr. ${hexKeyword}.`,
+      `Tout coopère : ton corps, ton esprit, l'instant. Ne laisse pas cette fenêtre se refermer sans avoir agi. ${hexKeyword}.`,
     ],
     ajuster: isRetrait ? [
       `Énergie modérée + journée calme : idéal pour organiser et préparer. ${hexKeyword}.`,
       `Pas de précipitation — structure tes prochaines actions. ${hexKeyword}.`,
       `Pose-toi, fais le tri, prépare le terrain pour la prochaine fenêtre. ${hexKeyword}.`,
+      `Range ton espace, classe tes idées. L'ordre extérieur viendra apaiser le flou intérieur. ${hexKeyword}.`,
+      `Reviens à l'essentiel, trie, et prépare sans pression. ${hexKeyword}.`,
+      `Désencombre ton esprit en douceur. Planifie à voix basse ce que tu accompliras demain. ${hexKeyword}.`,
+      `Le calme du jour est un allié : profite-s-en pour mettre à plat ce qui t'encombre. ${hexKeyword}.`,
+      `Journée de coulisses — réorganise, nettoie, simplifie. Demain tu agiras plus vite. ${hexKeyword}.`,
+      `Prends du recul sur tes dernières semaines. Qu'est-ce qui avance vraiment ? Réajuste. ${hexKeyword}.`,
+      `Fais le ménage dans tes priorités : supprime, reporte, délègue. Garde seulement l'essentiel. ${hexKeyword}.`,
+      `Profite de cette accalmie pour remettre tes listes à jour. La clarté d'aujourd'hui nourrira l'action de demain. ${hexKeyword}.`,
+      `Rien n'urge — et c'est exactement le bon moment pour réfléchir à ce qui urgerait si tu ne t'en occupais pas maintenant. ${hexKeyword}.`,
     ] : [
       `Avance avec méthode — priorise et ajuste au fil de la journée. ${hexKeyword}.`,
       `Le contexte est mitigé : sélectionne tes batailles. ${hexKeyword}.`,
-      `Bon timing pour tester, valider et affiner avant de lancer. ${hexKeyword}.`,
+      `Bon moment pour tester, valider et affiner avant de lancer. ${hexKeyword}.`,
+      `Avance par petites touches — observe, corrige, puis continue. ${hexKeyword}.`,
+      `Reste souple sur tes appuis. Écoute les retours et modifie ton angle d'attaque en direct. ${hexKeyword}.`,
+      `Teste sans t'engager trop vite — affine avant d'ancrer. ${hexKeyword}.`,
+      `Le terrain est praticable mais glissant. Avance avec méthode, un pas à la fois. ${hexKeyword}.`,
+      `Ajuste ta trajectoire en temps réel — ce qui marchait hier peut demander une correction aujourd'hui. ${hexKeyword}.`,
+      `Ne vise pas la perfection, vise le progrès. Un ajustement bien placé vaut mieux qu'un grand plan. ${hexKeyword}.`,
+      `Journée de calibrage : mesure, corrige, optimise. Les grands résultats viendront de ces micro-ajustements. ${hexKeyword}.`,
+      `Ton énergie suffit pour avancer, pas pour sprinter. Adapte ta vitesse et reste constant. ${hexKeyword}.`,
+      `Le contexte demande de la souplesse. Garde tes options ouvertes et décide au dernier moment. ${hexKeyword}.`,
     ],
     ralentir: [
       `Journée de pause stratégique — consolide tes acquis. ${hexKeyword}.`,
       `Protège ton énergie, reporte les décisions importantes. ${hexKeyword}.`,
       `Repli stratégique — ce n'est pas une faiblesse, c'est de l'intelligence. ${hexKeyword}.`,
+      `Fais moins, mais fais-le avec présence — le reste peut attendre. ${hexKeyword}.`,
+      `La batterie clignote. Accepte l'immobilité totale pour relancer ton système en profondeur. ${hexKeyword}.`,
+      `Sors de l'autoroute. Mets-toi sur le bas-côté, observe le paysage et respire. ${hexKeyword}.`,
+      `Tout ce que tu forces aujourd'hui coûtera le double demain. Économise tes mouvements. ${hexKeyword}.`,
+      `Journée de jachère — le sol se repose pour mieux nourrir la prochaine récolte. ${hexKeyword}.`,
+      `Débranche, déconnecte, laisse ton esprit vagabonder. Les meilleures idées naissent dans le vide. ${hexKeyword}.`,
+      `Le corps demande une trêve. Accorde-la sans négocier — tu reviendras plus fort. ${hexKeyword}.`,
+      `Aucune urgence ne justifie de puiser dans des réserves vides. Laisse-toi porter par l'inertie douce du jour. ${hexKeyword}.`,
+      `Le meilleur investissement du jour, c'est le repos. Tout ce que tu ne fais pas maintenant libère de la force pour demain. ${hexKeyword}.`,
     ],
   };
 
   const pool = conseils[verb];
-  const conseil = pool[dayOfYear % pool.length];
+  // R19 — rotation profil × jour pour anti-doublon entre profils
+  const rawConseil = pool[(profileSeed + dayOfYear) % pool.length];
+  // R20 — enrichissement contextuel (même logique que les narratifs)
+  const _sLvl = score < 25 ? 0 : score < 40 ? 1 : score < 65 ? 2 : score < 80 ? 3 : 4;
+  const conseil = enrichNarrative(rawConseil, moonPhase, baziElement, dayOfYear, profileSeed, isVoC, _sLvl);
   return { ...ACTION_DEFS[verb], conseil };
 }
 
@@ -241,7 +489,9 @@ function calcClimate(num: NumerologyProfile): ClimateResult {
 // ═══ 6 DOMAINES CONTEXTUELS ═══
 // ══════════════════════════════════════
 
-const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: string }> = {
+// ═══ Source de vérité unique pour les labels/icônes/couleurs des 6 domaines ═══
+// Consommé par : ForecastTab, CalendarTab, strategic-reading, convergence interne
+export const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: string }> = {
   BUSINESS:      { label: 'Affaires',      icon: '💼', color: '#4ade80' },
   AMOUR:         { label: 'Amour',         icon: '❤️', color: '#f472b6' },
   RELATIONS:     { label: 'Relations',     icon: '🤝', color: '#60a5fa' },
@@ -250,13 +500,23 @@ const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: stri
   VITALITE:      { label: 'Vitalité',      icon: '🌟', color: '#fb923c' },
 };
 
+/** Retourne le label français d'un domaine (ex: 'BUSINESS' → 'Affaires') */
+export function getDomainLabel(domain: LifeDomain): string {
+  return DOMAIN_META[domain]?.label ?? domain;
+}
+
+/** Retourne l'icône d'un domaine (ex: 'BUSINESS' → '💼') */
+export function getDomainIcon(domain: LifeDomain): string {
+  return DOMAIN_META[domain]?.icon ?? '';
+}
+
 // V6.1 — DOMAIN_AFFINITY révisée (GPT R6) : suppression négatifs excessifs,
-// cohérence symbolique restaurée (I Ching=oracle intérieur, BaZi=relationnel, Mercure≠INTROSPECTION négatif)
+// cohérence symbolique restaurée (I Ching=Yi King intérieur, BaZi=relationnel, Mercure≠INTROSPECTION négatif)
 const DOMAIN_AFFINITY: Record<string, Record<LifeDomain, number>> = {
   'Numérologie':      { BUSINESS: 0.8,  AMOUR: 0.3,  RELATIONS: 0.5,  CREATIVITE: 0.7,  INTROSPECTION: 0.4,  VITALITE: 0.6  },
-  'I Ching':          { BUSINESS: 0.1,  AMOUR: 0.2,  RELATIONS: 0.2,  CREATIVITE: 0.9,  INTROSPECTION: 1.0,  VITALITE: 0.1  },
+  'Yi King':          { BUSINESS: 0.1,  AMOUR: 0.2,  RELATIONS: 0.2,  CREATIVITE: 0.9,  INTROSPECTION: 1.0,  VITALITE: 0.1  },
   'BaZi':             { BUSINESS: 1.0,  AMOUR: 0.4,  RELATIONS: 0.5,  CREATIVITE: 0.3,  INTROSPECTION: 0.4,  VITALITE: 0.8  },
-  '10 Gods':          { BUSINESS: 1.0,  AMOUR: 0.6,  RELATIONS: 0.8,  CREATIVITE: 0.5,  INTROSPECTION: 0.3,  VITALITE: 0.3  },
+  '10 Archétypes':    { BUSINESS: 1.0,  AMOUR: 0.6,  RELATIONS: 0.8,  CREATIVITE: 0.5,  INTROSPECTION: 0.3,  VITALITE: 0.3  },
   'Lune':             { BUSINESS: -0.2, AMOUR: 1.0,  RELATIONS: 0.8,  CREATIVITE: 0.8,  INTROSPECTION: 1.0,  VITALITE: 0.9  },
   'Transit Lunaire':  { BUSINESS: -0.1, AMOUR: 0.7,  RELATIONS: 1.0,  CREATIVITE: 0.4,  INTROSPECTION: 0.6,  VITALITE: 1.0  },
   'Mercure':          { BUSINESS: 1.0,  AMOUR: 0.6,  RELATIONS: 0.9,  CREATIVITE: 0.2,  INTROSPECTION: 0.3,  VITALITE: 0.4  },
@@ -266,7 +526,7 @@ const DOMAIN_AFFINITY: Record<string, Record<LifeDomain, number>> = {
   'Type de Jour':     { BUSINESS: 0.6,  AMOUR: 0.2,  RELATIONS: 0.4,  CREATIVITE: 0.6,  INTROSPECTION: 0.3,  VITALITE: 0.6  },
   'Peach Blossom':    { BUSINESS: 0.0,  AMOUR: 1.0,  RELATIONS: 0.9,  CREATIVITE: 0.4,  INTROSPECTION: 0.1,  VITALITE: 0.5  },
   // Sprint AR P4 : Changsheng supprimé (Ronde 11 consensus 3/3)
-  'Shen Sha':         { BUSINESS: 0.6,  AMOUR: 0.6,  RELATIONS: 0.6,  CREATIVITE: 0.5,  INTROSPECTION: 0.4,  VITALITE: 0.4  },
+  'Étoiles symboliques': { BUSINESS: 0.6,  AMOUR: 0.6,  RELATIONS: 0.6,  CREATIVITE: 0.5,  INTROSPECTION: 0.4,  VITALITE: 0.4  },
   'Nakshatra':        { BUSINESS: 0.5,  AMOUR: 0.5,  RELATIONS: 0.5,  CREATIVITE: 0.5,  INTROSPECTION: 0.5,  VITALITE: 0.5  },
 };
 
@@ -275,22 +535,32 @@ const DOMAIN_DIRECTIVES: Record<LifeDomain, { haut: string; bon: string; neutre:
   AMOUR:         { haut: 'Déclare, invite, ose — le cœur est aligné.', bon: 'Bon moment pour connecter et approfondir.', neutre: 'Présence tranquille — pas de grandes déclarations.', bas: 'Protège ton énergie émotionnelle aujourd\'hui.' },
   RELATIONS:     { haut: 'Réseaute, allie-toi, fédère — ton charisme rayonne.', bon: 'Tes échanges seront fluides — profites-en.', neutre: 'Maintiens tes relations sans forcer de nouveau contact.', bas: 'Risque de malentendu — choisis tes mots avec soin.' },
   CREATIVITE:    { haut: 'Crée, innove, écris — l\'inspiration coule.', bon: 'Bonne énergie créative — exploite-la.', neutre: 'Peaufine l\'existant plutôt que de créer du neuf.', bas: 'Pas le jour pour brainstormer — recharge.' },
-  INTROSPECTION: { haut: 'Journée idéale pour méditer, planifier et voir clair.', bon: 'Ta intuition est fiable — écoute-la.', neutre: 'Garde un moment calme dans ta journée.', bas: 'L\'agitation extérieure domine — dur de se poser.' },
+  INTROSPECTION: { haut: 'Journée idéale pour méditer, planifier et voir clair.', bon: 'Ton intuition est fiable — écoute-la.', neutre: 'Garde un moment calme dans ta journée.', bas: 'L\'agitation extérieure domine — dur de se poser.' },
   VITALITE:      { haut: 'Énergie physique au top — bouge, agis, entreprends.', bon: 'Bonne forme — gère ton rythme intelligemment.', neutre: 'Énergie stable — pas d\'excès.', bas: 'Corps en retrait — repos et récupération.' },
 };
 
-// Ronde Pilotage P1 : Mercury-aware BUSINESS directives
-function getDomainDirective(domain: LifeDomain, score: number, mercRetro: boolean = false): string {
+// Ronde Pilotage P1 : Mercury-aware directives (BUSINESS, AMOUR, RELATIONS)
+// FIX: mercNeg couvre mercPts < 0 — Mercure affecte TOUTE communication, pas seulement les affaires
+function getDomainDirective(domain: LifeDomain, score: number, mercNeg: boolean = false): string {
   const d = DOMAIN_DIRECTIVES[domain];
-  if (score >= 75) {
-    if (mercRetro && domain === 'BUSINESS') return 'Terrain porteur, mais Mercure rétrograde — relisez tout avant de signer, reporte les lancements.';
+  // FIX: Aligner seuils avec forceQualBrief (≥80 très porteur, ≥65 porteur, ≥45 modéré)
+  if (score >= 80) {
+    if (mercNeg) {
+      if (domain === 'BUSINESS')  return 'Terrain porteur, mais Mercure tendu — décide en silence, relis tout avant de signer.';
+      if (domain === 'AMOUR')     return 'Le cœur est aligné — montre par les actes plutôt que les mots aujourd\'hui.';
+      if (domain === 'RELATIONS') return 'Charisme fort — écoute plus que tu ne parles, ton impact sera plus grand.';
+    }
     return d.haut;
   }
-  if (score >= 55) {
-    if (mercRetro && domain === 'BUSINESS') return 'Avance tes dossiers avec prudence — Mercure rétrograde, vérifie chaque détail.';
+  if (score >= 65) {
+    if (mercNeg) {
+      if (domain === 'BUSINESS')  return 'Avance tes dossiers avec prudence — Mercure tendu, vérifie chaque détail.';
+      if (domain === 'AMOUR')     return 'Connecte en douceur — privilégie la présence aux grandes déclarations.';
+      if (domain === 'RELATIONS') return 'Échanges fluides mais prudence verbale — écoute d\'abord, parle ensuite.';
+    }
     return d.bon;
   }
-  if (score >= 40) return d.neutre;
+  if (score >= 45) return d.neutre;
   return d.bas;
 }
 
@@ -302,7 +572,7 @@ function calculateContextualScores(
   directBonuses?: Partial<Record<LifeDomain, number>>,
   nakshatraMods?: Record<string, number>,
   nakshatraAffinityOverride?: Record<LifeDomain, number>,  // V9.0 P3 — affinités dynamiques par Nakshatra actif
-  mercRetro: boolean = false  // Ronde Pilotage P1 — Mercury-aware BUSINESS directive
+  mercNeg: boolean = false  // FIX: Mercury négatif (pas seulement rétrograde) — cohérence narrative somatique
 ): ContextualScores {
   const allDomains: LifeDomain[] = ['BUSINESS', 'AMOUR', 'RELATIONS', 'CREATIVITE', 'INTROSPECTION', 'VITALITE'];
   const domainRaw: Record<LifeDomain, number> = {
@@ -376,23 +646,24 @@ function calculateContextualScores(
       domain,
       ...DOMAIN_META[domain],
       score,
-      directive: getDomainDirective(domain, score, mercRetro),
+      directive: getDomainDirective(domain, score, mercNeg),
     };
   });
 
   const sorted = [...domains].sort((a, b) => b.score - a.score);
-  const fallbackDomain = { domain: 'BUSINESS' as const, icon: '💼', label: 'Business', score: 50, directive: '' };
+  const fallbackDomain = { domain: 'BUSINESS' as const, icon: '💼', label: 'Affaires', score: 50, directive: '' };
   const best = sorted[0] ?? fallbackDomain; // Sprint AG: bounds check
   const worst = sorted[sorted.length - 1] ?? fallbackDomain; // Sprint AG: bounds check
   const diff = best.score - worst.score;
 
+  const qualLabel = (s: number) => s >= 80 ? 'très porteur' : s >= 65 ? 'porteur' : s >= 45 ? 'modéré' : 'en retrait';
   let conseil: string;
   if (diff <= 10) {
     conseil = `Énergie équilibrée — tous les domaines sont alignés aujourd'hui.`;
   } else if (diff <= 25) {
-    conseil = `${best.icon} ${best.label} à ${best.score}/100 — capitalise là. ${worst.icon} ${worst.label} à ${worst.score}/100 — temporise.`;
+    conseil = `${best.icon} ${best.label} ${qualLabel(best.score)} — capitalise là. ${worst.icon} ${worst.label} ${qualLabel(worst.score)} — temporise.`;
   } else {
-    conseil = `${best.icon} ${best.label} en zone haute (${best.score}/100). Évite les décisions critiques en ${worst.label} (${worst.score}/100).`;
+    conseil = `${best.icon} ${best.label} ${qualLabel(best.score)} — fonce. Évite les décisions critiques en ${worst.label} (${qualLabel(worst.score)}).`;
   }
 
   return { domains, bestDomain: best.domain, worstDomain: worst.domain, conseil };
@@ -515,6 +786,9 @@ function computeRarityIndex(
   const higherOrEqual = baseline.filter(s => s >= currentScore).length;
   const percentage    = Math.max(0.1, (higherOrEqual / baseline.length) * 100);
   const rank          = baseline.filter(s => s > currentScore).length + 1;
+
+  // NOTE : cette rareté MC (L1-only) est un fallback. ConvergenceTab recalcule
+  // une rareté corrigée basée sur les 365 scores soft-shiftés de l'année (même pipeline).
   let label: string, icon: string;
   if (percentage <= 1) { label = 'Extrêmement rare'; icon = '💎'; }
   else if (percentage <= 5) { label = 'Rare'; icon = '🌟'; }
@@ -533,15 +807,15 @@ function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexK
   if (score >= COSMIC_THRESHOLD) {
     if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
     if (t === 'communication') return `🌟 CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
-    if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lancez maintenant.`;
+    if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lance maintenant.`;
     if (t === 'observation')   return `🌟 CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
-    return `🌟 CONVERGENCE RARE — Même en retrait, l'énergie est exceptionnelle. Semez avec intention.`;
+    return `🌟 CONVERGENCE RARE — Énergie exceptionnelle tournée vers l'intérieur. Médite, visualise, pose une intention profonde — ce que tu ancres aujourd'hui rayonnera.`;
   }
   if (score >= 80) {
     if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hexName} (${hexKeyword}) : c'est le moment d'agir.`;
     if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. ${hexName} amplifie tes échanges.`;
     if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. ${hexName} soutient tes ambitions.`;
-    return `Journée de recul dans des conditions positives. Recharge tes batteries stratégiques.`;
+    return `Journée d'intériorité dans des conditions rares. Méditation, introspection profonde — ta clarté intérieure est à son maximum.`;
   }
   if (score >= 65) {
     if (t === 'decision')      return `Bonne fenêtre pour décider. ${hexName} (${hexKeyword}) t\'encourage à avancer.`;
@@ -553,7 +827,7 @@ function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexK
     return `L'énergie est stable. ${hexName} (${hexKeyword}) invite à se concentrer sur l'essentiel.`;
   }
   if (score >= 25) {
-    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hexName} (${hexKeyword}) : ne décidez que si c'est urgent.`;
+    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hexName} (${hexKeyword}) : ne décide que si c'est urgent.`;
     return `L'énergie résiste. ${hexName} (${hexKeyword}) recommande la prudence.`;
   }
   return `Repli stratégique. ${hexName} (${hexKeyword}) signale des vents contraires — préserve ton énergie.`;
@@ -572,10 +846,10 @@ function computeTurbulence(scores: number[], index: number): TurbulenceIndex {
   const variance = window.reduce((s, v) => s + (v - mean) ** 2, 0) / window.length;
   const sigma = Math.round(Math.sqrt(variance) * 10) / 10;
   let level: TurbulenceIndex['level'], label: string;
-  if (sigma < 8)       { level = 'calme'; label = 'Période stable'; }
-  else if (sigma < 15) { level = 'modéré'; label = 'Légères fluctuations'; }
-  else if (sigma < 22) { level = 'agité'; label = 'Volatilité élevée'; }
-  else                 { level = 'extrême'; label = 'Turbulence majeure'; }
+  if (sigma < 8)       { level = 'calme'; label = 'Semaine stable'; }
+  else if (sigma < 15) { level = 'modéré'; label = 'Semaine contrastée'; }
+  else if (sigma < 22) { level = 'agité'; label = 'Forte variation cette semaine'; }
+  else                 { level = 'extrême'; label = 'Semaine très instable'; }
   return { sigma, level, label };
 }
 
@@ -602,8 +876,8 @@ function flagMADOutlier(scores: number[], index: number): OutlierFlag {
 // pour éviter la sous-estimation de la variance (ex: 7 modules BaZi ≠ 7 observations indep.)
 const CORRELATION_GROUPS: Record<string, string> = {
   // Sprint AR P4 : 'Changsheng' et 'Na Yin' supprimés (Ronde 11 consensus 3/3)
-  'BaZi': 'bazi', '10 Gods': 'bazi',
-  'Jian Chu': 'bazi', 'Shen Sha': 'bazi', 'Peach Blossom': 'bazi',
+  'BaZi': 'bazi', '10 Archétypes': 'bazi',
+  'Cycle des 12 Officiers': 'bazi', 'Étoiles symboliques': 'bazi', 'Peach Blossom': 'bazi',
   'Lune': 'lune', 'Nakshatra': 'lune', 'Transit Lunaire': 'lune',
   'Lune Hors Cours': 'lune', 'Nœuds Lunaires': 'lune', 'Vimshottari Dasha': 'lune',
   'Astrologie': 'ephemeris', 'Planètes': 'ephemeris', 'Retours Planétaires': 'ephemeris',
@@ -742,8 +1016,8 @@ export function calcDayPreview(
   const _isPermanent = alpha >= 1;
   const _cKey = natalCtx
     ? (_isPermanent
-        ? `v5p|${bd}|${targetDate}|${transitBonus}|L2lite`          // permanent: pas de todayDate
-        : `v5v|${bd}|${targetDate}|${transitBonus}|L2lite|${_today}`) // volatile: inclut todayDate
+        ? `v15p|${bd}|${targetDate}|${transitBonus}|L2lite`          // permanent: v15=Dasha dans GW R16 λ=0.15
+        : `v15v|${bd}|${targetDate}|${transitBonus}|L2lite|${_today}`) // volatile: v15=Dasha dans GW R16 λ=0.15
     : _dayPreviewCacheKey(bd, targetDate, transitBonus, ctxMult, dashaMult, baseSignal);
 
   // TTL midnight : si le jour a changé, vider le cache volatile
@@ -776,26 +1050,35 @@ export function calcDayPreview(
   // 2. I Ching pour la date cible
   const iching = calcIChing(bd, targetDate);
 
+  // ═══ J+1 FIX — Pour demain, utiliser le mode LIVE (mêmes transits réels, terrain identique) ═══
+  // Les planètes lentes bougent de <0.01°/jour : les transits d'aujourd'hui sont valides pour J+1.
+  // Les calculs lunaires (Nakshatra, Panchanga, Ashtakavarga) utilisent déjà la date cible.
+  // Sans ce fix, J+1 utilise calcTransitsLite (Meeus approx) + calcDashaMultLite (simplifié)
+  // → écart de 20-30 pts vs le score réel. Inacceptable pour la crédibilité.
+  const _isJ1 = daysDiff > 0 && daysDiff <= 1;
+
   // 3. Appel au moteur LIVE — mêmes 20 modules, mêmes 4 groupes, même score
   //    Ronde Transit : on passe _liveDate = vrai aujourd'hui pour que calcDailyModules
   //    utilise calcTransitsLite (Meeus) quand targetDate ≠ today.
+  //    J+1 FIX : pour demain, _liveDate = targetDate → force calcPersonalTransits (vrais transits)
   //    _today déjà calculé dans le bloc cache V5/E ci-dessus.
   const _breakdown: SystemBreakdown[] = [];
   const _signals: string[] = [];
   const _alerts: string[] = [];
   const daily = calcDailyModules(
-    { num: numForDate, astro, iching, bd, todayStr: targetDate, _liveDate: _today },
+    { num: numForDate, astro, iching, bd, todayStr: targetDate, _liveDate: _isJ1 ? targetDate : _today },
     _breakdown, _signals, _alerts,
   );
 
   // 4. Terrain : Ronde 28 L2-lite par jour (dashaMult + baseSignal varient)
   //    Garde R27 : si targetDate === today, on garde le terrain live (GAP = 0 strict)
+  //    J+1 FIX : pour demain, on garde aussi le terrain live (quasi-identique à 24h près)
   let _ctxMult = ctxMult;
   let _dashaMult = dashaMult;
   let _baseSignal: number | undefined = baseSignal;
 
   // _today déjà calculé dans le bloc cache V5/E
-  if (natalCtx && targetDate !== _today) {
+  if (natalCtx && targetDate !== _today && !_isJ1) {
     // L2-lite : recalculer dashaMult + baseSignal pour cette date spécifique
     const _targetDateObj = new Date(targetDate + 'T12:00:00');
     const _dashaLite = calcDashaMultLite(natalCtx, _targetDateObj);
@@ -815,12 +1098,15 @@ export function calcDayPreview(
   }
 
   // 5. Score = scoreFromGroups avec terrain L2-lite + V5/E alpha-blend
-  const score = scoreFromGroups(
+  //    J+1 FIX : alpha=0 pour demain → branche LIVE pure (terrain dans le tanh, identique au score réel)
+  let score = scoreFromGroups(
     daily.luneGroupDelta, daily.ephemGroupDelta,
     daily.baziGroupDelta, daily.indivGroupDelta,
     _ctxMult, _dashaMult, _baseSignal,
-    alpha,           // V5/E — 0=LIVE/today, →1 progressivement sur 90j (V5E_ALPHA_RAMP)
+    _isJ1 ? 0 : alpha,  // J+1 → LIVE (alpha=0) | J+2+ → rampe V5/E normale
   );
+  // Ronde #24 — Résonance Lunaire Natale post-tanh
+  score = applyLunarResonance(score, daily.transitMoonSid, natalCtx?.natalMoonSid ?? null);
   // Ronde 6 — capture side-channel xt/dm pour blend post-traitement annuel
   const _dayXt = _sfgLastXt;
   const _dayDm = _sfgLastDm;
@@ -855,7 +1141,7 @@ export function calcDayPreview(
 // ══════════════════════════════════════════════════════════════════════
 // Ronde Cosmique — Post-traitement annuel Plancher + Plafond
 // Consensus 3/3 (GPT + Gemini + Grok) : Option C stricte
-//   - Cosmique = score ≥ 88 (absolu, universel)
+//   - Cosmique = score ≥ 86 (absolu, universel) — abaissé V4.4
 //   - Plafond : max 25 Cosmiques/an (les meilleurs gardent le badge, les autres → capped)
 //   - Plancher : min 3 "Pic de l'année" si < 3 Cosmiques (score ≥ 85)
 //   - Zéro changement sur la formule de score
@@ -870,7 +1156,7 @@ const ANNUAL_PEAK_FLOOR = 82;  // V4.1 : abaissé de 85→82 — garantit des "P
  * Mute les objets DayPreview en place (ajoute isAnnualPeak / isCosmicCapped).
  */
 export function assignAnnualLabels(yearPreviews: DayPreview[]): void {
-  // 1. Identifier les jours Cosmiques (score ≥ 88), triés desc
+  // 1. Identifier les jours Cosmiques (score ≥ 86), triés desc
   const cosmicDays = yearPreviews
     .filter(p => p.score >= COSMIC_THRESHOLD)
     .sort((a, b) => b.score - a.score);
@@ -983,24 +1269,53 @@ export function applySoftShiftBlend(yearPreviews: DayPreview[]): void {
     return X - cs * Math.tanh(X / cs);
   }
 
-  // Appliquer le blend sur chaque jour avec xt (passés + futurs)
-  // ═══ FIX INCOHÉRENCE CALENDRIER vs PILOTAGE ═══
-  // Protéger le jour d'aujourd'hui : son score LIVE (= Pilotage) ne doit PAS être
-  // écrasé par le Soft Shift. Sinon on affiche 37 sur le calendrier et 58 sur le Pilotage.
-  const _todayGuard = getTodayStr();
+  // ═══ Ronde 23 — Garde future-only + smoothstep 21+21j ═══
+  // Consensus 3/3 (GPT+Grok+Gemini) : la garde 3 mois glissants exemptait trop de jours
+  // (5 mois en mars, 12 mois en décembre → soft-shift désactivé → inflation Cosmiques).
+  // Nouvelle stratégie :
+  //   - Passé (date < today) → soft-shift complet (overlay historique gère la cohérence)
+  //   - Aujourd'hui → garde absolue (score LIVE = Pilotage)
+  //   - J+1 → J+21 → 100% score brut (cohérence Calendrier ↔ Pilotage)
+  //   - J+22 → J+42 → blend smoothstep (transition lisse, continuité C¹)
+  //   - J+43+ → 100% soft-shift
+  // c_s calculé sur TOUS les 365 jours (y compris gardés) — pas de biais de distribution.
+  const _todayStr = getTodayStr();
+  const GUARD_FULL = 21;   // jours de garde pleine (score brut = Pilotage)
+  const GUARD_FADE = 21;   // jours de fade progressif (smoothstep 0→1)
+  const MS_PER_DAY = 86400000;
+
+  function _dayDiff(todayS: string, dateS: string): number {
+    return Math.round((new Date(dateS + 'T12:00:00').getTime() - new Date(todayS + 'T12:00:00').getTime()) / MS_PER_DAY);
+  }
+  function _smoothstep(x: number): number {
+    const t = Math.max(0, Math.min(1, x));
+    return t * t * (3 - 2 * t);
+  }
+
   for (const p of yearPreviews) {
     if (p.xt == null || p.xt === 0 || p.dm == null) continue;
-    if (p.date === _todayGuard) continue;  // Garde GAP=0 : aujourd'hui = score Pilotage
 
+    const d = _dayDiff(_todayStr, p.date);
+
+    // Aujourd'hui + futur proche (≤ GUARD_FULL) : score brut inchangé
+    if (d >= 0 && d <= GUARD_FULL) continue;
+
+    // Calculer le score soft-shifté
     const g = softShiftG(p.xt);
     const sAbs = 50 + 44 * Math.tanh(SS_K * g);
     const pctl = smoothPercentile(p.xt);
     const sRelVal = sRel(pctl);
-    const terrainBonus = Math.tanh((p.dm - 1) / 0.06);
+    // R16 : terrain additif supprimé (Dasha intégré dans GW gravity)
+    const scoreSS = Math.max(0, Math.min(100, Math.round((1 - rhoEff) * sAbs + rhoEff * sRelVal)));
 
-    // Score final Soft Shift avec blend
-    const scoreFinal = (1 - rhoEff) * sAbs + rhoEff * sRelVal + terrainBonus;
-    p.score = Math.max(0, Math.min(100, Math.round(scoreFinal)));
+    // Futur intermédiaire (GUARD_FULL < d ≤ GUARD_FULL+GUARD_FADE) : blend smoothstep
+    if (d > GUARD_FULL && d <= GUARD_FULL + GUARD_FADE) {
+      const w = _smoothstep((d - GUARD_FULL) / GUARD_FADE);
+      p.score = Math.round((1 - w) * p.score + w * scoreSS);
+    } else {
+      // Passé ou futur lointain : soft-shift complet
+      p.score = scoreSS;
+    }
 
     // Mettre à jour la couleur du score
     p.lCol = scoreLevelColor(p.score);
@@ -1064,21 +1379,33 @@ export function calcConvergence(
     daily, breakdown, signals, alerts
   );
 
+  // Ronde #24 — natalCtx pour résonance lunaire post-tanh (Pilotage)
+  const _natalCtxPilot = buildNatalDashaCtx(bd, bt, astro);
+
   // ── L3 : Assemblage final ──
   // Y5 — Bascule production : formule tanh Cœur Unifié (A=36, k=0.840, bias=+5, terrain_squashé)
   // Sprint AY P1 — Moteur principal (ex-shadow, désormais unique) — fallback compressL1Legacy supprimé
   // calcMainScore retourne score + c4 + shapley — aucun fallback, crash si erreur = détectable
   const _mainResult = calcMainScore(finalDelta, ctxMult, dashaMult, shadowBaseSignal, daily.luneGroupDelta, daily.ephemGroupDelta, daily.baziGroupDelta, daily.indivGroupDelta);
-  const score = Math.max(5, Math.min(97, _mainResult.score));
+  let score = Math.max(5, Math.min(97, _mainResult.score));
+  // Ronde #24 — Résonance Lunaire Natale post-tanh (chemin Pilotage)
+  score = applyLunarResonance(score, daily.transitMoonSid, _natalCtxPilot?.natalMoonSid ?? null);
   // R27 — GAP=0 confirmé : calcMainScore ≡ scoreFromGroups (diag retiré)
   const mercPts = daily.mercPts;
 
-  const scoreLevel = getScoreLevel(score, mercPts);
+  // R20 — passage des données contextuelles pour injection dynamique
+  const _moonPhaseCtx = daily.moonPhaseRawPhase ?? -1;
+  const _baziElementCtx = daily.baziResult?.dailyStem?.element ?? '';
+  const _isVoCCtx = !!(daily.vocResult && daily.vocResult.isVoC);
+  const scoreLevel = getScoreLevel(score, mercPts, astro?.b3?.sun, astro?.b3?.asc, _moonPhaseCtx, _baziElementCtx, _isVoCCtx);
   const level = scoreLevel.name;
   const lCol = scoreLevel.color;
   const climate = calcClimate(num);
 
-  let actionReco = calcActionReco(daily.dayType, score, iching.keyword);
+  // R19 — profileSeed pour anti-doublon narratif entre profils
+  const SIGN_IDX_MAIN: Record<string, number> = { Aries:0,Taurus:1,Gemini:2,Cancer:3,Leo:4,Virgo:5,Libra:6,Scorpio:7,Sagittarius:8,Capricorn:9,Aquarius:10,Pisces:11 };
+  const _profileSeed = (astro?.b3?.sun ? SIGN_IDX_MAIN[astro.b3.sun] ?? 0 : 0) + (astro?.b3?.asc ? SIGN_IDX_MAIN[astro.b3.asc] ?? 0 : 0);
+  let actionReco = calcActionReco(daily.dayType, score, iching.keyword, _profileSeed, _moonPhaseCtx, _baziElementCtx, _isVoCCtx);
 
   // Ronde 21-bis + Ronde Narrative — Override moteur multi-système
   // Signaux pause : Mercure rétro, Lune décroissante, jour retrait/observation, Lune VoC, Yi King prudent
@@ -1137,7 +1464,7 @@ export function calcConvergence(
   const contextualScores = calculateContextualScores(
     breakdown, score, num.py.v, num.pm.v,
     daily.directDomainBonuses, nakshatraMods, nakshatraAffinityOverride,
-    mercPts <= -3  // Ronde Pilotage P1 — Mercury retro awareness for BUSINESS directive
+    mercPts < 0  // FIX: Élargir à tout mercPts négatif (cohérence avec narrative somatique "gorge bloque" à mercPts < 0)
   );
 
   // V4.2 : Confiance temporelle
@@ -1160,7 +1487,7 @@ export function calcConvergence(
   if ((score >= 80 || score <= 30) && agreementRatio < 50) confScore -= 10;
   confScore = Math.max(5, Math.min(95, Math.round(confScore)));
 
-  const confLabel = confScore >= 75 ? 'Très fiable' : confScore >= 55 ? 'Fiable' : confScore >= 35 ? 'Volatil' : 'Anomalie';
+  const confLabel = confScore >= 75 ? 'Très fiable' : confScore >= 55 ? 'Fiable' : confScore >= 35 ? 'Volatil' : 'Journée atypique';
   const confReason = confScore >= 75
     ? `${agreeing}/${totalSystems} systèmes alignés. Les cycles longs confirment.`
     : confScore >= 55 ? `Majorité des systèmes convergent. Signaux contradictoires mineurs.`
@@ -1181,9 +1508,14 @@ export function calcConvergence(
   const nhScore = nuclearHexScore(iching.hexNum);
   const nuclearHexResult = { ...nhScore.result, points: nhScore.points, label: nhScore.label };
 
+  // Score historique LIVE — sauvegarde pour cohérence calendrier (Option A)
+  try { saveScoreLive(todayStr, score, bd); } catch { /* localStorage indisponible */ }
+
   return {
     score, level, lCol,
     signals, alerts,
+    richSignals: daily.richSignals,
+    richAlerts: daily.richAlerts,
     theme: THEMES[num.ppd.v] || 'équilibre',
     dayType: daily.dayType,
     climate, breakdown, actionReco,
@@ -1251,6 +1583,26 @@ export function calcConvergence(
 // ══════════════════════════════════════════════════════════════════════
 const V5E_BIAS_OFFSET = 0.55;  // E[X_core] détecté par Grok MC simulation (365j) — consensus Ronde
 
+// ═══ Ronde #24 — Résonance Lunaire Natale (consensus 4/4) ═══
+// Offset post-tanh basé sur cos(Lune transit − Lune natale) × intensité lunaire.
+// E[cos] = 0 sur 360° → offset moyen nul. Chaque profil a ses propres "bons jours lunaires".
+// Justification doctrinale : restauration du signal Tarabala/Chandrabala écrasé par le cap G_CAP.
+// Ronde #25 (unanimité 3/3) : lunarIntensity retiré — Tarabala = géométrie pure, indépendant des aspects collectifs.
+// A=8.5 → écart inter-profils ~15.4 pts (cible ≥15 pts). E[cos]=0 sur l'année → pas de dérive.
+const LUNAR_RESONANCE_AMPLITUDE = 8.5;  // ±8.5 pts — Ronde #25 (ex-8 avec lunarIntensity, remplacé cos pur)
+
+export function applyLunarResonance(
+  baseScore: number,
+  transitMoonSid: number | null,
+  natalMoonSid: number | null,
+): number {
+  if (transitMoonSid == null || natalMoonSid == null) return baseScore;
+  const deltaLambda = (transitMoonSid - natalMoonSid) * Math.PI / 180;
+  const resonance = Math.cos(deltaLambda);
+  const offset = LUNAR_RESONANCE_AMPLITUDE * resonance;
+  return Math.round(Math.max(0, Math.min(100, baseScore + offset)));
+}
+
 // ═══ Ronde 6 — Side-channel Soft Shift : scoreFromGroups expose xt/dm pour passe 2 ═══
 // Lecture synchrone par calcDayPreview immédiatement après appel — thread-safe (JS single-thread)
 let _sfgLastXt = 0;   // X_total_future du dernier appel (0 = LIVE)
@@ -1276,7 +1628,7 @@ export function scoreFromGroups(
   const ALPHA_G = getAdaptedAlphaG().current;
   const ALPHA_I = 0.90;
   const P95_G   = { lune: 9, ephem: 7, bazi: 11, indiv: 6 } as const;
-  const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+  const G_CAP   = { lune: 0.80, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;  // Ronde #22 : lune 0.90→0.80
 
   // Normalisation par P95 + pondération αG + caps
   const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
@@ -1289,10 +1641,65 @@ export function scoreFromGroups(
   const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
   const XI = _clampG(ALPHA_I       * xI, -G_CAP.indiv, +G_CAP.indiv);
 
-  // ═══ BRANCHE LIVE (alpha=0) — formule Ronde 29 V3 INTACTE ═══
-  const X_core_live = _clampG(XL + XE + XB + XI, -2.80, +2.80);
+  // ═══ Ronde #4 — Décorrélation + compression universelle (vote 3/3) ═══
+  // Décorrélation signée : retire le chevauchement Lune/Éphémérides (r≈0.40)
+  // ═══ "Constante d'Intrication" (Ronde #18bis, unanimité 3/3) ═══
+  // λ = 0.20 est le poids structurel de la parenté orbitale Lune/Éphémérides.
+  // L'adaptation quotidienne est assurée nativement par min(|XL|,|XE|) qui module
+  // le retrait en proportion du chevauchement effectif du jour.
+  // Ne pas remplacer par un λ adaptatif (pseudo-corrélation sur scalaire, instable).
+  const _lambda = 0.20;
+  const _overlap = Math.min(Math.abs(XL), Math.abs(XE));
+  const XE_dc = XE - _lambda * Math.sign(XE) * _overlap;
+  // Compression conjointe douce : empêche le bloc universel de dominer
+  const _U = XL + XE_dc;
+  const _Ucap = 1.50;
+  const _Ustar = _Ucap * Math.tanh(_U / _Ucap);
+
+  // ═══ NOTE ARCHITECTURALE (Rondes #14-15, unanimité 3/3) — Triple lecture des groupes ═══
+  // Le même signal X_i est lu 3 fois différemment selon l'étage — intentionnel :
+  //   Étage 2 : XE_dc (décorrélé) → pour X_core, empêche double-comptage Lune/Éphém
+  //   Étage 3 : v_i normalisés (clamp ±1) → pour calcC4, mesure direction et pureté
+  //   Étage 4 : X_i bruts via max(0,Xi)/CAP → pour harmony (GW), mesure soutien positif
+  // Ne pas "unifier" ces 3 lectures — chaque étage a besoin d'une vue distincte.
+
+  // ═══ BRANCHE LIVE (alpha=0) — formule Ronde 29 V3 + correctif Ronde #4 ═══
+  const X_core_live = _clampG(_Ustar + XB + XI, -2.80, +2.80);
+
   const c4_live = calcC4(XL, XE, XB, XI);
-  const X_live = _clampG(X_core_live + c4_live, -3.15, +3.15);
+  const X_live_raw = _clampG(X_core_live + c4_live, -3.15, +3.15);
+
+  // ═══ Rondes #8→#13 — Gravity Well + Friction de Couche Limite (consensus 3/3) ═══
+  // Pénalité QUADRATIQUE (harmony) + LINÉAIRE (synergy_tax c4-dépendante).
+  // R13 "Couloir Aveugle" : excess²≈0.04 dans la zone marginale → seul un terme
+  // linéaire peut mordre. synergy_tax = c4 × min(excess, 0.25) taxe la convergence
+  // proportionnellement, plafonnée pour éviter l'inversion de courbe.
+  // ═══ "Asymétrie Thermodynamique" (Ronde #18, unanimité 3/3) ═══
+  // Pas de Gravity Well négatif (X < −1.70). Construire un Cosmique exige de la
+  // néguentropie (harmonie vérifiée). L'effondrement est entropique : tanh suffit
+  // comme plancher naturel. Ne pas symétriser le GW.
+  let X_live = X_live_raw;
+  if (X_live_raw > 1.70) {
+    // NOTE ARCHITECTURALE (Ronde #17, unanimité 3/3) — "Axiome de Symétrie Motrice" :
+    // harmony utilise max(0, X_i) intentionnellement.
+    // Les groupes négatifs sont déjà traités en amont :
+    //   canal 1 — X_core : réduction directe de la somme (X_i négatif diminue X_core)
+    //   canal 2 — c4 coverage : passage 3/4 → perte 25% du bonus convergence
+    // Intégrer les négatifs dans harmony = triple peine redondante. Rejeté 3/3.
+    // "absent" ≡ "opposé" dans harmony : limitation connue et acceptée.
+    const _pL = Math.max(0, XL) / G_CAP.lune;
+    const _pE = Math.max(0, XE) / G_CAP.ephem;
+    const _pB = Math.max(0, XB) / G_CAP.bazi;
+    const _pI = Math.max(0, XI) / G_CAP.indiv;
+    const _maxP = Math.max(_pL, _pE, _pB, _pI);
+    const _sumP = _pL + _pE + _pB + _pI;
+    const _harmony = _maxP > 1e-9 ? Math.min(1, Math.max(0, (_sumP - _maxP) / (3 * _maxP))) : 1.0;
+    const _excess = X_live_raw - 1.70;
+    const _gravity = 0.40 + 0.50 * (1.0 - _harmony);
+    const _synTax = Math.max(0, c4_live) * 0.20 * Math.tanh(_excess / 0.20);
+    const _penalty = _gravity * _excess * _excess + _synTax;
+    X_live = Math.max(1.70, X_live_raw - _penalty);
+  }
 
   const terrain_brut = ctxMult * dashaMult;
   const terrain_sq   = 1 + 0.25 * Math.tanh((terrain_brut - 1) / 0.35);
@@ -1327,13 +1734,55 @@ export function scoreFromGroups(
   const FXB = _clampG(F_AG.bazi  * fxB, -F_CAP.bazi,  +F_CAP.bazi);
   const FXI = _clampG(F_AG.indiv * fxI, -F_CAP.indiv, +F_CAP.indiv);
 
-  const X_core_future = _clampG(FXL + FXE + FXB + FXI, -2.80, +2.80);
+  // Ronde #4 — même décorrélation + compression pour FUTURE
+  const _fOverlap = Math.min(Math.abs(FXL), Math.abs(FXE));
+  const FXE_dc = FXE - _lambda * Math.sign(FXE) * _fOverlap;
+  const _fU = FXL + FXE_dc;
+  const _fUstar = _Ucap * Math.tanh(_fU / _Ucap);
+  const X_core_future = _clampG(_fUstar + FXB + FXI, -2.80, +2.80);
+
   // V4.3 : coverage 3/4 relevée 0.55→0.75 pour la branche FUTURE
   // En 2027, I ou E tombe souvent en deadzone → C4 chutait de 0.35 à 0.19 (trop sévère)
   // Avec 0.75 : C4 3/4 = 0.35×0.75 = 0.26 → réduit le gap inter-années de ~1pt
   // LIVE garde 0.55 (appel sans paramètre, ligne 1169)
+  // ═══ DETTE TECHNIQUE V6+ (Ronde #18bis, consensus 2/3) ═══
+  // Patch empirique compensant la deadzone fréquente des groupes I/E en prévision.
+  // Impact mesuré : delta max +0.79pt, 0 faux Cosmique (stress-test Grok R18).
+  // Maintenu en V5 pour préserver la calibration 11/22/17.
+  // V6+ : remplacer par c4 sur groupes actifs (seuil τ, scaling |A|/4) — piste GPT R18bis.
   const c4_future = calcC4(FXL, FXE, FXB, FXI, 0.75);
-  const X_total_future = _clampG(X_core_future + c4_future, -3.15, +3.15);
+  const X_total_future_raw = _clampG(X_core_future + c4_future, -3.15, +3.15);
+
+  // ═══ Rondes #8→#13 — Gravity Well FUTURE + Friction de Couche Limite (consensus 3/3) ═══
+  // R13 "Couloir Aveugle" : quadratique + linéaire c4-dépendante.
+  // "Asymétrie Thermodynamique" (R18 3/3) — pas de GW négatif, cf. bloc LIVE.
+  let X_total_future = X_total_future_raw;
+  if (X_total_future_raw > 1.70) {
+    // NOTE ARCHITECTURALE (Ronde #17, unanimité 3/3) — "Axiome de Symétrie Motrice" :
+    // harmony utilise max(0, X_i) intentionnellement.
+    // Les groupes négatifs sont déjà traités en amont :
+    //   canal 1 — X_core : réduction directe de la somme (X_i négatif diminue X_core)
+    //   canal 2 — c4 coverage : passage 3/4 → perte 25% du bonus convergence
+    // Intégrer les négatifs dans harmony = triple peine redondante. Rejeté 3/3.
+    // "absent" ≡ "opposé" dans harmony : limitation connue et acceptée.
+    const _fpL = Math.max(0, FXL) / F_CAP.lune;
+    const _fpE = Math.max(0, FXE) / F_CAP.ephem;
+    const _fpB = Math.max(0, FXB) / F_CAP.bazi;
+    const _fpI = Math.max(0, FXI) / F_CAP.indiv;
+    const _fMaxP = Math.max(_fpL, _fpE, _fpB, _fpI);
+    const _fSumP = _fpL + _fpE + _fpB + _fpI;
+    const _fHarmony = _fMaxP > 1e-9 ? Math.min(1, Math.max(0, (_fSumP - _fMaxP) / (3 * _fMaxP))) : 1.0;
+    const _fExcess = X_total_future_raw - 1.70;
+    const _fGravityBase = 0.40 + 0.50 * (1.0 - _fHarmony);
+    // ═══ Ronde #16 (unanimité 3/3) — Dasha comme climat dans le GW ═══
+    // dashaTilt module gravity : bon Dasha (dm>1) → gravity réduite, mauvais (dm<1) → augmentée
+    // λ=0.15 conservateur. dm=1.000 → tilt=1.0 (neutre). Synergy_tax inchangée (doctrinal).
+    const _fDashaTilt = 1.0 - 0.15 * Math.tanh((dashaMult - 1) / 0.06);
+    const _fGravity = _fGravityBase * _fDashaTilt;
+    const _fSynTax = Math.max(0, c4_future) * 0.20 * Math.tanh(_fExcess / 0.20);
+    const _fPenalty = _fGravity * _fExcess * _fExcess + _fSynTax;
+    X_total_future = Math.max(1.70, X_total_future_raw - _fPenalty);
+  }
 
   // ═══ Side-channel : exposer xt/dm pour passe 2 (applySoftShiftBlend) — TOUS les jours ═══
   _sfgLastXt = X_total_future;
@@ -1363,17 +1812,25 @@ export function scoreFromGroups(
   //   Nouveau swing = 1.6 pts → ~14 Cosmiques vs ~2 (équilibré)
   //   Rollback : remettre 2.0
   // dm=1.045 → +0.63 pts | dm=1.0 → 0 | dm=0.884 → -0.96 pts
-  const TERRAIN_PTS   = 1.0;
-  const TERRAIN_WIDTH = 0.06;
-  const terrainBonus = TERRAIN_PTS * Math.tanh((dashaMult - 1) / TERRAIN_WIDTH);
+  // ═══ R16 : terrain additif SUPPRIMÉ — Dasha intégré dans gravity_eff du GW ═══
+  // Ancien : terrainBonus = 0.20 × tanh((dm-1)/0.06) ajouté post-GW
+  // Nouveau : dashaTilt = 1 - 0.15 × tanh((dm-1)/0.06) multiplicateur de gravity
+  // Rollback : remettre TERRAIN_PTS=0.20 et terrainBonus dans scoreFuture
 
-  let scoreFuture: number = scoreBase + terrainBonus;
+  let scoreFuture: number = scoreBase;
   scoreFuture = Math.max(0, Math.min(100, scoreFuture));
 
   // ═══ ALPHA-BLEND Live ↔ Future (transition C⁰ continue) ═══
   // Note : side-channel _sfgLastXt/_sfgLastDm déjà posé avant le check alpha (cf. supra)
   const blended = (1 - alpha) * scoreLive + alpha * scoreFuture;
-  return Math.max(0, Math.min(100, Math.round(blended)));
+  const finalScore = Math.max(0, Math.min(100, Math.round(blended)));
+
+  // ═══ PROBE R12b — Score final ≥ 85 : diagnostic terrain + Cosmique ═══
+  if (finalScore >= 85) {
+    console.log(`[COSM-R16] score=${finalScore} sBase=${scoreBase.toFixed(1)} dm=${dashaMult.toFixed(3)} Xt=${X_total_future.toFixed(3)} c4=${c4_future.toFixed(3)} alpha=${alpha.toFixed(2)}`);
+  }
+
+  return finalScore;
 }
 
 // Ronde 18 consensus 2/3 (GPT v2 + Grok concède) — formule Elena Vasquez révisée
@@ -1385,7 +1842,7 @@ export function scoreFromGroups(
 export function calcC4(XL: number, XE: number, XB: number, XI: number, coverage3of4: number = 0.55): number {
   const _clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
   const eps = 1e-9;
-  const G_CAP = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+  const G_CAP = { lune: 0.80, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;  // Ronde #22 : lune 0.90→0.80
 
   // 1) Normalisation par caps de groupe → [-1, +1]
   const vRaw = [
@@ -1533,7 +1990,7 @@ export function calcMainScore(
     const ALPHA_G = getAdaptedAlphaG().current;
     const ALPHA_I = 0.90;
     const P95_G   = { lune: 9,    ephem: 7,    bazi: 11,   indiv: 6  } as const;
-    const G_CAP   = { lune: 0.90, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;
+    const G_CAP   = { lune: 0.80, ephem: 0.80, bazi: 0.85, indiv: 0.70 } as const;  // Ronde #22 : lune 0.90→0.80
 
     const xL = _clampG(luneGroupDelta  / P95_G.lune,  -1, +1);
     const xE = _clampG(ephemGroupDelta / P95_G.ephem, -1, +1);
@@ -1545,7 +2002,14 @@ export function calcMainScore(
     const XB = _clampG(ALPHA_G.bazi  * xB, -G_CAP.bazi,  +G_CAP.bazi);
     const XI = _clampG(ALPHA_I       * xI, -G_CAP.indiv, +G_CAP.indiv);
 
-    const X_core = _clampG(XL + XE + XB + XI, -2.80, +2.80);  // Ronde 29 (ex ±1.6)
+    // Ronde #4 — Décorrélation + compression universelle (identique à scoreFromGroups)
+    const _lambda_m = 0.20;
+    const _overlap_m = Math.min(Math.abs(XL), Math.abs(XE));
+    const XE_dc_m = XE - _lambda_m * Math.sign(XE) * _overlap_m;
+    const _U_m = XL + XE_dc_m;
+    const _Ucap_m = 1.50;
+    const _Ustar_m = _Ucap_m * Math.tanh(_U_m / _Ucap_m);
+    const X_core = _clampG(_Ustar_m + XB + XI, -2.80, +2.80);  // Ronde 29 + Ronde #4
 
     // CIS gardé pour observabilité
     const _signs = [XL, XE, XB, XI];
@@ -1556,7 +2020,33 @@ export function calcMainScore(
     const cis = (_countAlign - 1) * 0.09 * _alignSign;
 
     const c4 = calcC4(XL, XE, XB, XI);
-    const X = _clampG(X_core + c4, -3.15, +3.15);              // Ronde 29 (ex ±2.0)
+    const X_raw = _clampG(X_core + c4, -3.15, +3.15);              // Ronde 29 (ex ±2.0)
+
+    // ═══ Rondes #8→#13 — Gravity Well calcMainScore + Friction de Couche Limite (consensus 3/3) ═══
+    // R13 "Couloir Aveugle" : quadratique + linéaire c4-dépendante.
+    // "Asymétrie Thermodynamique" (R18 3/3) — pas de GW négatif, cf. bloc LIVE.
+    let X = X_raw;
+    if (X_raw > 1.70) {
+      // NOTE ARCHITECTURALE (Ronde #17, unanimité 3/3) — "Axiome de Symétrie Motrice" :
+      // harmony utilise max(0, X_i) intentionnellement.
+      // Les groupes négatifs sont déjà traités en amont :
+      //   canal 1 — X_core : réduction directe de la somme (X_i négatif diminue X_core)
+      //   canal 2 — c4 coverage : passage 3/4 → perte 25% du bonus convergence
+      // Intégrer les négatifs dans harmony = triple peine redondante. Rejeté 3/3.
+      // "absent" ≡ "opposé" dans harmony : limitation connue et acceptée.
+      const _mpL = Math.max(0, XL) / G_CAP.lune;
+      const _mpE = Math.max(0, XE) / G_CAP.ephem;
+      const _mpB = Math.max(0, XB) / G_CAP.bazi;
+      const _mpI = Math.max(0, XI) / G_CAP.indiv;
+      const _mMaxP = Math.max(_mpL, _mpE, _mpB, _mpI);
+      const _mSumP = _mpL + _mpE + _mpB + _mpI;
+      const _mHarmony = _mMaxP > 1e-9 ? Math.min(1, Math.max(0, (_mSumP - _mMaxP) / (3 * _mMaxP))) : 1.0;
+      const _mExcess = X_raw - 1.70;
+      const _mGravity = 0.40 + 0.50 * (1.0 - _mHarmony);
+      const _mSynTax = Math.max(0, c4) * 0.20 * Math.tanh(_mExcess / 0.20);
+      const _mPenalty = _mGravity * _mExcess * _mExcess + _mSynTax;
+      X = Math.max(1.70, X_raw - _mPenalty);
+    }
 
     // Terrain combiné (ctxMult × dashaMult)
     const terrain_brut = ctxMult * dashaMult;
@@ -1592,7 +2082,7 @@ export function calcMainScore(
 // ═══ FORECAST 36 MOIS — V4.1 ═══
 // ══════════════════════════════════════
 
-const DAYTYPE_DOMAIN_AFFINITY: Record<string, Partial<Record<LifeDomain, number>>> = {
+const DAYTYPE_DOMAIN_AFFINITY: Record<DayType, Partial<Record<LifeDomain, number>>> = {
   decision:      { BUSINESS: 1.0, VITALITE: 0.3 },
   expansion:     { BUSINESS: 0.7, CREATIVITE: 0.5, VITALITE: 0.4 },
   communication: { RELATIONS: 1.0, AMOUR: 0.3 },
@@ -1661,6 +2151,27 @@ function detectActionWindows(dailyData: { date: string; score: number; dayType: 
   const domainThresholds: Partial<Record<LifeDomain, number>> = {
     BUSINESS: 70, CREATIVITE: 70, AMOUR: 75, RELATIONS: 72, INTROSPECTION: 72, VITALITE: 72,
   };
+
+  // Calcule le domaine dominant d'un cluster de jours via dayType affinités
+  function clusterDomain(slice: { score: number; dayType: DayType }[]): LifeDomain {
+    const str: Record<LifeDomain, number> = {
+      BUSINESS: 0, AMOUR: 0, RELATIONS: 0, CREATIVITE: 0, INTROSPECTION: 0, VITALITE: 0,
+    };
+    for (const day of slice) {
+      const aff = DAYTYPE_DOMAIN_AFFINITY[day.dayType] ?? {};
+      for (const d of Object.keys(str) as LifeDomain[]) {
+        str[d] += (day.score * 0.5 + (aff[d] ?? 0) * 15) * (1 + (aff[d] ?? 0));
+      }
+    }
+    const sorted = Object.entries(str).sort((a, b) => b[1] - a[1]);
+    return sorted[0][0] as LifeDomain;
+  }
+
+  const DOMAIN_HUMAN: Record<LifeDomain, string> = {
+    BUSINESS: 'les affaires', AMOUR: 'l\'amour', RELATIONS: 'les relations',
+    CREATIVITE: 'la créativité', INTROSPECTION: 'l\'introspection', VITALITE: 'la vitalité',
+  };
+
   function findClusters(threshold: number): ActionWindow[] {
     const result: ActionWindow[] = [];
     let start: number | null = null;
@@ -1671,7 +2182,8 @@ function detectActionWindows(dailyData: { date: string; score: number; dayType: 
         if (start !== null && i - start >= 2) {
           const slice = dailyData.slice(start, i);
           const avgScore = Math.round(slice.reduce((a, d) => a + d.score, 0) / slice.length);
-          result.push({ startDate: dailyData[start].date, endDate: dailyData[i - 1].date, days: i - start, domain: dominantDomains[0], label: `Fenêtre ${DOMAIN_META[dominantDomains[0]].label}`, avgScore });
+          const dom = clusterDomain(slice);
+          result.push({ startDate: dailyData[start].date, endDate: dailyData[i - 1].date, days: i - start, domain: dom, label: `Bon moment pour ${DOMAIN_HUMAN[dom]}`, avgScore });
         }
         start = null;
       }
@@ -1679,13 +2191,38 @@ function detectActionWindows(dailyData: { date: string; score: number; dayType: 
     if (start !== null && dailyData.length - start >= 2) {
       const slice = dailyData.slice(start);
       const avgScore = Math.round(slice.reduce((a, d) => a + d.score, 0) / slice.length);
-      result.push({ startDate: dailyData[start].date, endDate: dailyData[dailyData.length - 1].date, days: dailyData.length - start, domain: dominantDomains[0], label: `Fenêtre ${DOMAIN_META[dominantDomains[0]].label}`, avgScore });
+      const dom = clusterDomain(slice);
+      result.push({ startDate: dailyData[start].date, endDate: dailyData[dailyData.length - 1].date, days: dailyData.length - start, domain: dom, label: `Bon moment pour ${DOMAIN_HUMAN[dom]}`, avgScore });
     }
     return result;
   }
   const globalWindows = findClusters(globalThreshold);
-  if (globalWindows.length > 0) return globalWindows;
-  return findClusters(domainThresholds[dominantDomains[0]] ?? 72);
+  const base = globalWindows.length > 0 ? globalWindows : findClusters(domainThresholds[dominantDomains[0]] ?? 72);
+
+  // ═══ V4.5 : Pics Cosmiques isolés ═══
+  // Un jour isolé ≥ COSMIC_THRESHOLD mérite d'apparaître comme fenêtre 1 jour,
+  // même s'il n'est pas entouré de jours forts (ex : score LIVE injecté pour aujourd'hui).
+  const coveredDates = new Set<string>();
+  for (const w of base) {
+    // Marquer toutes les dates déjà couvertes par une fenêtre existante
+    const si = dailyData.findIndex(d => d.date === w.startDate);
+    const ei = dailyData.findIndex(d => d.date === w.endDate);
+    if (si >= 0 && ei >= 0) {
+      for (let j = si; j <= ei; j++) coveredDates.add(dailyData[j].date);
+    }
+  }
+  for (const day of dailyData) {
+    if (day.score >= COSMIC_THRESHOLD && !coveredDates.has(day.date)) {
+      const dom = clusterDomain([day]);
+      base.push({
+        startDate: day.date, endDate: day.date, days: 1,
+        domain: dom, label: `Pic Cosmique — ${DOMAIN_HUMAN[dom]}`, avgScore: day.score,
+      });
+    }
+  }
+  // Tri chronologique
+  base.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  return base;
 }
 
 function detectForecastAlerts(bd: string, num: NumerologyProfile, year: number, month: number): ForecastAlert[] {
@@ -1724,39 +2261,53 @@ function generateMonthNarrative(
   const monthName = MONTH_NAMES_FR[month];
   const domLabel = DOMAIN_META[dominant[0]].label;
   const domIcon = DOMAIN_META[dominant[0]].icon;
-  let text = `${monthName} ${year} — ${score}/100 ${labelIcon} ${label}. `;
+  let text = '';
+  // Domaines dominants
   if (dominant.length > 1) {
     text += `Double dominante ${domIcon} ${domLabel} et ${DOMAIN_META[dominant[1]].icon} ${DOMAIN_META[dominant[1]].label}. `;
   } else {
     text += `Énergie dominante : ${domIcon} ${domLabel}. `;
   }
-  if (windows.length > 0) {
-    const w = windows[0];
-    const startDay = parseInt(w.startDate.split('-')[2]);
-    const endDay = parseInt(w.endDate.split('-')[2]);
-    text += `Fenêtre d'action du ${startDay} au ${endDay} (${w.days}j, ~${w.avgScore}/100). `;
-  }
-  if (stats.peakDays >= 2) text += `${stats.peakDays} jours d'exception (≥85). `;
-  if (stats.criticalDays > 0) text += `Attention : ${stats.criticalDays} jour${stats.criticalDays > 1 ? 's' : ''} de turbulence. `;
+  // Jours forts (humanisé, sans seuil technique)
+  if (stats.peakDays >= 4) text += `Plusieurs journées très porteuses ce mois. `;
+  else if (stats.peakDays >= 2) text += `Quelques belles journées en vue. `;
+  // Turbulences (humanisé)
+  if (stats.criticalDays > 2) text += `Quelques passages agités — reste attentif. `;
+  else if (stats.criticalDays > 0) text += `Un passage un peu tendu à prévoir. `;
+  // Alertes astro (humanisées)
   const retroAlert = alerts.find(a => a.type === 'retrograde');
-  const pyAlert = alerts.find(a => a.type === 'transition_py');
   const eclipseAlert = alerts.find(a => a.type === 'eclipse');
-  if (retroAlert) text += `☿ Mercure rétro ce mois — vigilance contrats. `;
-  if (eclipseAlert) text += `Éclipse : amplification émotionnelle. `;
+  const pyAlert = alerts.find(a => a.type === 'transition_py');
+  if (retroAlert) text += `☿ Mercure rétrograde ce mois — relis bien avant de signer. `;
+  if (eclipseAlert) text += `Éclipse : les émotions peuvent être amplifiées. `;
   if (pyAlert) text += `🔄 ${pyAlert.message}. `;
-  if (trend === 'rising') text += `Tendance haussière.`;
-  else if (trend === 'falling') text += `Tendance baissière — consolidez.`;
+  // Tendance (humanisée)
+  if (trend === 'rising') text += `La dynamique est en hausse.`;
+  else if (trend === 'falling') text += `Mois plus calme que le précédent — consolide tes acquis.`;
   return text.trim();
 }
 
 export function generateForecast36Months(
   bd: string, num: NumerologyProfile, cz: ChineseZodiac,
-  startDate?: Date, transitBonus: number = 0, astro: AstroChart | null = null
+  startDate?: Date, transitBonus: number = 0, astro: AstroChart | null = null,
+  // ═══ FIX COHÉRENCE — Même terrain que Calendrier/Pilotage ═══
+  ctxMult: number = 1.0, dashaMult: number = 1.0, baseSignal: number = 0,
+  bt?: string,  // heure naissance pour natalCtx (L2-lite)
+  liveScore?: number, // ═══ V4.5 : score LIVE Pilotage pour aujourd'hui (GAP=0) ═══
+  historicalScores?: Record<string, number>, // ═══ V4.5 : scores LIVE passés pour cohérence windows ═══
 ): MonthForecast[] {
   const start = startDate ?? new Date();
   const results: MonthForecast[] = [];
   let currentYear = start.getFullYear();
   let currentMonth = start.getMonth() + 1;
+
+  // ═══ FIX COHÉRENCE — natalCtx pour L2-lite (même construction que calcMonthPreviews) ═══
+  const natalCtx = buildNatalDashaCtx(bd, bt, astro);
+  const todayStr = getTodayStr();
+
+  // ═══ FIX COHÉRENCE Horizon vs Calendrier — 3 mois glissants (même guard que applySoftShiftBlend) ═══
+  const _guardLimit = new Date(start.getFullYear(), start.getMonth() + 3, 1);
+  const _guardLimitStr = `${_guardLimit.getFullYear()}-${String(_guardLimit.getMonth() + 1).padStart(2, '0')}-01`;
 
   // ── P4.2 : Pré-calcul progressions secondaires par semaine ──
   // calcProgressions() a un cache hebdomadaire interne (clé bd_YYYY-Www).
@@ -1777,11 +2328,23 @@ export function generateForecast36Months(
     }
   }
 
+  // ═══ FIX DUAL PIPELINE — 2-pass : collecter DayPreviews complets, puis soft-shift par année ═══
+  // Avant ce fix, generateForecast36Months ne passait PAS par applySoftShiftBlend,
+  // produisant des scores bruts (~89) vs des scores compressés (~82) dans le Calendrier
+  // pour les mêmes jours. Le fix applique le même soft-shift que buildYearPreviews.
+  //
+  // Passe 1 : collecter tous les DayPreviews + métadonnées par mois
+  interface _MonthCollect {
+    year: number; month: number; monthProgScore: number;
+    previews: DayPreview[];               // DayPreview complets (avec xt, dm)
+    dailyMeta: { isLive: boolean; isHist: boolean; inGuard: boolean; rawScore: number }[];
+  }
+  const monthCollections: _MonthCollect[] = [];
+
   for (let i = 0; i < 36; i++) {
     const year = currentYear;
     const month = currentMonth;
     const daysInMonth = new Date(year, month, 0).getDate();
-    const dailyData: { date: string; score: number; dayType: DayType }[] = [];
 
     // Score progressions pour ce mois = moyenne des semaines du mois, cap ±6
     let monthProgScore = 0;
@@ -1802,38 +2365,90 @@ export function generateForecast36Months(
       }
     }
 
+    const previews: DayPreview[] = [];
+    const dailyMeta: { isLive: boolean; isHist: boolean; inGuard: boolean; rawScore: number }[] = [];
+
     for (let d = 1; d <= daysInMonth; d++) {
       const ds = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const preview = calcDayPreview(bd, num, cz, ds, transitBonus, astro);
-      const adjustedScore = Math.max(5, Math.min(97, preview.score + monthProgScore));
-      dailyData.push({ date: ds, score: adjustedScore, dayType: preview.dayType.type });
+      // ═══ FIX COHÉRENCE — Terrain complet + natalCtx (même pipeline que Calendrier) ═══
+      const preview = calcDayPreview(bd, num, cz, ds, transitBonus, astro, ctxMult, dashaMult, baseSignal, natalCtx, todayStr);
+      // ═══ V4.5 GAP=0 : scores LIVE pour aujourd'hui + jours passés (cohérence windows) ═══
+      const histScore = historicalScores?.[ds];
+      const isLive = (liveScore !== undefined && ds === todayStr);
+      const isHist = (!isLive && histScore !== undefined && ds < todayStr);
+      const rawScore = isLive ? liveScore
+        : isHist ? histScore
+        : preview.score;
+      // ═══ FIX COHÉRENCE Horizon vs Calendrier — 3 mois glissants ═══
+      const inGuardWindow = ds < _guardLimitStr;
+      const adjustedScore = (isLive || isHist || inGuardWindow)
+        ? Math.max(5, Math.min(97, rawScore))
+        : Math.max(5, Math.min(97, rawScore + monthProgScore));
+
+      // Écrire le score ajusté dans le DayPreview (pour que soft-shift parte de la bonne base)
+      preview.score = adjustedScore;
+      preview.lCol = scoreLevelColor(adjustedScore);
+      previews.push(preview);
+      dailyMeta.push({ isLive, isHist, inGuard: inGuardWindow, rawScore });
     }
 
-    const baseline = calcMonthlyBaseline(bd, num, year, month);
+    monthCollections.push({ year, month, monthProgScore, previews, dailyMeta });
+    currentMonth++;
+    if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+  }
+
+  // ═══ Passe 2 : applySoftShiftBlend par année (même post-traitement que buildYearPreviews) ═══
+  // Grouper les DayPreviews par année, appliquer le soft-shift, puis reconstruire les mois.
+  const yearGroups = new Map<number, DayPreview[]>();
+  for (const mc of monthCollections) {
+    if (!yearGroups.has(mc.year)) yearGroups.set(mc.year, []);
+    yearGroups.get(mc.year)!.push(...mc.previews);
+  }
+  for (const [, yearDays] of yearGroups) {
+    // applySoftShiftBlend modifie les scores in-place (garde 21+21j de Ronde #23 incluse)
+    applySoftShiftBlend(yearDays);
+  }
+
+  // ═══ Passe 3 : construire les MonthForecast depuis les scores soft-shiftés ═══
+  for (const mc of monthCollections) {
+    const dailyData: { date: string; score: number; dayType: DayType }[] = mc.previews.map(p => ({
+      date: p.date,
+      score: p.score,         // score désormais soft-shifté
+      dayType: p.dayType.type,
+    }));
+
+    const baseline = calcMonthlyBaseline(bd, num, mc.year, mc.month);
     const monthStats = scoreMonthFromDays(dailyData.map(d => d.score), baseline);
     const score = monthStats.score;
+    // 'Gold' = clé interne Firebase (ne pas renommer → casse données historiques). extractLabel() normalise vers 'Or' côté UI.
     const label = score >= COSMIC_THRESHOLD ? 'Cosmique' : score >= 80 ? 'Gold' : score >= 65 ? 'Favorable' : score >= 40 ? 'Routine' : score >= 25 ? 'Prudence' : 'Tempête';
-    const labelIcon = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '🌟' : score >= 65 ? '✦' : score >= 40 ? '☉' : score >= 25 ? '☽' : '⛈';
+    const labelIcon = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '🌟' : score >= 65 ? '✦' : score >= 40 ? '🔄' : score >= 25 ? '☽' : '🛡️';
     const labelColor = scoreLevelColor(score);
     const dominantDomains = computeMonthDominantDomains(dailyData);
     const windows = detectActionWindows(dailyData, dominantDomains);
-    const forecastAlerts = detectForecastAlerts(bd, num, year, month);
+    const forecastAlerts = detectForecastAlerts(bd, num, mc.year, mc.month);
     const prevScore = results.length > 0 ? results[results.length - 1].score : score;
     const trend: 'rising' | 'falling' | 'stable' = score > prevScore + 3 ? 'rising' : score < prevScore - 3 ? 'falling' : 'stable';
     const narrative = generateMonthNarrative(
-      month, year, score, label, labelIcon, dominantDomains, windows, forecastAlerts,
+      mc.month, mc.year, score, label, labelIcon, dominantDomains, windows, forecastAlerts,
       { goodDays: monthStats.goodDays, peakDays: monthStats.peakDays, criticalDays: monthStats.criticalDays }, trend
     );
-    const progNarrative = astro && Math.abs(monthProgScore) >= 2
-      ? ` ${monthProgScore > 0 ? '↗ Progressions secondaires favorables (+' + monthProgScore + ' pts).' : '↘ Progressions secondaires en tension (' + monthProgScore + ' pts).'}`
+    const progNarrative = astro && Math.abs(mc.monthProgScore) >= 2
+      ? ` ${mc.monthProgScore > 0 ? '↗ Courants de fond favorables — le terrain est porteur.' : '↘ Courants de fond en retrait — avance prudemment.'}`
       : '';
+    // ═══ V4.5 : Top 3 meilleurs jours du mois (tri par score desc) ═══
+    const topDays = [...dailyData].sort((a, b) => b.score - a.score).slice(0, 3);
+
+    // ═══ FIX NARRATION — Climat numérologique du mois pour cohérence Horizon ↔ Pilotage ═══
+    const pmVal = calcPersonalMonth(bd, mc.year, mc.month).v;
+    const climateLabel = mapClimate(pmVal, 'month').label;
+
     results.push({
-      year, month, score, label, labelIcon, labelColor, trend,
+      year: mc.year, month: mc.month, score, label, labelIcon, labelColor, trend,
       dominantDomains, windows, alerts: forecastAlerts, narrative: narrative + progNarrative, baseline,
       stats: { avg: monthStats.avg, goodDays: monthStats.goodDays, peakDays: monthStats.peakDays, criticalDays: monthStats.criticalDays, goldDays: monthStats.goldDays },
+      topDays, climateLabel,
     });
-    currentMonth++;
-    if (currentMonth > 12) { currentMonth = 1; currentYear++; }
   }
   return results;
 }
@@ -1846,7 +2461,8 @@ export function generateForecast36Months(
 // V4.8 OBSOLÈTE : supprimé IChing, Num, Lune, Mercure, Trinity, VoC (tous narratifs en V8)
 // V8 : seuls les modules actifs du delta sont simulés. ctxMult/dashaMult approximés à 1.0
 //      (terrain stable sur l'année, variance ≤ ±12% → biais acceptable pour la distribution)
-export function debugScoreDistribution(
+/** @deprecated Dead code — debug only, not imported anywhere */
+function debugScoreDistribution(
   bd: string, days = 365, logDetails = false
 ): { cosmiqueRate: number; goldRate: number; tempeteRate: number; avgScore: number; rawDeltas: number[] } {
   const rawDeltas: number[] = [];
@@ -1923,8 +2539,8 @@ export function debugScoreDistribution(
   };
 
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-  const cosmiqueRate = stat(88, 'gte');
-  const goldRate     = stat(80, 'range', 88);
+  const cosmiqueRate = stat(COSMIC_THRESHOLD, 'gte');
+  const goldRate     = stat(80, 'range', COSMIC_THRESHOLD);
   const tempeteRate  = stat(25, 'lte');
 
   if (import.meta.env.DEV) {
@@ -1932,8 +2548,8 @@ export function debugScoreDistribution(
     console.log('Formule V8.9 : BaZi DM(±6) + 10 Gods(±6) + Nakshatra(±7) | compressL1Legacy(maxDelta=22, exp=1.05)');
     console.table([{
       jours: scores.length,
-      'Cosmique ≥88': cosmiqueRate.toFixed(1) + '%',
-      'Or 80-87':     goldRate.toFixed(1) + '%',
+      [`Cosmique ≥${COSMIC_THRESHOLD}`]: cosmiqueRate.toFixed(1) + '%',
+      [`Or 80-${COSMIC_THRESHOLD - 1}`]: goldRate.toFixed(1) + '%',
       'Tempête <25':  tempeteRate.toFixed(1) + '%',
       moyenne:        avg.toFixed(1),
       rawMax:         scores.length ? Math.max(...rawDeltas).toFixed(0) : 'N/A',
@@ -1946,7 +2562,8 @@ export function debugScoreDistribution(
   return { cosmiqueRate, goldRate, tempeteRate, avgScore: avg, rawDeltas };
 }
 
-export function debugAnalyzeCapture(): void {
+/** @deprecated Dead code — debug only, not imported anywhere */
+function debugAnalyzeCapture(): void {
   const buf = typeof window !== 'undefined'
     ? ((window as unknown as Record<string, unknown>).__kRawDeltas as number[] | undefined)
     : undefined;
@@ -1961,8 +2578,8 @@ export function debugAnalyzeCapture(): void {
     console.log(`\n=== CAPTURE PASSIVE — ${n} appels réels ===`);
     console.table([{
       n,
-      'Cosmique ≥90': (scores.filter(s => s >= 90).length / n * 100).toFixed(1) + '%',
-      'Gold 80-89':   (scores.filter(s => s >= 80 && s < 90).length / n * 100).toFixed(1) + '%',
+      [`Cosmique ≥${COSMIC_THRESHOLD}`]: (scores.filter(s => s >= COSMIC_THRESHOLD).length / n * 100).toFixed(1) + '%',
+      [`Gold 80-${COSMIC_THRESHOLD - 1}`]: (scores.filter(s => s >= 80 && s < COSMIC_THRESHOLD).length / n * 100).toFixed(1) + '%',
       'Tempête <25':  (scores.filter(s => s < 25).length / n * 100).toFixed(1) + '%',
       moyenne:        (scores.reduce((a, b) => a + b, 0) / n).toFixed(1),
       rawMax:         Math.max(...buf).toFixed(1),

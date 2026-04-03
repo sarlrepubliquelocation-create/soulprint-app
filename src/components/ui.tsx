@@ -36,6 +36,59 @@ export const T = {
   xs: 9, sm: 10, md: 11, base: 12, lg: 13, xl: 15, xxl: 22, hero: 36,
 };
 
+// === ACCESSIBILITÉ — Helper clavier pour éléments interactifs non-<button> ===
+// Usage : <div {...a11yClick(() => doSomething())} aria-label="Description">
+// Ajoute role="button", tabIndex, onKeyDown (Enter/Space) automatiquement
+export function a11yClick(handler: () => void): {
+  onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  tabIndex: number;
+  role: string;
+} {
+  return {
+    onClick: handler,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+    },
+    tabIndex: 0,
+    role: 'button',
+  };
+}
+
+// === STYLES GLOBAUX — Accessibilité + Responsive ===
+// Injecté via <GlobalStyles /> dans App.tsx
+export function FocusVisibleStyle() {
+  return (
+    <style>{`
+      /* ── Focus visible — accessibilité clavier ── */
+      *:focus-visible {
+        outline: 2px solid #D4AF37;
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      *:focus:not(:focus-visible) {
+        outline: none;
+      }
+
+      /* ── Responsive grids — mobile first ── */
+      @media (max-width: 480px) {
+        .grid-responsive-4 {
+          grid-template-columns: 1fr 1fr !important;
+        }
+        .grid-responsive-3 {
+          grid-template-columns: 1fr 1fr !important;
+        }
+      }
+      @media (max-width: 360px) {
+        .grid-responsive-4,
+        .grid-responsive-3 {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 // === SHARED STATES ===
 export function EmptyState({ icon = '📭', message = 'Aucune donnée disponible' }: { icon?: string; message?: string }) {
   return (

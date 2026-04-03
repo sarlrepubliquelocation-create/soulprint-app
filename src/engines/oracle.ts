@@ -160,17 +160,17 @@ const KARMIC_DEBT_INTRO = 'En numérologie, certains nombres portent un défi de
 
 const KARMIC_DEBT_NARRATIVES: Record<number, Record<KarmicModule, { label: string; texte: string }>> = {
   13: {
-    nom:     { label: 'Défi 13 — Apprendre la persévérance',             texte: 'La vibration 13 invite à prouver sa solidité par la constance et le travail bien fait. Ce nom ne promet pas une ascension facile, mais il peut devenir très fiable si vous posez des bases nettes. C\'est un défi de patience, pas un obstacle.' },
+    nom:     { label: 'Défi 13 — Apprendre la persévérance',             texte: 'La vibration 13 invite à prouver sa solidité par la constance et le travail bien fait. Ce nom ne promet pas une ascension facile, mais il peut devenir très fiable si tu poses des bases nettes. C\'est un défi de patience, pas un obstacle.' },
     bebe:    { label: 'Défi 13 — Apprendre la patience',                 texte: 'Cette vibration invite l\'enfant à construire pas à pas, avec patience et régularité. Le prénom porte une belle force d\'endurance : il apprendra à ne pas se décourager quand les choses avancent lentement. Bien accompagné, ce nombre forge un être solide et déterminé.' },
-    adresse: { label: 'Défi 13 — Un lieu qui demande de la constance',   texte: 'Dans un lieu, le 13 crée une atmosphère qui pousse à remettre de l\'ordre, à structurer. La maison demande de l\'attention et une présence concrète. Si vous acceptez ce rythme, l\'adresse peut devenir un socle robuste.' },
-    numero:  { label: 'Défi 13 — Un numéro qui récompense le sérieux',   texte: 'Les contacts demanderont des efforts et des preuves de sérieux. Utilisez ce numéro pour des affaires carrées où votre fiabilité fera la différence.' },
+    adresse: { label: 'Défi 13 — Un lieu qui demande de la constance',   texte: 'Dans un lieu, le 13 crée une atmosphère qui pousse à remettre de l\'ordre, à structurer. La maison demande de l\'attention et une présence concrète. Si tu acceptes ce rythme, l\'adresse peut devenir un socle robuste.' },
+    numero:  { label: 'Défi 13 — Un numéro qui récompense le sérieux',   texte: 'Les contacts demanderont des efforts et des preuves de sérieux. Utilise ce numéro pour des affaires carrées où ta fiabilité fera la différence.' },
     date:    { label: 'Défi 13 — Une date pour construire sérieusement', texte: 'Ce jour ne prend pas la voie la plus facile, mais il favorise ce qui doit être construit solidement. C\'est une date pour poser des fondations, corriger, cadrer.' },
   },
   14: {
-    nom:     { label: 'Défi 14 — Canaliser son énergie',                 texte: 'La vibration 14 parle d\'une énergie vive qui gagne à trouver sa direction. Dans un nom de marque, cela peut donner du mouvement et de l\'attrait. Ce nom fonctionne mieux quand vous donnez une direction claire à votre liberté.' },
+    nom:     { label: 'Défi 14 — Canaliser son énergie',                 texte: 'La vibration 14 parle d\'une énergie vive qui gagne à trouver sa direction. Dans un nom de marque, cela peut donner du mouvement et de l\'attrait. Ce nom fonctionne mieux quand tu donnes une direction claire à ta liberté.' },
     bebe:    { label: 'Défi 14 — Apprendre à se poser',                  texte: 'Pour un enfant, cette vibration porte un fort besoin d\'exploration et de nouveauté. Elle peut être brillante si elle est accompagnée par des repères simples, car sans cadre elle s\'éparpille vite. Concrètement : ce prénom donne un tempérament curieux et mobile — des rituels simples l\'aideront à canaliser cette belle énergie.' },
     adresse: { label: 'Défi 14 — Un lieu de mouvement',                  texte: 'Une adresse 14 fait rarement dormir la vie : elle appelle le passage, le changement. On y respire mieux si l\'on accepte le mouvement au lieu de chercher un contrôle total.' },
-    numero:  { label: 'Défi 14 — Un numéro dynamique à cadrer',          texte: 'Ce numéro attire par sa vitesse et son côté vivant, mais il peut diluer l\'attention. Très utile si votre activité aime le mouvement ; pensez à structurer si vous avez besoin de stabilité.' },
+    numero:  { label: 'Défi 14 — Un numéro dynamique à cadrer',          texte: 'Ce numéro attire par sa vitesse et son côté vivant, mais il peut diluer l\'attention. Très utile si ton activité aime le mouvement ; pense à structurer si tu as besoin de stabilité.' },
     date:    { label: 'Défi 14 — Une date d\'action rapide',             texte: 'Cette date pousse à agir, tester, changer de plan si nécessaire. Elle favorise la souplesse mais demande de ne pas s\'engager trop vite.' },
   },
   16: {
@@ -251,15 +251,15 @@ function getKarmicLesson(num: number, module: LessonModule): { label: string; te
 // ═══ RONDE 23 — FENG SHUI ENRICHI (Gemini : cycle de contrôle des éléments) ═══
 // Textes Gemini pour l'expertise Feng Shui authentique + conseils déco concrets
 const FENG_SHUI_ELEMENTS: Record<number, { element: string; emoji: string; desc: string; texte: string }> = {
-  1: { element: 'Eau',   emoji: '💧', desc: 'Fluidité et communication', texte: 'L\'Eau incarne le flux, l\'intuition et la communication profonde. Ce lieu favorise les échanges et les idées nouvelles. Pour équilibrer, introduisez l\'élément Bois (plantes vertes, formes élancées) qui canalise l\'énergie de l\'Eau sans la tarir.' },
-  2: { element: 'Terre', emoji: '🌍', desc: 'Stabilité et ancrage', texte: 'La Terre symbolise l\'enracinement, la sécurité et la patience. Ce lieu offre un socle solide pour construire durablement. Pour dynamiser sans déstabiliser, ajoutez l\'élément Métal (objets ronds, couleurs blanches ou dorées) qui naît de la Terre.' },
-  3: { element: 'Bois',  emoji: '🌳', desc: 'Croissance et créativité', texte: 'Le Bois représente la croissance, la créativité et l\'élan vital. Ce lieu pousse à se développer et à innover. Pour nourrir cette énergie, intégrez l\'élément Eau (miroirs, fontaines, teintes bleues) qui alimente le Bois dans le cycle de génération.' },
-  4: { element: 'Bois',  emoji: '🌳', desc: 'Structure et apprentissage', texte: 'Le Bois mature incarne la structure organique et l\'apprentissage. Ce lieu est propice à l\'étude et à la mise en forme d\'idées. Soutenez-le avec l\'élément Eau (formes ondulées, bleu profond) et tempérez avec une touche de Feu (bougies, rouge) pour la vitalité.' },
-  5: { element: 'Terre', emoji: '🌍', desc: 'Centre et transformation', texte: 'La Terre du 5 est le centre du Luo Shu, le pivot de toutes les énergies. Ce lieu est un carrefour de transformation et de transition. Équilibrez avec l\'élément Feu (lumières chaudes, teintes orangées) qui nourrit la Terre, et évitez l\'excès de Bois qui la déstabilise.' },
-  6: { element: 'Métal', emoji: '⚙️', desc: 'Ordre et harmonie', texte: 'Le Métal incarne la concentration, l\'ordre et l\'autorité bienveillante. Ce lieu favorise le discernement et les décisions claires. Adoucissez avec l\'élément Eau (miroirs, formes ondulées, bleu profond) qui reçoit l\'énergie du Métal sans le rigidifier.' },
-  7: { element: 'Métal', emoji: '⚙️', desc: 'Raffinement et introspection', texte: 'Le Métal raffiné du 7 invite au retrait intérieur et à l\'analyse. Ce lieu convient à la réflexion et au recentrage spirituel. Adoucissez l\'atmosphère avec l\'élément Eau (miroirs, teintes bleutées) et une touche de Terre (céramiques, tons ocres) pour l\'ancrage.' },
-  8: { element: 'Terre', emoji: '🌍', desc: 'Prospérité et abondance', texte: 'La Terre du 8 est la plus prospère en Feng Shui — symbole d\'abondance et de réussite matérielle. Ce lieu soutient l\'ambition et la construction. Renforcez avec l\'élément Feu (éclairages vifs, rouge) qui nourrit la Terre, et ajoutez du Métal (doré, rond) pour récolter les fruits.' },
-  9: { element: 'Feu',   emoji: '🔥', desc: 'Passion et rayonnement', texte: 'Le Feu symbolise la passion, la visibilité et le rayonnement. Ce lieu amplifie l\'énergie vitale et la présence sociale. Pour ne pas brûler trop vite, tempérez avec l\'élément Terre (céramiques, couleurs sable, formes carrées) qui absorbe et stabilise le Feu.' },
+  1: { element: 'Eau',   emoji: '💧', desc: 'Fluidité et communication', texte: 'L\'Eau incarne le flux, l\'intuition et la communication profonde. Ce lieu favorise les échanges et les idées nouvelles. Pour équilibrer, introduis l\'élément Bois (plantes vertes, formes élancées) qui canalise l\'énergie de l\'Eau sans la tarir.' },
+  2: { element: 'Terre', emoji: '🌍', desc: 'Stabilité et ancrage', texte: 'La Terre symbolise l\'enracinement, la sécurité et la patience. Ce lieu offre un socle solide pour construire durablement. Pour dynamiser sans déstabiliser, ajoute l\'élément Métal (objets ronds, couleurs blanches ou dorées) qui naît de la Terre.' },
+  3: { element: 'Bois',  emoji: '🌳', desc: 'Croissance et créativité', texte: 'Le Bois représente la croissance, la créativité et l\'élan vital. Ce lieu pousse à se développer et à innover. Pour nourrir cette énergie, intègre l\'élément Eau (miroirs, fontaines, teintes bleues) qui alimente le Bois dans le cycle de génération.' },
+  4: { element: 'Bois',  emoji: '🌳', desc: 'Structure et apprentissage', texte: 'Le Bois mature incarne la structure organique et l\'apprentissage. Ce lieu est propice à l\'étude et à la mise en forme d\'idées. Soutiens-le avec l\'élément Eau (formes ondulées, bleu profond) et tempère avec une touche de Feu (bougies, rouge) pour la vitalité.' },
+  5: { element: 'Terre', emoji: '🌍', desc: 'Centre et transformation', texte: 'La Terre du 5 est le centre du Luo Shu, le pivot de toutes les énergies. Ce lieu est un carrefour de transformation et de transition. Équilibre avec l\'élément Feu (lumières chaudes, teintes orangées) qui nourrit la Terre, et évite l\'excès de Bois qui la déstabilise.' },
+  6: { element: 'Métal', emoji: '⚙️', desc: 'Ordre et harmonie', texte: 'Le Métal incarne la concentration, l\'ordre et l\'autorité bienveillante. Ce lieu favorise le discernement et les décisions claires. Adoucis avec l\'élément Eau (miroirs, formes ondulées, bleu profond) qui reçoit l\'énergie du Métal sans le rigidifier.' },
+  7: { element: 'Métal', emoji: '⚙️', desc: 'Raffinement et introspection', texte: 'Le Métal raffiné du 7 invite au retrait intérieur et à l\'analyse. Ce lieu convient à la réflexion et au recentrage spirituel. Adoucis l\'atmosphère avec l\'élément Eau (miroirs, teintes bleutées) et une touche de Terre (céramiques, tons ocres) pour l\'ancrage.' },
+  8: { element: 'Terre', emoji: '🌍', desc: 'Prospérité et abondance', texte: 'La Terre du 8 est la plus prospère en Feng Shui — symbole d\'abondance et de réussite matérielle. Ce lieu soutient l\'ambition et la construction. Renforce avec l\'élément Feu (éclairages vifs, rouge) qui nourrit la Terre, et ajoute du Métal (doré, rond) pour récolter les fruits.' },
+  9: { element: 'Feu',   emoji: '🔥', desc: 'Passion et rayonnement', texte: 'Le Feu symbolise la passion, la visibilité et le rayonnement. Ce lieu amplifie l\'énergie vitale et la présence sociale. Pour ne pas brûler trop vite, tempère avec l\'élément Terre (céramiques, couleurs sable, formes carrées) qui absorbe et stabilise le Feu.' },
 };
 
 // ═══ RONDE 23 — MAÎTRES NOMBRES NARRATIFS (Labels Gemini + Textes GPT) ═══
@@ -267,21 +267,21 @@ const FENG_SHUI_ELEMENTS: Record<number, { element: string; emoji: string; desc:
 const MASTER_NUMBER_NARRATIVES: Record<number, Record<KarmicModule, { label: string; texte: string }>> = {
   11: {
     nom:     { label: 'Maître 11 — Le Visionnaire Inspiré', texte: 'Le Maître 11 confère au nom une vibration d\'intuition et d\'inspiration hors norme. C\'est un nom qui attire l\'attention sans la chercher, porteur d\'idées en avance sur leur temps. Sa force réside dans la vision — il magnétise ceux qui cherchent du sens.' },
-    bebe:    { label: 'Maître 11 — L\'Enfant de Lumière', texte: 'Le Maître 11 révèle une sensibilité extrême et un don artistique ou intuitif rare. Ce n\'est pas un destin à imposer, c\'est une possibilité à protéger sans pression. L\'enfant captera des choses que d\'autres ne voient pas — donnez-lui un cadre sécurisant pour explorer cette richesse.' },
-    adresse: { label: 'Maître 11 — Le Seuil de l\'Intuition', texte: 'Un lieu en vibration 11 amplifie l\'intuition et la sensibilité. C\'est une adresse propice à la création, à la méditation et aux activités inspirées. Veillez à équilibrer cette intensité : un environnement trop stimulant pourrait épuiser.' },
+    bebe:    { label: 'Maître 11 — L\'Enfant de Lumière', texte: 'Le Maître 11 révèle une sensibilité extrême et un don artistique ou intuitif rare. Ce n\'est pas un destin à imposer, c\'est une possibilité à protéger sans pression. L\'enfant captera des choses que d\'autres ne voient pas — donne-lui un cadre sécurisant pour explorer cette richesse.' },
+    adresse: { label: 'Maître 11 — Le Seuil de l\'Intuition', texte: 'Un lieu en vibration 11 amplifie l\'intuition et la sensibilité. C\'est une adresse propice à la création, à la méditation et aux activités inspirées. Veille à équilibrer cette intensité : un environnement trop stimulant pourrait épuiser.' },
     numero:  { label: 'Vibration Maître 11 — L\'Antenne Sensible', texte: 'Un numéro en vibration 11 porte une fréquence d\'inspiration et de connexion subtile. Il attire les échanges profonds plutôt que superficiels. C\'est un numéro qui résonne avec les personnes en quête de sens.' },
     date:    { label: 'Jour Maître 11 — La Fenêtre d\'Inspiration', texte: 'Une journée en vibration 11 ouvre une fenêtre d\'intuition exceptionnelle. Les idées arrivent plus vite, les connexions se font naturellement. Idéal pour lancer un projet créatif, moins pour les décisions purement rationnelles.' },
   },
   22: {
     nom:     { label: 'Maître 22 — L\'Architecte des Possibles', texte: 'Le Maître 22 est le plus puissant des nombres : il combine vision et capacité de réalisation. Ce nom porte une promesse de construction durable et d\'impact à grande échelle. La marque devra assumer cette envergure — le 22 ne pardonne pas la demi-mesure.' },
-    bebe:    { label: 'Maître 22 — Le Constructeur de Destins', texte: 'Le Maître 22 porte une puissance de réalisation rare, mais une charge plus lourde que la moyenne. Ce n\'est pas un destin à imposer, c\'est une possibilité à protéger sans pression. Donnez-lui des racines avant de lui demander de bâtir — ne brisez pas ses rêves, même s\'ils semblent irréalisables.' },
-    adresse: { label: 'Maître 22 — La Forge des Projets', texte: 'Un lieu en vibration 22 est un accélérateur de projets ambitieux. C\'est une adresse qui pousse à construire, organiser, structurer à grande échelle. Attention : l\'énergie est exigeante — prévoyez des espaces de repos pour contrebalancer.' },
+    bebe:    { label: 'Maître 22 — Le Constructeur de Destins', texte: 'Le Maître 22 porte une puissance de réalisation rare, mais une charge plus lourde que la moyenne. Ce n\'est pas un destin à imposer, c\'est une possibilité à protéger sans pression. Donne-lui des racines avant de lui demander de bâtir — ne brise pas ses rêves, même s\'ils semblent irréalisables.' },
+    adresse: { label: 'Maître 22 — La Forge des Projets', texte: 'Un lieu en vibration 22 est un accélérateur de projets ambitieux. C\'est une adresse qui pousse à construire, organiser, structurer à grande échelle. Attention : l\'énergie est exigeante — prévois des espaces de repos pour contrebalancer.' },
     numero:  { label: 'Vibration Maître 22 — Le Levier de Puissance', texte: 'Un numéro en vibration 22 porte une signature d\'autorité et de solidité. Il convient parfaitement aux projets d\'envergure, aux structures et aux partenariats durables. C\'est un numéro qui inspire confiance.' },
-    date:    { label: 'Jour Maître 22 — Le Grand Bâtisseur', texte: 'Une journée en vibration 22 est idéale pour poser les fondations de quelque chose de durable. Contrats, signatures, lancements : le 22 donne la puissance de concrétiser ce qui semblait trop grand. Rare — ne la laissez pas passer.' },
+    date:    { label: 'Jour Maître 22 — Le Grand Bâtisseur', texte: 'Une journée en vibration 22 est idéale pour poser les fondations de quelque chose de durable. Contrats, signatures, lancements : le 22 donne la puissance de concrétiser ce qui semblait trop grand. Rare — ne la laisse pas passer.' },
   },
   33: {
     nom:     { label: 'Maître 33 — Le Guérisseur Universel', texte: 'Le Maître 33 est le nombre de la compassion et du service au plus haut niveau. Ce nom porte une vocation de soin, d\'enseignement ou de transmission. La marque sera naturellement associée à la bienveillance — elle devra honorer cette promesse.' },
-    bebe:    { label: 'Maître 33 — L\'Âme au Grand Cœur', texte: 'Le Maître 33 est le plus élevé des nombres maîtres : amour universel et vocation de service. L\'enfant montrera très tôt une empathie hors norme et un besoin d\'aider. Protégez cette sensibilité sans la brider — elle est sa plus grande force.' },
+    bebe:    { label: 'Maître 33 — L\'Âme au Grand Cœur', texte: 'Le Maître 33 est le plus élevé des nombres maîtres : amour universel et vocation de service. L\'enfant montrera très tôt une empathie hors norme et un besoin d\'aider. Protège cette sensibilité sans la brider — elle est sa plus grande force.' },
     adresse: { label: 'Maître 33 — Le Sanctuaire Bienveillant', texte: 'Un lieu en vibration 33 rayonne d\'une énergie de soin et de guérison. C\'est une adresse idéale pour les activités thérapeutiques, l\'enseignement ou l\'accueil. L\'atmosphère invite naturellement à l\'ouverture du cœur.' },
     numero:  { label: 'Vibration Maître 33 — L\'Appel du Service', texte: 'Un numéro en vibration 33 porte une signature de compassion et de dévouement. Il convient aux activités de soin, d\'éducation et de service à autrui. C\'est un numéro qui attire les personnes en besoin d\'accompagnement.' },
     date:    { label: 'Jour Maître 33 — La Journée du Cœur', texte: 'Une journée en vibration 33 favorise les actes de générosité, les engagements altruistes et les gestes qui touchent. Idéale pour un mariage, une inauguration caritative, ou tout événement centré sur le lien humain.' },
@@ -313,13 +313,13 @@ function findKarmicLessons(name: string): number[] {
 // 1 intro explicative + 7 textes par type de sujet
 const MERCURY_RETRO_INTRO = 'Mercure rétrograde est une période où les communications, les contrats et les déplacements sont sujets à des malentendus et des retards. Ce n\'est pas un interdit — c\'est une invitation à la prudence, à la relecture et à la clarté.';
 const MERCURY_RETRO_NARRATIVES: Record<string, string> = {
-  projet:         'Mercure rétrograde n\'interdit pas de lancer, mais rend les contrats plus fragiles et les accords plus flous. Relisez chaque clause, prévoyez des marges, et ne signez rien dans la précipitation. Ce que vous posez maintenant devra peut-être être ajusté — anticipez-le.',
-  sentiments:     'Mercure rétrograde n\'interdit pas l\'aveu, mais rend les mots plus facilement ambigus. Le bon chemin n\'est pas de vous taire, mais de parler lentement, simplement, sans sous-entendu. Choisissez le face-à-face plutôt que le message écrit.',
-  partenariat:    'Mercure rétrograde fragilise les accords et les premières impressions. Un partenariat initié maintenant risque de reposer sur des malentendus. Si la rencontre est inévitable, documentez tout par écrit et prévoyez un temps de confirmation après la rétrogradation.',
-  investissement: 'Mercure rétrograde brouille les chiffres et les petits caractères. Les erreurs de calcul, les frais cachés et les conditions mal comprises sont plus fréquents. Vérifiez trois fois plutôt qu\'une, et préférez reporter les décisions irréversibles.',
-  voyage:         'Mercure rétrograde est traditionnellement associé aux retards de transport, aux bagages perdus et aux réservations erronées. Partez avec des marges, confirmez vos réservations la veille, et gardez vos documents importants en double.',
-  presentation:   'Mercure rétrograde affecte la communication publique : micro-coupures, lapsus, supports qui ne fonctionnent pas. Testez votre matériel en avance, ayez un plan B, et privilégiez la clarté plutôt que l\'effet. La sobriété sera votre meilleure alliée.',
-  changement:     'Mercure rétrograde n\'est pas idéal pour les virages majeurs, car les informations sur lesquelles vous basez votre décision peuvent être incomplètes. Utilisez cette période pour préparer et analyser, puis agissez une fois Mercure direct.',
+  projet:         'Mercure rétrograde n\'interdit pas de lancer, mais rend les contrats plus fragiles et les accords plus flous. Relis chaque clause, prévois des marges, et ne signe rien dans la précipitation. Ce que tu poses maintenant devra peut-être être ajusté — anticipe-le.',
+  sentiments:     'Mercure rétrograde n\'interdit pas l\'aveu, mais rend les mots plus facilement ambigus. Le bon chemin n\'est pas de te taire, mais de parler lentement, simplement, sans sous-entendu. Choisis le face-à-face plutôt que le message écrit.',
+  partenariat:    'Mercure rétrograde fragilise les accords et les premières impressions. Un partenariat initié maintenant risque de reposer sur des malentendus. Si la rencontre est inévitable, documente tout par écrit et prévois un temps de confirmation après la rétrogradation.',
+  investissement: 'Mercure rétrograde brouille les chiffres et les petits caractères. Les erreurs de calcul, les frais cachés et les conditions mal comprises sont plus fréquents. Vérifie trois fois plutôt qu\'une, et préfère reporter les décisions irréversibles.',
+  voyage:         'Mercure rétrograde est traditionnellement associé aux retards de transport, aux bagages perdus et aux réservations erronées. Pars avec des marges, confirme tes réservations la veille, et garde tes documents importants en double.',
+  presentation:   'Mercure rétrograde affecte la communication publique : micro-coupures, lapsus, supports qui ne fonctionnent pas. Teste ton matériel en avance, aie un plan B, et privilégie la clarté plutôt que l\'effet. La sobriété sera ta meilleure alliée.',
+  changement:     'Mercure rétrograde n\'est pas idéal pour les virages majeurs, car les informations sur lesquelles tu bases ta décision peuvent être incomplètes. Utilise cette période pour préparer et analyser, puis agis une fois Mercure direct.',
 };
 
 // ══════════════════════════════════════
@@ -562,9 +562,9 @@ export const SUJETS: Record<OracleSujet, SujetInfo> = {
 
 const VERDICT_TEXTES: Record<OracleSujet, Record<OracleVerdict, string>> = {
   projet: {
-    feu_vert: "Les cycles de création sont ouverts. Fonce — le timing est aligné avec ton énergie de fondation.",
+    feu_vert: "Les cycles de création sont ouverts. Fonce — le moment est aligné avec ton énergie de fondation.",
     prudence: "Le potentiel est là, mais un détail structurel freine. Révise tes fondations avant d'appuyer sur le bouton.",
-    pas_maintenant: "Mauvais timing cosmique. Le lancement risque de s'épuiser rapidement — attends une meilleure fenêtre.",
+    pas_maintenant: "Mauvais moment cosmique. Le lancement risque de s'épuiser rapidement — attends une meilleure fenêtre.",
   },
   sentiments: {
     feu_vert: "Vénus et ta numérologie te soutiennent. Parle — les mots toucheront juste.",
@@ -572,7 +572,7 @@ const VERDICT_TEXTES: Record<OracleSujet, Record<OracleVerdict, string>> = {
     pas_maintenant: "Risque élevé de mauvaise interprétation aujourd'hui. Garde le silence et attends un jour plus réceptif.",
   },
   partenariat: {
-    feu_vert: "Les énergies relationnelles sont au sommet. Rencontrez, négociez, engagez-toi — la synergie est naturelle.",
+    feu_vert: "Les énergies relationnelles sont au sommet. Rencontre, négocie, engage-toi — la synergie est naturelle.",
     prudence: "Le terrain est correct mais pas optimal. Prends le temps de vérifier la compatibilité profonde avant de signer.",
     pas_maintenant: "Les systèmes détectent des frictions cachées. Reporte cette rencontre — ton instinct sera plus clair demain.",
   },
@@ -592,9 +592,9 @@ const VERDICT_TEXTES: Record<OracleSujet, Record<OracleVerdict, string>> = {
     pas_maintenant: "Risque de trous de mémoire ou de perte de fil. Déléguer ou reporter serait plus sage.",
   },
   changement: {
-    feu_vert: "Les grands cycles soutiennent ton mutation. C'est un portail — traversez-le avec conviction.",
-    prudence: "Le changement est possible mais le timing n'est pas parfait. Pose les bases sans tout bousculer d'un coup.",
-    pas_maintenant: "Les systèmes détectent une résistance profonde. Ce n'est pas le moment de tout renverser — consolidez d'abord.",
+    feu_vert: "Les grands cycles soutiennent ta mutation. C'est un portail — traverse-le avec conviction.",
+    prudence: "Le changement est possible mais le moment n'est pas parfait. Pose les bases sans tout bousculer d'un coup.",
+    pas_maintenant: "Les systèmes détectent une résistance profonde. Ce n'est pas le moment de tout renverser — consolide d'abord.",
   },
 };
 
@@ -678,7 +678,7 @@ function calcOracleDate(targetDate: string, dailyScore: number, userCdv: number,
   const cdvSimple = userCdv > 9 ? reduce(userCdv).v : userCdv;
   const compatRaw = getNameCdvCompat(vibSimple, cdvSimple); // réutilise la matrice 9×9
   const compatScore = compatRaw * 10; // Scale 0-100
-  breakdown.push({ label: `Résonance date × CdV ${userCdv}`, value: `${compatRaw}/10`, pts: compatScore });
+  breakdown.push({ label: `Résonance date × Chemin de Vie ${userCdv}`, value: `${compatRaw}/10`, pts: compatScore });
 
   // 3. Cycle Personnel = Année Perso → Mois Perso → Jour Perso
   //    Ronde 10 (3/3) : Année Perso = reduce(jour_naissance + mois_naissance + année_cible) (Decoz classique)
@@ -700,7 +700,7 @@ function calcOracleDate(targetDate: string, dailyScore: number, userCdv: number,
   // Ronde 23 : rappel que le score est personnalisé (pas universel)
   signals.push(`Ce score est personnalisé pour ton Chemin de Vie ${userCdv} — une autre personne obtiendrait un résultat différent pour la même date`);
   if (domainScore >= 75) signals.push('Journée à fort potentiel numérologique pour cette action');
-  else if (domainScore < 40) alerts.push('Journée sous tension numérologique — considérez une alternative');
+  else if (domainScore < 40) alerts.push('Journée sous tension numérologique — considère une alternative');
 
   // Bonus Maître Nombre sur la date — Ronde 23 narratifs
   if (vibDate.m) {
@@ -784,10 +784,10 @@ function calcOracleNom(name: string, userCdv: number, domain: OracleDomain = 'ge
   // Compatibilité avec le CdV du créateur
   const compatScore = getNameCdvCompat(exprV > 9 ? reduce(exprV).v : exprV, userCdv > 9 ? reduce(userCdv).v : userCdv);
   const compatPts = compatScore * 5; // Scale 0-50
-  breakdown.push({ label: `Compatibilité CdV ${userCdv}`, value: `${compatScore}/10`, pts: compatPts });
+  breakdown.push({ label: `Compatibilité Chemin de Vie ${userCdv}`, value: `${compatScore}/10`, pts: compatPts });
 
   if (compatScore >= 8) signals.push(`Excellente résonance entre "${name}" et ton Chemin de Vie ${userCdv}`);
-  else if (compatScore <= 3) alerts.push(`Friction entre "${name}" et ton CdV ${userCdv} — l\'énergie sera en tension`);
+  else if (compatScore <= 3) alerts.push(`Friction entre "${name}" et ton Chemin de Vie ${userCdv} — l\'énergie sera en tension`);
 
   // Bonus maître
   let masterBonus = 0;
@@ -805,7 +805,7 @@ function calcOracleNom(name: string, userCdv: number, domain: OracleDomain = 'ge
   const soulCompat = getNameCdvCompat(ameSimple, cdvSimpleForSoul);
   if (soulCompat >= 8) {
     soulBonus = 5;
-    signals.push(`Âme du nom (${ameV}) en forte résonance avec ton CdV ${userCdv} — motivation profonde alignée`);
+    signals.push(`Âme du nom (${ameV}) en forte résonance avec ton Chemin de Vie ${userCdv} — motivation profonde alignée`);
   }
 
   // ── Ronde 21 (3/3) : Nombres Karmiques 13/14/16/19 ──
@@ -834,7 +834,7 @@ function calcOracleNom(name: string, userCdv: number, domain: OracleDomain = 'ge
   if (karmicLessons.length > 0 && karmicLessons.length <= 4) {
     // Signaler uniquement si 1-4 manquantes (5+ = nom très court, pas significatif)
     const lessonDetails = karmicLessons.map(n => { const l = getKarmicLesson(n, 'nom'); return `${n} (${l.label.split(' — ')[1] || l.label})`; }).join(', ');
-    breakdown.push({ label: 'Leçons karmiques (lettres manquantes)', value: lessonDetails, pts: 0 });
+    breakdown.push({ label: 'Qualités à développer (lettres manquantes)', value: lessonDetails, pts: 0 });
     karmicLessons.forEach(n => { const l = getKarmicLesson(n, 'nom'); alerts.push(l.texte); });
   }
 
@@ -957,10 +957,10 @@ function calcOracleAdresse(adresse: string, userCdv: number, appart?: string): {
   const cdvSimple = userCdv > 9 ? reduce(userCdv).v : userCdv;
   const compatRaw = getNameCdvCompat(adresseSimple, cdvSimple);
   const compatScore = compatRaw * 10; // Scale 0-100
-  breakdown.push({ label: `Résonance adresse × CdV ${userCdv}`, value: `${compatRaw}/10`, pts: Math.round(compatScore * W_CMP) });
+  breakdown.push({ label: `Résonance adresse × Chemin de Vie ${userCdv}`, value: `${compatRaw}/10`, pts: Math.round(compatScore * W_CMP) });
 
-  if (compatRaw >= 8) signals.push(`Excellente résonance entre cette adresse et ton CdV ${userCdv}`);
-  else if (compatRaw <= 3) alerts.push(`Friction entre cette adresse et ton CdV ${userCdv}`);
+  if (compatRaw >= 8) signals.push(`Excellente résonance entre cette adresse et ton Chemin de Vie ${userCdv}`);
+  else if (compatRaw <= 3) alerts.push(`Friction entre cette adresse et ton Chemin de Vie ${userCdv}`);
 
   const domainScore = Math.max(0, Math.min(100, Math.round(numScore * W_NUM + aptScore * W_APT + rueScore * W_RUE + compatScore * W_CMP)));
 
@@ -1054,18 +1054,27 @@ function calcOracleNumero(numStr: string, domain: OracleDomain = 'generaliste'):
     });
   }
 
-  // ── Ronde 19 (3/3 unanime) : recalibration — normalisation [0,100] par composante ──
+  // ── Ronde 19 (3/3) + Ronde #4/#4bis (3/3 unanime) : recalibration redNorm ──
   // Objectif : numéro banal → 40-55%, remarquable → 80%+, plancher 28, plafond 95
   // Pondération : réduction 50% + patterns 25% + chinois 25%
+  // Ronde #4bis : normReduction Min-Max bornée [10, 95] — remplace pts × 10
+  //   pts=4→10, pts=5→16.7, pts=6→33.3, pts=7→50, pts=8→66.7, pts=9→83.3, pts=10→95
+  const normReduction = (pts: number): number => {
+    const raw = ((pts - 4) / 6) * 100;
+    return Math.max(10, Math.min(95, raw));
+  };
   // Ronde 20 (3/3) : si domaine ≠ generaliste, utiliser NUMBER_DOMAIN_SCORES
   const domainScores = NUMBER_DOMAIN_SCORES[redV] || NUMBER_DOMAIN_SCORES[redV > 9 ? reduce(redV).v : redV];
   const redNorm = domain !== 'generaliste' && domainScores
-    ? domainScores[domain] * 10                              // [40, 100] — via matrice domaine
-    : bizInfo.pts * 10;                                      // [50, 100] — généraliste (Ronde 19)
+    ? normReduction(domainScores[domain])                    // [10, 95] — via matrice domaine
+    : normReduction(bizInfo.pts);                            // [10, 95] — généraliste
   const patNorm = (patternScore / 15) * 100;                 // [0, 100]
   const chiNorm = ((chineseNorm + 15) / 40) * 100;           // [0, 100] — 0 = neutre à ~37.5
 
-  const blend = redNorm * 0.50 + patNorm * 0.25 + chiNorm * 0.25;
+  // Ronde #4bis (2/3 — GPT+Gemini) : synergie "double excellence"
+  // Bonus +5 quand patterns ET chinois sont tous deux exceptionnels
+  const synergy = (patternScore >= 12 && chineseNorm >= 22) ? 5 : 0;
+  const blend = redNorm * 0.50 + patNorm * 0.25 + chiNorm * 0.25 + synergy;
   const domainScore = Math.max(28, Math.min(95, Math.round(blend)));
 
   // Breakdown avec contributions pondérées
@@ -1279,8 +1288,8 @@ function calcOracleBebe(prenom: string, userCdv: number, parent2Cdv?: number): {
   // Ronde 18 : "Résonance parentale" au lieu de "Résonance avec CdV X (parent)"
   breakdown.push({ label: parent2Cdv ? 'Résonance parentale' : `Résonance parentale (Chemin de Vie ${userCdv})`, value: `${Math.round(compatScore * 10) / 10}/10`, pts: compatPts });
 
-  if (compatScore >= 8) signals.push(`Très bonne résonance entre "${prenom}" et ${parent2Cdv ? 'votre' : 'ton'} énergie parentale — lien naturel et fluide`);
-  else if (compatScore <= 4) alerts.push(`Légère friction avec ${parent2Cdv ? 'vos profils' : `ton Chemin de Vie ${userCdv}`} — l\'enfant suivra son propre chemin avec force`);
+  if (compatScore >= 8) signals.push(`Très bonne résonance entre "${prenom}" et ${parent2Cdv ? 'ton' : 'ton'} énergie parentale — lien naturel et fluide`);
+  else if (compatScore <= 4) alerts.push(`Légère friction avec ${parent2Cdv ? 'tes profils' : `ton Chemin de Vie ${userCdv}`} — l\'enfant suivra son propre chemin avec force`);
 
   // Bonus nombre Maître
   let masterBonus = 0;
@@ -1308,7 +1317,7 @@ function calcOracleBebe(prenom: string, userCdv: number, parent2Cdv?: number): {
     const soulCompat2 = getBabyParentCompat(ameV, parent2Cdv);
     if (soulCompat1 >= 8 && soulCompat2 >= 8) {
       soulBonus = 5;
-      signals.push(`Âme du prénom (${ameV}) en forte résonance avec vos deux Chemins de Vie — lien affectif profond des deux côtés`);
+      signals.push(`Âme du prénom (${ameV}) en forte résonance avec tes deux Chemins de Vie — lien affectif profond des deux côtés`);
     } else if (soulCompat1 >= 8 || soulCompat2 >= 8) {
       soulBonus = 3;
       const resonantParent = soulCompat1 >= 8 ? `Chemin de Vie ${userCdv}` : `Chemin de Vie ${parent2Cdv}`;
@@ -1339,7 +1348,7 @@ function calcOracleBebe(prenom: string, userCdv: number, parent2Cdv?: number): {
   const bebeLessons = findKarmicLessons(prenom);
   if (bebeLessons.length > 0 && bebeLessons.length <= 4) {
     const lessonDetails = bebeLessons.map(n => { const l = getKarmicLesson(n, 'bebe'); return `${n} (${l.label.split(' — ')[1] || l.label})`; }).join(', ');
-    breakdown.push({ label: 'Leçons karmiques (lettres manquantes)', value: lessonDetails, pts: 0 });
+    breakdown.push({ label: 'Qualités à développer (lettres manquantes)', value: lessonDetails, pts: 0 });
     bebeLessons.forEach(n => { const l = getKarmicLesson(n, 'bebe'); alerts.push(l.texte); });
   }
 

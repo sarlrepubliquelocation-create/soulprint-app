@@ -1,26 +1,23 @@
-import { useState, useMemo, useCallback, useEffect, lazy, Suspense } from 'react';
-import { calcNumerology, calcPersonalYear, calcPersonalMonth, calcPersonalDay, reduce, type NumerologyProfile } from './engines/numerology';
-import { calcAstro, type AstroChart, findCity, getPlanetLongitudeForDate } from './engines/astrology';
-import { calcChineseZodiac, type ChineseZodiac } from './engines/chinese-zodiac';
-import { calcIChing, getHexTier, type IChingReading } from './engines/iching';
-import { calcConvergence, clearRarityCache, clearDayPreviewCache, calcDayPreview, estimateSlowTransitBonus, type ConvergenceResult } from './engines/convergence';
-import { calculateLuckPillars, type LuckPillarResult } from './engines/bazi';
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+// Phase 1 Architecture 3 couches — imports centralisés via orchestrator
+import { buildSoulData, buildTemporalData, buildPSIData, buildYearPreviews, type SoulData, type DayPreview } from './engines/orchestrator';
+import { clearRarityCache, clearDayPreviewCache } from './engines/convergence';
+import { findCity, isFranceDST } from './engines/astrology';
 import { generateStrategicReading } from './engines/strategic-reading';
-import { getRetroSchedule, getEclipseList, getMercuryStatus, getMoonPhase, getVoidOfCourseMoon, getPlanetaryRetroScore, getPlanetaryRetrogrades } from './engines/moon';
-import { interpolateReturnIntensity, extractNatalReturnLongs, planetPosToLong } from './engines/returns'; // A1.1 PSI + V5.3
-import {
-  calcMomentum, calcForecast, calcPastAnalysis, calcPresentContext,
-  detectArc, generateTemporalNarrative,
-  calcPSI, buildPSIVector, calcMACD,
-  type PinnacleInfo, type MomentumResult, type ForecastResult,
-  type PastAnalysis, type PresentContext, type TemporalNarrative, type ArcName,
-  type PSIResult, type PSIVector,
-} from './engines/temporal';
-import { calcCIAtDays, calcPotentielAction, calcTendanceScore, buildTransitionAlerts, type PotentielAction, type TransitionAlert } from './engines/temporal-layers';
-import { calcNakshatra, getAyanamsa } from './engines/nakshatras';
-import { sto } from './engines/storage'; // Phase 2 — localStorage TTL + cleanup
-import { getDashaAntarLordIndex, calcCurrentDasha, type CurrentDasha } from './engines/vimshottari'; // V5.1+V5.2
-import { useSyncDailyVector } from './engines/useSyncDailyVector'; // V8 Option C
+import { sto } from './engines/storage';
+import { runWeeklyAlphaGUpdate } from './engines/alpha-calibration'; // Phase 3c — centralisé
+import { runWeeklyPredictiveValidation } from './engines/predictive-validation'; // Phase 3c — centralisé
+import { useSyncDailyVector } from './engines/useSyncDailyVector';
+import type { PSIResult } from './engines/temporal';
+// Phase 1 Firebase Auth
+import { useAuth } from './hooks/useAuth';
+import AuthModal from './components/AuthModal';
+import { loadProfile, saveProfile, migrateAnonymousData } from './hooks/useProfilePersistence';
+import { getCurrentUid, getAnonymousUid } from './firebase';
+import { useNotifications } from './hooks/useNotifications';
+// Multi-profile system
+import { useProfiles, MAX_PROFILES, type UserProfile } from './hooks/useProfiles';
+import ProfileSwitcher from './components/ProfileSwitcher';
 // Lazy-loaded tabs — code-split pour réduire le bundle initial
 const ConvergenceTab = lazy(() => import('./components/ConvergenceTab'));
 const ProfileTab     = lazy(() => import('./components/ProfileTab'));
@@ -31,7 +28,7 @@ const CalendarTab    = lazy(() => import('./components/CalendarTab'));
 const TemporalTab    = lazy(() => import('./components/TemporalTab'));
 const BondTab        = lazy(() => import('./components/BondTab'));
 import { type TemporalData } from './components/TemporalTab';
-import { Cd, P } from './components/ui';
+import { Cd, P, FocusVisibleStyle } from './components/ui';
 import OnboardingModal, { isOnboardingDone } from './components/OnboardingModal'; // V9 Sprint 7c
 
 // Inject custom scrollbar for tabs (once)
@@ -48,21 +45,8 @@ if (typeof document !== 'undefined' && !document.getElementById('sp-tabs-scroll'
   document.head.appendChild(s);
 }
 
-// Dynamic today — never hardcode again!
-function getToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export interface SoulData {
-  num: NumerologyProfile;
-  astro: AstroChart | null;
-  cz: ChineseZodiac;
-  iching: IChingReading;
-  conv: ConvergenceResult;
-  luckPillars: LuckPillarResult;
-  dasha?: CurrentDasha;  // V5.2 — Vimshottari courant (Maha+Antar+Pratyantar)
-}
+// SoulData est maintenant définie dans engines/orchestrator.ts — re-export pour compatibilité
+export type { SoulData } from './engines/orchestrator';
 
 const tabs = [
   { id: 'convergence', l: 'Pilotage',    i: '⭐' },
@@ -75,6 +59,35 @@ const tabs = [
 ];
 
 export default function App() {
+  // ── Firebase Auth — Phase 1 ──
+  const { user, loading: authLoading, signOut } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(true);
+
+  // ── PWA Install Prompt ──
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if (result.outcome === 'accepted') {
+      setShowInstallBanner(false);
+      setDeferredPrompt(null);
+    }
+  };
+
+  // ── Notifications ──
+  const { showBanner: showNotifBanner, enabled: notifEnabled, requestPermission, dismissBanner: dismissNotifBanner, toggleNotifications, notifyDailyScore, permission: notifPermission } = useNotifications();
+
   // ── Onboarding — V9 Sprint 7c ──
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboardingDone());
 
@@ -89,6 +102,15 @@ export default function App() {
   const [tab, setTab] = useState('convergence');
   const [lock, setLock] = useState({ fn: '', mn: '', ln: '', bd: '', bt: '', bp: '', gn: 'M' as 'M' | 'F', tz: Math.round(-new Date().getTimezoneOffset() / 60) });
 
+  // ── Multi-profile system ──
+  const { profiles, loading: profilesLoading, addProfile, updateProfile, removeProfile, setMainProfile } = useProfiles(user?.uid ?? null);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  // Guard anti-écrasement : true pendant un switch de profil → bloque le useEffect de sauvegarde
+  // Évite la race condition React où lock est mis à jour avant activeProfileId
+  const isSwitchingProfileRef = useRef(false);
+  const [showAddProfileForm, setShowAddProfileForm] = useState(false);
+  const [newProfileLabel, setNewProfileLabel] = useState('');
+
   const dirty = fn !== lock.fn || mn !== lock.mn || ln !== lock.ln || bd !== lock.bd || bt !== lock.bt || bp !== lock.bp || gn !== lock.gn || tz !== lock.tz;
   const canCalc = !!(fn.trim() && ln.trim() && bd);
 
@@ -98,6 +120,170 @@ export default function App() {
   // Cleanup localStorage stale keys on mount
   useEffect(() => { sto.cleanup(); }, []);
 
+  // ── Load profile when user logs in (Phase 1 Firebase Auth) ──
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const loadAndPopulateProfile = async () => {
+      const profile = await loadProfile(user.uid);
+      if (profile) {
+        setFn(profile.fn);
+        setMn(profile.mn);
+        setLn(profile.ln);
+        setBd(profile.bd);
+        setBt(profile.bt);
+        setBp(profile.bp);
+        setGn(profile.gn);
+        setTz(profile.tz);
+        setLock({ fn: profile.fn, mn: profile.mn, ln: profile.ln, bd: profile.bd, bt: profile.bt, bp: profile.bp, gn: profile.gn, tz: profile.tz });
+      }
+    };
+
+    loadAndPopulateProfile();
+
+    // Close auth modal when user logs in
+    setShowAuthModal(false);
+  }, [user, authLoading]);
+
+  // ── Set active profile to main when profiles load ──
+  // Auto-create main profile if user is logged in, has data, but no profiles exist
+  // Bug fix Ronde #3 : ne PAS re-sélectionner le main si un profil est déjà actif
+  // (sinon lock.bd change → activeProfileId revient au main → écrase le main avec les données secondaires)
+  useEffect(() => {
+    if (profiles.length > 0) {
+      // Seulement sélectionner si aucun profil actif, ou si l'actif n'existe plus
+      const activeStillExists = activeProfileId && profiles.some(p => p.id === activeProfileId);
+      if (!activeStillExists) {
+        const mainProfile = profiles.find((p) => p.isMain);
+        if (mainProfile) {
+          setActiveProfileId(mainProfile.id);
+        } else {
+          setActiveProfileId(profiles[0].id);
+        }
+      }
+    } else if (user && !profilesLoading && lock.bd) {
+      // Auto-create the main profile from current form data
+      addProfile({
+        label: 'Mon profil',
+        fn: lock.fn, mn: lock.mn, ln: lock.ln,
+        bd: lock.bd, bt: lock.bt, bp: lock.bp,
+        gn: lock.gn, tz: lock.tz,
+        isMain: true,
+      }).then(p => setActiveProfileId(p.id)).catch(() => {});
+    } else {
+      setActiveProfileId(null);
+    }
+  }, [profiles, user, profilesLoading, lock.bd]);
+
+  // ── Save/update active profile to Firestore when locked (Phase 1 Firebase Auth) ──
+  useEffect(() => {
+    if (!user || authLoading || !lock.bd) return;
+
+    // Guard : si on vient de switcher de profil, on ne sauvegarde pas
+    // (évite la race condition lock-avant-activeProfileId qui écrase l'ancien profil)
+    if (isSwitchingProfileRef.current) {
+      isSwitchingProfileRef.current = false;
+      return;
+    }
+
+    // Vérification supplémentaire : le profil actif doit correspondre aux données de lock
+    // (double guard au cas où le ref ne suffit pas sur des renders multiples)
+    const activeProfile = profiles.find(p => p.id === activeProfileId);
+    if (activeProfile && activeProfile.bd && activeProfile.bd !== lock.bd) {
+      // lock et activeProfile ne correspondent pas encore → ne pas sauvegarder
+      return;
+    }
+
+    // Update the active profile in the multi-profile collection
+    if (activeProfileId && profiles.length > 0) {
+      updateProfile(activeProfileId, {
+        fn: lock.fn, mn: lock.mn, ln: lock.ln,
+        bd: lock.bd, bt: lock.bt, bp: lock.bp,
+        gn: lock.gn, tz: lock.tz,
+      }).catch(() => {});
+    }
+
+    // Also save to old settings/profile path for backward compat
+    saveProfile(user.uid, {
+      fn: lock.fn, mn: lock.mn, ln: lock.ln,
+      bd: lock.bd, bt: lock.bt, bp: lock.bp,
+      gn: lock.gn, tz: lock.tz,
+    });
+  }, [user, authLoading, lock]);
+
+  // ── Handle profile switching ──
+  const handleSwitchProfile = (profile: UserProfile) => {
+    // Armer le guard avant tout setState pour éviter la race condition de sauvegarde
+    isSwitchingProfileRef.current = true;
+    setActiveProfileId(profile.id);
+    setFn(profile.fn);
+    setMn(profile.mn);
+    setLn(profile.ln);
+    setBd(profile.bd);
+    setBt(profile.bt);
+    setBp(profile.bp);
+    setGn(profile.gn);
+    setTz(profile.tz);
+    setLock({ fn: profile.fn, mn: profile.mn, ln: profile.ln, bd: profile.bd, bt: profile.bt, bp: profile.bp, gn: profile.gn, tz: profile.tz });
+    clearRarityCache();
+    clearDayPreviewCache();
+    setNarr('');
+  };
+
+  // ── Handle adding a new profile ──
+  const handleAddProfile = async () => {
+    setShowAddProfileForm(true);
+  };
+
+  const handleCreateProfile = async () => {
+    if (!newProfileLabel.trim() || !user) {
+      alert('Veuillez entrer un nom pour le profil');
+      return;
+    }
+
+    try {
+      const newProfile = await addProfile({
+        label: newProfileLabel.trim(),
+        fn: '',
+        mn: '',
+        ln: '',
+        bd: '',
+        bt: '',
+        bp: '',
+        gn: 'M',
+        tz: Math.round(-new Date().getTimezoneOffset() / 60),
+        isMain: false,
+      });
+
+      setNewProfileLabel('');
+      setShowAddProfileForm(false);
+      handleSwitchProfile(newProfile);
+    } catch (err) {
+      console.error('[App] Failed to create profile:', err);
+      alert('Impossible de créer le profil. Veuillez réessayer.');
+    }
+  };
+
+  // ── Handle deleting a profile ──
+  const handleDeleteProfile = async (profileId: string) => {
+    try {
+      await removeProfile(profileId);
+      if (activeProfileId === profileId && profiles.length > 0) {
+        const nextProfile = profiles.find((p) => p.id !== profileId && p.isMain) || profiles.find((p) => p.id !== profileId);
+        if (nextProfile) {
+          handleSwitchProfile(nextProfile);
+        }
+      }
+    } catch (err) {
+      console.error('[App] Failed to delete profile:', err);
+      alert('Impossible de supprimer le profil. Veuillez réessayer.');
+    }
+  };
+
+  // Phase 3c — Effets hebdomadaires centralisés (idempotents, 1×/semaine max)
+  useEffect(() => { runWeeklyAlphaGUpdate(new Date()); }, []);
+  useEffect(() => { runWeeklyPredictiveValidation(new Date()); }, []);
+
   // Load Puter.js (free GPT-4o-mini proxy)
   useEffect(() => {
     if ((window as unknown as { puter?: unknown }).puter) return;
@@ -106,337 +292,90 @@ export default function App() {
     document.head.appendChild(s);
   }, []);
 
-  const doVal = () => { clearRarityCache(); clearDayPreviewCache(); setLock({ fn, mn, ln, bd, bt, bp, gn, tz }); setTab('convergence'); setNarr(''); };
+  const doVal = async () => {
+    // V2 : purge des caches profil-dépendants si le profil change (date de naissance)
+    if (lock.bd && bd !== lock.bd) {
+      const PROFILE_CACHES = [
+        'kairo_calib_v1', 'kairo_predictive_v1', 'kairo_alphag_v1',
+        'kairo_deltas_v1', 'kn_personal_weights', 'kn_breakdown_history',
+        'sp_validation_feedback', 'k_daily_memory', 'k_resonance_log',
+        'k_undercurrent_history', 'k_feeling_history', 'k_somatic_history',
+      ];
+      PROFILE_CACHES.forEach(k => { try { sto.remove(k); } catch { /* */ } });
+    }
 
-  const data = useMemo<SoulData | null>(() => {
-    const L = lock;
-    if (!L.fn || !L.ln || !L.bd) return null;
-    try {
-      const today = getToday();
-      const num = calcNumerology(L.fn, L.mn, L.ln, L.bd, today);
-      const astro = calcAstro(L.bd, L.bt, L.bp, L.tz, today);
-      const cz = calcChineseZodiac(L.bd);
-      const iching = calcIChing(L.bd, today);
-      const conv = calcConvergence(num, astro, cz, iching, L.bd, L.bt || undefined); // V9 Sprint 1: bt pour DashaCertainty
-      const luckPillars = calculateLuckPillars(new Date(L.bd + 'T00:00:00'), L.gn);
+    // Save to Firestore if user is logged in and we have an active profile
+    if (user && activeProfileId && profiles.length > 0) {
+      const activeProfile = profiles.find((p) => p.id === activeProfileId);
+      if (activeProfile) {
+        try {
+          await updateProfile(activeProfileId, {
+            ...activeProfile,
+            fn,
+            mn,
+            ln,
+            bd,
+            bt,
+            bp,
+            gn,
+            tz,
+          });
+        } catch (err) {
+          console.error('[App] Failed to save profile:', err);
+        }
+      }
+    }
 
-      // V5.2 — Vimshottari courant (Maha+Antar+Pratyantar) — useMemo([lock]) = dépend de bd uniquement
-      let dasha: CurrentDasha | undefined;
-      try {
-        const birthD4D    = new Date(L.bd + 'T12:00:00');
-        const natalM4D    = getMoonPhase(birthD4D);
-        const natalAyan4D = getAyanamsa(birthD4D.getFullYear());
-        const natalSid4D  = ((natalM4D.longitudeTropical - natalAyan4D) % 360 + 360) % 360;
-        dasha = calcCurrentDasha(natalSid4D, birthD4D, new Date());
-      } catch { /* silent — dasha reste undefined si AstroChart absent */ }
+    clearRarityCache(); clearDayPreviewCache(); setLock({ fn, mn, ln, bd, bt, bp, gn, tz }); setTab('convergence'); setNarr('');
+  };
 
-      return { num, astro, cz, iching, conv, luckPillars, dasha };
-    } catch (e) { console.error(e); return null; }
-  }, [lock]);
+  // Phase 1 : calcul SoulData délégué à orchestrator.ts
+  const data = useMemo<SoulData | null>(() => buildSoulData(lock), [lock]);
 
   // V8 Option C — Collecte silencieuse quotidienne (fire-and-forget)
   useSyncDailyVector(data, lock.bd);
 
-  // ── Bridge Temporal (V2.9.2) ──
-  const temporal = useMemo<TemporalData | null>(() => {
+  // ── Bridge Temporal — Phase 1 : délégué à orchestrator.ts ──
+  const temporal = useMemo(() => {
     if (!data) return null;
-    try {
-      const today = new Date();
-      const birthDate = new Date(lock.bd + 'T00:00:00');
-      const { num, cz, conv } = data;
-
-      // Convertir pinnacles Reduced[] → PinnacleInfo[]
-      const lpSingle = num.lp.v > 9 ? reduce(num.lp.v, false).v : num.lp.v;
-      const p1End = 36 - lpSingle;
-      const pinnacles: PinnacleInfo[] = [
-        { number: num.pinnacles[0].v, startAge: 0, endAge: p1End },
-        { number: num.pinnacles[1].v, startAge: p1End, endAge: p1End + 9 },
-        { number: num.pinnacles[2].v, startAge: p1End + 9, endAge: p1End + 18 },
-        { number: num.pinnacles[3].v, startAge: p1End + 18, endAge: 99 },
-      ];
-
-      // Wrapper getScore : Date → number (score léger via calcDayPreview)
-      const transitBonus = estimateSlowTransitBonus(data.astro);
-      const getScore = (d: Date): number => {
-        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        return calcDayPreview(lock.bd, num, cz, ds, transitBonus).score;
-      };
-
-      // Wrapper calcPY / calcPM
-      const calcPY = (d: Date): number => calcPersonalYear(lock.bd, d.getFullYear()).v;
-      const calcPM = (d: Date): number => calcPersonalMonth(lock.bd, d.getFullYear(), d.getMonth() + 1).v;
-
-      // Données moon.ts
-      const retroPeriods = getRetroSchedule();
-      const eclipses = getEclipseList();
-      const mercuryStatus = getMercuryStatus(today);
-      const planetaryRetros = getPlanetaryRetrogrades(today);
-
-      // Adapter mercury au format temporal.ts
-      const mercuryForTemporal = { phase: mercuryStatus.phase, score: mercuryStatus.points, label: mercuryStatus.label };
-      const retrosForTemporal = planetaryRetros.map(r => ({ planet: r.planet, score: r.points }));
-
-      // South node
-      const southNodeSign = conv.lunarNodes?.natal?.northNode?.sign
-        ? conv.lunarNodes.natal.southNode.sign
-        : null;
-
-      // Calculs temporels
-      const momentum = calcMomentum(getScore, today);
-      const forecast = calcForecast(today, getScore, retroPeriods, eclipses, calcPY, birthDate, pinnacles);
-      const past = calcPastAnalysis(today, birthDate, pinnacles, calcPY, num.kl, southNodeSign);
-      const present = calcPresentContext(today, birthDate, pinnacles, calcPY, calcPM, mercuryForTemporal, retrosForTemporal);
-      const macd = calcMACD(getScore, today);
-      const arc = detectArc(past, present, momentum, forecast);
-
-      // Potentiel d'Action : Score × (1 + Tendance × 0.02)
-      // Calculé AVANT narrative pour passer signalScore + trendScore aux builders
-      const todayScore = data.conv.score;
-      const tendanceScore = calcTendanceScore(calcPY(today), calcPM(today));
-      const potentielAction = calcPotentielAction(todayScore, tendanceScore);
-
-      // Narrative V2 — Template Factory (Ronde #9)
-      const narrative = generateTemporalNarrative(past, present, momentum, forecast, todayScore, tendanceScore);
-
-      // CI(t) fiabilité des prévisions
-      const sigma7j = momentum.scores.length > 1
-        ? Math.sqrt(momentum.scores.reduce((s, v) => s + (v - momentum.avgLast7) ** 2, 0) / momentum.scores.length)
-        : 10;
-      const forecastCI = {
-        ci7:  calcCIAtDays(4, 0.7, sigma7j),
-        ci30: calcCIAtDays(15, 0.7, sigma7j),
-        ci90: calcCIAtDays(45, 0.7, sigma7j),
-      };
-
-      // Alertes de transition (LP, Pinnacle, PY)
-      let transitionAlerts: TransitionAlert[] = [];
-      try {
-        transitionAlerts = buildTransitionAlerts(data.luckPillars, num, sigma7j, today);
-      } catch { /* Bazi data peut être incomplète */ }
-
-      return { momentum, forecast, past, present, arc, narrative, macd, forecastCI, potentielAction, transitionAlerts };
-    } catch (e) { console.error('Temporal bridge error:', e); return null; }
+    return buildTemporalData(data, lock.bd);
   }, [data, lock.bd]);
 
-  // ── PSI — Résonance Périodique (V4.9 Sprint E2) ──
-  // useMemo séparé : zéro modification de temporal ni de TemporalData.
-  // P1.1 : Lazy load — calcul uniquement si l'onglet convergence ou temporal est actif
+
+  // ── Phase 3a : Year Previews mutualisé (365 jours + soft-shift) ──
+  // Partagé entre ConvergenceTab, CalendarTab, ProfileTab, LectureTab
+  const yearPreviews = useMemo<DayPreview[] | null>(() => {
+    if (!data) return null;
+    return buildYearPreviews(
+      lock.bd, data.num, data.cz, data.astro ?? null,
+      data.conv.ctxMult ?? 1.0, data.conv.dashaMult ?? 1.0,
+      data.conv.shadowBaseSignal ?? 0, lock.bt || undefined,
+    );
+  }, [data, lock.bd, lock.bt]);
+
+  // ── PSI — Phase 1 : délégué à orchestrator.ts ──
+  // P1.1 : Lazy load — calcul uniquement si l'onglet convergence ou insights est actif
   const psiData = useMemo<PSIResult | null>(() => {
     if (!data) return null;
-    // P1.1 : 730 appels buildVector — skip si PSI non visible
     if (tab !== 'convergence' && tab !== 'insights') return null;
-    try {
-      const { num, iching } = data;
-      const today = new Date();
-
-      // Pinnacle phase du jour — réutilise la même logique que temporal
-      const birthDate = new Date(lock.bd + 'T00:00:00');
-      const lpSingle = num.lp.v > 9 ? reduce(num.lp.v, false).v : num.lp.v;
-      const p1End = 36 - lpSingle;
-      const pinnacles: PinnacleInfo[] = [
-        { number: num.pinnacles[0].v, startAge: 0,        endAge: p1End },
-        { number: num.pinnacles[1].v, startAge: p1End,    endAge: p1End + 9 },
-        { number: num.pinnacles[2].v, startAge: p1End + 9, endAge: p1End + 18 },
-        { number: num.pinnacles[3].v, startAge: p1End + 18, endAge: 99 },
-      ];
-
-      // Helper : phase Pinnacle pour une date donnée
-      const getPinnaclePhase = (d: Date): 'early' | 'middle' | 'late' => {
-        const age = d.getFullYear() - birthDate.getFullYear();
-        const cur = pinnacles.find(p => age >= p.startAge && age < p.endAge)
-          || pinnacles[pinnacles.length - 1];
-        const yearsIn = cur.endAge - cur.startAge;
-        const yearsPassed = age - cur.startAge;
-        if (yearsPassed <= 2)              return 'early';
-        if (yearsIn - yearsPassed <= 2)    return 'late';
-        return 'middle';
-      };
-
-      // Callback buildVector(date) → PSIVector
-      // Chaque appel est léger : numerology + moon fonctions pures
-      // A1.1 : longitudes actuelles pré-calculées ONCE (interpolation dans la boucle — zéro Meeus)
-      const natalReturnLongs = data.astro ? extractNatalReturnLongs(data.astro) : null;
-      const todayLongs = natalReturnLongs ? {
-        saturn:    getPlanetLongitudeForDate('saturn',    today),
-        jupiter:   getPlanetLongitudeForDate('jupiter',   today),
-        northNode: getPlanetLongitudeForDate('northNode', today),
-      } : null;
-
-      // V5.1 : Lune natale sidérale pré-calculée ONCE pour getDashaAntarLordIndex
-      let natalMoonSidForPSI = 0;
-      try {
-        const birthD4PSI    = new Date(lock.bd + 'T12:00:00');
-        const natalM4PSI    = getMoonPhase(birthD4PSI);
-        const natalAyan4PSI = getAyanamsa(birthD4PSI.getFullYear());
-        natalMoonSidForPSI  = ((natalM4PSI.longitudeTropical - natalAyan4PSI) % 360 + 360) % 360;
-      } catch { /* garde silencieux */ }
-
-      // V5.3 : Transits personnalisés PSI — pré-calcul ONCE hors boucle
-      // Longitudes natales extraites depuis astro (6 points : sun/moon/mercury/venus/mars/asc)
-      // 5 longitudes transit aujourd'hui (jupiter/saturn/uranus/neptune/pluto) — 5 appels Meeus
-      // Interpolation linéaire dans la boucle → zéro Meeus supplémentaire
-      const PSI_NATAL_TARGETS = ['sun', 'moon', 'mercury', 'venus', 'mars'];
-      const psiNatalLongs: Record<string, number> | null = data.astro ? (() => {
-        const r: Record<string, number> = {};
-        for (const pl of data.astro.pl) {
-          if (PSI_NATAL_TARGETS.includes(pl.k)) r[pl.k] = planetPosToLong(pl.s, pl.d);
-        }
-        r['asc'] = planetPosToLong(data.astro.b3.asc, data.astro.ad); // ASC
-        return Object.keys(r).length >= 3 ? r : null;
-      })() : null;
-
-      const psiTransitTodayLongs: Record<string, number> | null = psiNatalLongs ? {
-        jupiter: getPlanetLongitudeForDate('jupiter', today),
-        saturn:  getPlanetLongitudeForDate('saturn',  today),
-        uranus:  getPlanetLongitudeForDate('uranus',  today),
-        neptune: getPlanetLongitudeForDate('neptune', today),
-        pluto:   getPlanetLongitudeForDate('pluto',   today),
-      } : null;
-
-      // Vitesses angulaires moyennes °/jour (interpolation linéaire — suffisant pour PSI)
-      const PSI_TRANSIT_SPEEDS: Record<string, number> = {
-        jupiter: 0.0831, saturn: 0.0334, uranus: 0.0119, neptune: 0.0059, pluto: 0.0040,
-      };
-
-      // Amplitude PSI : +1=bénéfique, -1=tendu, 0=skip pour une combinaison planète×aspect
-      // Jupiter aspects harmoniques = bénéfique · Saturne aspects durs = tendu · etc.
-      const PSI_TRANSIT_TYPE: Record<string, Record<string, number>> = {
-        // +1 bénéfique, -1 tendu, 0 neutre
-        jupiter: { conjunction: 1,  trine: 1,  sextile: 1,  square: -1, opposition: -1 },
-        saturn:  { conjunction: -1, trine: 1,  sextile: 1,  square: -1, opposition: -1 },
-        uranus:  { conjunction: 0,  trine: 1,  sextile: 1,  square: -1, opposition: -1 },
-        neptune: { conjunction: 0,  trine: 1,  sextile: 1,  square: -1, opposition: -1 },
-        pluto:   { conjunction: -1, trine: 1,  sextile: 1,  square: -1, opposition: -1 },
-      };
-      const PSI_ASPECT_ANGLES: Array<{ name: string; angle: number; orb: number }> = [
-        { name: 'conjunction', angle: 0,   orb: 4.0 },
-        { name: 'trine',       angle: 120, orb: 4.0 },
-        { name: 'sextile',     angle: 60,  orb: 3.0 },
-        { name: 'square',      angle: 90,  orb: 4.0 },
-        { name: 'opposition',  angle: 180, orb: 4.0 },
-      ];
-      const psiAngDist = (a: number, b: number): number => {
-        const d = Math.abs(((a - b) % 360 + 360) % 360);
-        return d > 180 ? 360 - d : d;
-      };
-      const psiGaussian = (orb: number, sigma: number) => Math.exp(-(orb * orb) / (2 * sigma * sigma));
-
-      // calcPSITransitScores(deltaJours) → { beneficScore: 0-1, tenseScore: 0-1 }
-      const calcPSITransitScores = (deltaJours: number): { beneficScore: number; tenseScore: number } | null => {
-        if (!psiNatalLongs || !psiTransitTodayLongs) return null;
-        let beneficSum = 0, tenseSum = 0, beneficMax = 0, tenseMax = 0;
-        for (const [planet, todayLong] of Object.entries(psiTransitTodayLongs)) {
-          const speed    = PSI_TRANSIT_SPEEDS[planet] ?? 0;
-          const transitL = ((todayLong + speed * deltaJours) % 360 + 360) % 360;
-          const ampMap   = PSI_TRANSIT_TYPE[planet];
-          if (!ampMap) continue;
-          for (const [natalKey, natalLong] of Object.entries(psiNatalLongs)) {
-            const dist = psiAngDist(transitL, natalLong);
-            for (const asp of PSI_ASPECT_ANGLES) {
-              const orb = Math.abs(dist - asp.angle);
-              if (orb > asp.orb) continue;
-              const intensity = psiGaussian(orb, asp.orb / 2.5);
-              const type = ampMap[asp.name] ?? 0;
-              if (type > 0) { beneficSum += intensity; beneficMax++; }
-              if (type < 0) { tenseSum  += intensity; tenseMax++;  }
-            }
-          }
-        }
-        // Normaliser : diviser par nb de combinaisons possibles (30 transit×natal×asp max actifs)
-        const norm = 30;
-        return {
-          beneficScore: Math.min(1, beneficSum / norm),
-          tenseScore:   Math.min(1, tenseSum  / norm),
-        };
-      };
-
-      const buildVector = (d: Date): PSIVector => {
-        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-        // Numérologie
-        const pdVal = calcPersonalDay(lock.bd, ds).v;
-        const pmVal = calcPersonalMonth(lock.bd, d.getFullYear(), d.getMonth() + 1).v;
-        const pyVal = calcPersonalYear(lock.bd, d.getFullYear()).v;
-
-        // Lune — phase (0-7) depuis longitudeTropical
-        const moonP = getMoonPhase(d);
-        const moonPhaseIdx = Math.floor(((moonP.phase % 360) + 360) % 360 / 45); // 8 secteurs → 0-7
-
-        // Nakshatra — id 1-27
-        const ayanamsa = getAyanamsa(d.getFullYear());
-        const moonSid  = ((moonP.longitudeTropical - ayanamsa) % 360 + 360) % 360;
-        const nak      = calcNakshatra(moonSid);
-
-        // I Ching tier pour ce jour
-        const ichDay  = calcIChing(lock.bd, ds);
-        const tierStr = getHexTier(ichDay.hexNum).tier; // 'A'-'E'
-
-        // Mercure rétro
-        const mercSt  = getMercuryStatus(d);
-        const isRetro = mercSt.phase?.toLowerCase().includes('retro') ?? false;
-
-        // Rétrogrades planétaires actifs
-        const retros    = getPlanetaryRetrogrades(d);
-        const retroCount = retros.filter(r => r.points < 0).length;
-
-        // VoC
-        const vocResult = getVoidOfCourseMoon(ds);
-        const vocActive = vocResult?.isVoC ?? false;
-
-        return buildPSIVector({
-          pd:            pdVal,
-          pm:            pmVal,
-          py:            pyVal,
-          moonPhase:     moonPhaseIdx,
-          nakshatraId:   nak.id,
-          ichingTier:    tierStr,
-          changingLine:  ichDay.changing,
-          mercuryRetro:  isRetro,
-          retroCount,
-          pinnaclePhase: getPinnaclePhase(d),
-          pyMonth:       d.getMonth() + 1,
-          vocActive,
-          // A1.1 : intensités retours planétaires — interpolation linéaire, zéro appel Meeus
-          ...(natalReturnLongs && todayLongs ? {
-            saturnIntensity:  interpolateReturnIntensity(natalReturnLongs.saturn,    todayLongs.saturn,    'saturn',    (d.getTime() - today.getTime()) / 86400000),
-            jupiterIntensity: interpolateReturnIntensity(natalReturnLongs.jupiter,   todayLongs.jupiter,   'jupiter',   (d.getTime() - today.getTime()) / 86400000),
-            nodeIntensity:    interpolateReturnIntensity(natalReturnLongs.northNode, todayLongs.northNode, 'northNode', (d.getTime() - today.getTime()) / 86400000),
-          } : {}),
-          // V5.1 : Antardasha courant — O(1) lookup, stable sur semaines/mois
-          ...(natalMoonSidForPSI > 0 ? {
-            dashaAntarIndex: getDashaAntarLordIndex(natalMoonSidForPSI, birthDate, d),
-          } : {}),
-          // V5.3 : Transits personnalisés — interpolation linéaire, zéro Meeus en boucle
-          ...(() => {
-            const scores = calcPSITransitScores((d.getTime() - today.getTime()) / 86400000);
-            return scores ? {
-              transitBeneficScore: scores.beneficScore,
-              transitTenseScore:   scores.tenseScore,
-            } : {};
-          })(),
-        });
-      };
-
-      // Callback getScore : score passé via calcDayPreview
-      const transitBonus = estimateSlowTransitBonus(data.astro);
-      const getScore = (d: Date): number | null => {
-        try {
-          const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          return calcDayPreview(lock.bd, num, data.cz, ds, transitBonus).score;
-        } catch { return null; }
-      };
-
-      return calcPSI(today, buildVector, 365, 365, getScore);
-    } catch (e) {
-      console.error('PSI bridge error:', e);
-      return null;
-    }
+    return buildPSIData(data, lock.bd);
   }, [data, lock.bd, tab]);
+
+  // ── Notification quotidienne — déclenchée quand le score est prêt ──
+  useEffect(() => {
+    if (!data) return;
+    const s = data.conv.score;
+    const dt = data.conv.dayType;
+    const hint = s >= 65
+      ? (dt.type === 'observation' ? 'lucidité aiguisée — agis avec précision sur tes vraies priorités' : dt.type === 'retrait' ? 'intériorité puissante — médite, clarifie' : dt.desc)
+      : dt.desc;
+    notifyDailyScore(s, dt.label, hint);
+  }, [data, notifyDailyScore]);
 
   // V5.4: Micro-validation → fragment prompt GPT (pondération par résonance utilisateur)
   const getResonancePromptFragment = (): string => {
     try {
-      const stored = localStorage.getItem('k_resonance_log');
+      const stored = sto.getRaw('k_resonance_log');
       if (!stored) return '';
       const log: { date: string; category: string; snippet: string; sources: string[] }[] = JSON.parse(stored);
       // Ne considérer que les 30 derniers jours
@@ -522,7 +461,7 @@ export default function App() {
 
     pr += `1. 🔥 PARADOXE — Ouvre avec la tension centrale du profil. Croise Chemin de Vie + Expression + Âme. "Tu es à la fois X et Y — cette dualité est ton arme."\n`;
     pr += `2. 🎯 MISSION — Sa raison d'être. Croise CdV + Yi King natal + signe solaire. Pas "ta mission spirituelle" mais "ton positionnement stratégique de fond."\n`;
-    pr += `3. 📚 LEÇONS — Ce qu'il évite et qui le rattrape. Leçons karmiques + Lo Shu + Challenge actif. Ton direct, pas moralisateur.\n`;
+    pr += `3. 📚 LEÇONS — Ce qu'il évite et qui le rattrape. Qualités à développer + Lo Shu + Challenge actif. Ton direct, pas moralisateur.\n`;
     pr += `4. 🌱 FONDATION (0-25 ans) — 1re grande phase de vie + contexte enfance/jeunesse. Ce qui a été semé. 1-2 phrases max.\n`;
     pr += `5. 🔥 ÉMERGENCE (25-35) — 2e grande phase de vie + Retour de Saturne + mutations. Le premier vrai test.\n`;
     pr += `6. 🏔️ POUVOIR (35-45) — 3e grande phase de vie + montée en puissance. Ce qui a été construit.\n`;
@@ -570,16 +509,217 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: P.bg, color: P.text, position: 'relative' }}>
+      <FocusVisibleStyle />
+      {/* ── Auth Modal — Phase 1 Firebase Auth ── */}
+      <AuthModal
+        open={showAuthModal && !user && !authLoading}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => setShowAuthModal(false)}
+      />
+
       {/* ── Onboarding modal — V9 Sprint 7c ── */}
       {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} />}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 15% 10%,#1a170a,transparent 55%),radial-gradient(ellipse at 85% 90%,#0a0f1a,transparent 50%)' }} />
-      <div className="app-container" style={{ position: 'relative', maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 className="app-title" style={{ fontSize: 46, fontWeight: 300, margin: 0, letterSpacing: 6, background: `linear-gradient(135deg,#e4e4e7,${P.gold} 60%,#C9A84C)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Kaironaute</h1>
-          <div style={{ fontSize: 12, color: P.textMid, letterSpacing: 1, marginTop: 8, fontWeight: 400, fontStyle: 'italic' }}>Maîtrise tes cycles. Optimise tes décisions.</div>
-          <div style={{ fontSize: 10, color: P.textDim, letterSpacing: 3, marginTop: 4, fontWeight: 500 }}>NUMÉROLOGIE · ASTROLOGIE · YI KING · ZODIAQUE CHINOIS · IA</div>
+      <main className="app-container" role="main" style={{ position: 'relative', maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
+        {/* Header with Auth Info */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <h1 className="app-title" style={{ fontSize: 46, fontWeight: 300, margin: 0, letterSpacing: 6, background: `linear-gradient(135deg,#e4e4e7,${P.gold} 60%,#C9A84C)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Kaironaute</h1>
+            <div style={{ fontSize: 12, color: P.textMid, letterSpacing: 1, marginTop: 8, fontWeight: 400, fontStyle: 'italic' }}>Maîtrise tes cycles. Optimise tes décisions.</div>
+            <div style={{ fontSize: 10, color: P.textDim, letterSpacing: 3, marginTop: 4, fontWeight: 500 }}>NUMÉROLOGIE · ASTROLOGIE · YI KING · ZODIAQUE CHINOIS · IA</div>
+            {/* Profile Switcher + Add button (if logged in) */}
+            {user && !profilesLoading && profiles.length > 0 && (
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <ProfileSwitcher
+                  profiles={profiles}
+                  activeProfileId={activeProfileId}
+                  onSwitch={handleSwitchProfile}
+                  onAddProfile={handleAddProfile}
+                  onDeleteProfile={handleDeleteProfile}
+                  maxProfiles={MAX_PROFILES}
+                />
+                {profiles.length < MAX_PROFILES && (
+                  <button
+                    onClick={handleAddProfile}
+                    title="Ajouter un profil"
+                    style={{
+                      background: `${P.gold}15`, border: `1px solid ${P.gold}44`,
+                      borderRadius: '50%', width: 36, height: 36,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', color: P.gold, fontSize: 20, fontWeight: 700,
+                      fontFamily: 'inherit', flexShrink: 0,
+                    }}
+                  >+</button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="header-auth-info" style={{ fontSize: 11, color: P.textDim, textAlign: 'right', minWidth: 120 }}>
+            {user ? (
+              <>
+                <div style={{ marginBottom: 8, color: P.green }}>✓ Connecté</div>
+                <div style={{ fontSize: 9, marginBottom: 8, wordBreak: 'break-all' }}>{user.email}</div>
+                {notifPermission === 'granted' && (
+                  <button
+                    onClick={toggleNotifications}
+                    style={{
+                      background: 'none', border: 'none',
+                      color: notifEnabled ? P.gold : P.textDim,
+                      cursor: 'pointer', fontSize: 10,
+                      fontFamily: 'inherit', marginBottom: 6,
+                      display: 'block',
+                    }}
+                    title={notifEnabled ? 'Désactiver les notifications' : 'Activer les notifications'}
+                  >
+                    {notifEnabled ? '🔔 Notifs actives' : '🔕 Notifs désactivées'}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    signOut().catch(() => {});
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: P.red,
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    textDecoration: 'underline',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Se déconnecter
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                style={{
+                  background: `${P.gold}22`,
+                  border: `1px solid ${P.gold}44`,
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  color: P.gold,
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Se connecter
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* PWA Install Banner */}
+        {showInstallBanner && (
+          <div className="banner-responsive" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px', marginBottom: 16, borderRadius: 12,
+            background: `linear-gradient(135deg, ${P.gold}15, ${P.gold}08)`,
+            border: `1px solid ${P.gold}33`,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: P.gold }}>Installer Kaironaute</div>
+              <div style={{ fontSize: 11, color: P.textMid, marginTop: 2 }}>Accès rapide depuis ton écran d'accueil</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button onClick={handleInstall} style={{
+                background: `linear-gradient(135deg, #B8860B, ${P.gold})`,
+                border: 'none', borderRadius: 8, padding: '8px 16px',
+                color: '#0d0d1a', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Installer</button>
+              <button onClick={() => setShowInstallBanner(false)} style={{
+                background: 'none', border: 'none', color: P.textDim,
+                cursor: 'pointer', fontSize: 16, padding: '4px',
+              }}>✕</button>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Permission Banner */}
+        {showNotifBanner && (
+          <div className="banner-responsive" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px', marginBottom: 16, borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(96,165,250,0.12), rgba(96,165,250,0.04))',
+            border: '1px solid rgba(96,165,250,0.25)',
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#60a5fa' }}>Recevoir ton score chaque matin</div>
+              <div style={{ fontSize: 11, color: P.textMid, marginTop: 2 }}>Une notification par jour avec ton score personnalisé</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button onClick={requestPermission} style={{
+                background: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+                border: 'none', borderRadius: 8, padding: '8px 16px',
+                color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>Activer</button>
+              <button onClick={dismissNotifBanner} style={{
+                background: 'none', border: 'none', color: P.textDim,
+                cursor: 'pointer', fontSize: 16, padding: '4px',
+              }}>✕</button>
+            </div>
+          </div>
+        )}
+
+        {/* Add Profile Form */}
+        {showAddProfileForm && user && (
+          <Cd sx={{ marginBottom: 24, border: `2px solid ${P.gold}44`, background: `${P.gold}08` }}>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, letterSpacing: 2, color: P.textDim, textTransform: 'uppercase', display: 'block', marginBottom: 8, fontWeight: 600 }}>Nom du profil</label>
+              <input
+                value={newProfileLabel}
+                onChange={(e) => setNewProfileLabel(e.target.value)}
+                placeholder="Ex: Conjoint, Enfant 1, etc."
+                style={inp}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateProfile();
+                  }
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowAddProfileForm(false);
+                  setNewProfileLabel('');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: P.surface,
+                  border: `1px solid ${P.cardBdr}`,
+                  borderRadius: 8,
+                  color: P.text,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleCreateProfile}
+                style={{
+                  padding: '8px 16px',
+                  background: `linear-gradient(135deg,${P.gold},#C9A84C)`,
+                  border: 'none',
+                  borderRadius: 8,
+                  color: '#09090b',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                }}
+              >
+                Créer le profil
+              </button>
+            </div>
+          </Cd>
+        )}
 
         {/* Form */}
         <Cd sx={{ marginBottom: 24 }}>
@@ -599,8 +739,8 @@ export default function App() {
             <div>
               <label style={{ fontSize: 10, letterSpacing: 2, color: P.textDim, textTransform: 'uppercase', display: 'block', marginBottom: 4, fontWeight: 600 }}>Heure naissance</label>
               <div style={{ display: 'flex', gap: 4 }}>
-                <input type="time" value={bt} onChange={e => setBt(e.target.value)} style={{ ...inp, flex: 1, opacity: bt ? 1 : .5 }} />
-                <button onClick={() => setBt(bt ? '' : '12:00')} style={{ background: bt ? P.surface : `${P.gold}15`, border: `1px solid ${bt ? P.cardBdr : P.gold + '33'}`, borderRadius: 8, padding: '0 10px', cursor: 'pointer', color: bt ? P.textDim : P.gold, fontSize: 10, fontWeight: 700 }}>?</button>
+                <input type="time" value={bt} onChange={e => setBt(e.target.value)} placeholder="12:00" style={{ ...inp, flex: 1, opacity: bt ? 1 : .5 }} />
+                <button onClick={() => setBt('')} title={bt ? 'Marquer heure inconnue (calcul à midi)' : 'Heure inconnue — calcul à midi par convention'} style={{ background: bt ? P.surface : `${P.gold}15`, border: `1px solid ${bt ? P.cardBdr : P.gold + '33'}`, borderRadius: 8, padding: '0 10px', cursor: 'pointer', color: bt ? P.textDim : P.gold, fontSize: 10, fontWeight: 700 }}>?</button>
               </div>
             </div>
             <div>
@@ -649,11 +789,17 @@ export default function App() {
           {bp && <div style={{ marginTop: 8, fontSize: 11, fontWeight: 600, color: findCity(bp) ? P.green : P.red }}>{findCity(bp) ? '✔ ' + bp + ' trouvé' : '✗ Ville non trouvée'}</div>}
           {/* ── Sprint 8d — Badge DST auto-correction ── */}
           {data?.astro?.tzSuggested != null && data.astro.tzSuggested !== lock.tz && (
-            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, flexWrap: 'wrap' }}>
               <span style={{ background: `${P.gold}20`, border: `1px solid ${P.gold}44`, borderRadius: 10, padding: '2px 8px', color: P.gold, fontWeight: 700 }}>
-                ⚡ UTC+{data.astro.tzSuggested} à la naissance ({data.astro.tzSuggested >= 2 ? 'CEST été' : 'CET hiver'})
+                ⚡ Fuseau détecté : UTC+{data.astro.tzSuggested} ({(() => { const [y, m, d] = (lock.bd || '').split('-').map(Number); return y ? (isFranceDST(y, m, d) ? 'heure d\'été' : 'heure d\'hiver') : ''; })()})
               </span>
               <span style={{ color: P.textDim, fontSize: 10 }}>sélecteur : UTC+{lock.tz}</span>
+              <button
+                onClick={() => setTz(data.astro!.tzSuggested!)}
+                style={{ background: `${P.gold}25`, border: `1px solid ${P.gold}55`, borderRadius: 8, padding: '2px 10px', color: P.gold, fontWeight: 700, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Appliquer UTC+{data.astro.tzSuggested} →
+              </button>
             </div>
           )}
         </Cd>
@@ -676,24 +822,24 @@ export default function App() {
         </div>
 
         {/* Content */}
-        {!data && <Cd><div style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Entrez tes informations ci-dessus et cliquez ✦ Calculer</div></Cd>}
+        {!data && <Cd><div style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Entre tes informations ci-dessus et clique ✦ Calculer</div></Cd>}
         {data && (
-          <Suspense fallback={<Cd><div style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Chargement…</div></Cd>}>
-            {tab === 'convergence' && <ConvergenceTab data={data} psi={psiData} bd={lock.bd} />}
-            {tab === 'calendar' && <CalendarTab data={data} bd={lock.bd} bt={lock.bt} />}
-            {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} fn={lock.fn} />}
+          <Suspense fallback={<Cd><div role="status" aria-live="polite" aria-busy="true" style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Chargement…</div></Cd>}>
+            {tab === 'convergence' && <ConvergenceTab data={data} psi={psiData} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
+            {tab === 'calendar' && <CalendarTab data={data} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
+            {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} fn={lock.fn} yearPreviews={yearPreviews} />}
             {tab === 'bond' && <BondTab data={data} bd={lock.bd} />}
             {tab === 'astro' && <AstroTab data={data} bd={lock.bd} bt={lock.bt} bp={lock.bp} />}
             {tab === 'iching' && <IChingTab data={data} bd={lock.bd} />}
             {tab === 'insights' && (<>
-              <LectureTab data={data} bd={lock.bd} narr={narr} narrLoad={narrLoad} genNarr={genNarr} />
+              <LectureTab data={data} bd={lock.bd} bt={lock.bt} narr={narr} narrLoad={narrLoad} genNarr={genNarr} yearPreviews={yearPreviews} />
               {temporal && <TemporalTab data={temporal} psi={psiData} />}
             </>)}
           </Suspense>
         )}
 
         <div style={{ textAlign: 'center', marginTop: 48, fontSize: 9, color: '#27272a', letterSpacing: 3, fontWeight: 500 }}>KAIRONAUTE v4.5 © 2026</div>
-      </div>
+      </main>
     </div>
   );
 }

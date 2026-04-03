@@ -247,26 +247,52 @@ export function calcProgressions(
   let solarArcScore = solarArcAspects.reduce((s, a) => s + a.points, 0);
   solarArcScore = Math.max(-8, Math.min(8, +solarArcScore.toFixed(1)));
 
-  // ── Anti-redondance Prog vs SA (Gemini R3) ──
-  // Si même planète natale touchée par prog ET sa → Math.max(|pts|)
+  // ── Fusion Prog + SA (Ronde #2 — consensus Delphi) ──
+  // Intra-technique : somme saturée par planète natale (unanimité 3/3)
+  // Inter même signe : dominant + 0.5 × secondary (majorité GPT+Grok)
+  // Inter signe opposé : norme L2 vectorielle sign(dom) × √(p²+s²) (majorité GPT+Gemini)
+
+  const CAP_PROG_PER_NATAL = 10;
+  const CAP_SA_PER_NATAL = 6;
+
+  // 1. Intra-technique : somme saturée par planète natale
   const progByNatal = new Map<string, number>();
   allProgAspects.forEach(a => {
-    const prev = progByNatal.get(a.natalPlanet) ?? 0;
-    progByNatal.set(a.natalPlanet, Math.abs(a.points) > Math.abs(prev) ? a.points : prev);
+    progByNatal.set(a.natalPlanet, (progByNatal.get(a.natalPlanet) ?? 0) + a.points);
   });
+  for (const [k, v] of progByNatal) {
+    progByNatal.set(k, +Math.max(-CAP_PROG_PER_NATAL, Math.min(CAP_PROG_PER_NATAL, v)).toFixed(1));
+  }
+
   const saByNatal = new Map<string, number>();
   solarArcAspects.forEach(a => {
-    const prev = saByNatal.get(a.natalPlanet) ?? 0;
-    saByNatal.set(a.natalPlanet, Math.abs(a.points) > Math.abs(prev) ? a.points : prev);
+    saByNatal.set(a.natalPlanet, (saByNatal.get(a.natalPlanet) ?? 0) + a.points);
   });
+  for (const [k, v] of saByNatal) {
+    saByNatal.set(k, +Math.max(-CAP_SA_PER_NATAL, Math.min(CAP_SA_PER_NATAL, v)).toFixed(1));
+  }
 
+  // 2. Inter-technique : fusion par planète natale
   let combinedScore = 0;
   const allNatals = new Set([...progByNatal.keys(), ...saByNatal.keys()]);
   for (const nat of allNatals) {
     const pPts = progByNatal.get(nat) ?? 0;
     const sPts = saByNatal.get(nat) ?? 0;
-    // Même planète touchée → garder le plus fort
-    combinedScore += Math.abs(pPts) >= Math.abs(sPts) ? pPts : sPts;
+
+    if (!pPts || !sPts) {
+      // Un seul actif → tel quel
+      combinedScore += pPts + sPts;
+    } else if (Math.sign(pPts) === Math.sign(sPts)) {
+      // Même signe → anti-redondance partielle (dominant + 0.5 × secondary)
+      const dominant = Math.abs(pPts) >= Math.abs(sPts) ? pPts : sPts;
+      const secondary = Math.abs(pPts) >= Math.abs(sPts) ? sPts : pPts;
+      combinedScore += dominant + 0.5 * secondary;
+    } else {
+      // Signe opposé → norme L2 vectorielle (suractivation ambivalente)
+      // sign(dominant) × √(p² + s²) — zéro constante arbitraire
+      const dominant = Math.abs(pPts) >= Math.abs(sPts) ? pPts : sPts;
+      combinedScore += Math.sign(dominant) * Math.sqrt(pPts * pPts + sPts * sPts);
+    }
   }
   const totalScore = Math.max(-15, Math.min(15, +combinedScore.toFixed(1)));
 

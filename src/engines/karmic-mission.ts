@@ -19,6 +19,8 @@ export interface SouthNodeReading {
   maitrise: string;
   lacher: string;
   piege: string;
+  zodiacSign?: ZodiacSign;  // Alias for component display
+  theme?: string;           // Alias for component display (uses maitrise)
 }
 
 export interface KarmicMissionReading {
@@ -26,6 +28,8 @@ export interface KarmicMissionReading {
   cheminDeVie: string;
   nombreAme: string;
   tension: string | null;
+  zodiacSign?: string;  // Alias for component display (uses northNode)
+  theme?: string;       // Alias for component display (uses cheminDeVie)
 }
 
 export interface KarmicLesson {

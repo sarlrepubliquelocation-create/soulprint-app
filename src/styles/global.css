@@ -116,6 +116,62 @@ input, select, button {
   .tab-label-hide {
     display: none;
   }
+
+  /* Genre/UTC row: stack on mobile */
+  .grid-gender-row {
+    grid-template-columns: auto auto 1fr !important;
+  }
+  .grid-gender-row .calc-btn-wrap {
+    grid-column: 1 / -1;
+  }
+
+  /* Auth modal: full width on mobile */
+  .auth-modal-inner {
+    max-width: 95vw !important;
+    padding: 20px 16px !important;
+    margin: 0 8px;
+  }
+
+  /* Header auth info: compact on mobile */
+  .header-auth-info {
+    min-width: 80px !important;
+    font-size: 9px !important;
+  }
+
+  /* Profile Switcher: full available width */
+  .profile-switcher-dropdown {
+    max-width: 260px !important;
+  }
+
+  /* Banners (install + notif): stack vertically */
+  .banner-responsive {
+    flex-direction: column !important;
+    gap: 10px !important;
+    text-align: center;
+  }
+  .banner-responsive > div:last-child {
+    justify-content: center;
+  }
+
+  /* Touch targets: minimum 44px for interactive elements */
+  button, a, input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+  }
+  input[type="text"], input[type="email"], input[type="password"],
+  input[type="date"], input[type="time"], select {
+    min-height: 44px;
+  }
+}
+
+/* Tablet 481-768px */
+@media (min-width: 481px) and (max-width: 768px) {
+  .app-container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .app-title {
+    font-size: 38px !important;
+  }
 }
 
 /* Very small < 360px */

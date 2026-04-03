@@ -122,7 +122,7 @@ export function getMoonPhase(date: Date = new Date(), noTime: boolean = false): 
     {
       name: 'Pleine Lune',
       emoji: '🌕',
-      tactical: 'Récoltez et célébrez. Les résultats sont visibles, les émotions sont amplifiées. Moment de culmination et de lucidité.',
+      tactical: 'Récolte et célèbre. Les résultats sont visibles, les émotions sont amplifiées. Moment de culmination et de lucidité.',
       energy: 'Énergie d\'illumination — tout est éclairé, le visible et l\'invisible. Clarté maximale, émotions intenses.'
     },
     {
@@ -348,7 +348,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2033-10-08', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang automnale — la Lune entre dans l\'ombre terrestre complète.',
-    effect: 'Récolte et lâcher-prise. Les efforts du printemps portent leurs fruits — célébrez et libérez ce qui n\'est plus nécessaire.',
+    effect: 'Récolte et lâcher-prise. Les efforts du printemps portent leurs fruits — célèbre et libère ce qui n\'est plus nécessaire.',
     intensity: 'forte' },
 
   // ═══ 2034 (NASA) ═══
@@ -828,9 +828,9 @@ export function getMercuryStatus(date: Date = new Date()): MercuryStatus {
       const daysLeft = Math.ceil((start - now) / DAY);
       return {
         phase: 'pre-shadow', points: -1,
-        label: 'Pré-ombre Mercure',
+        label: 'Mercure en approche rétro',
         daysLeft,
-        conseil: `Mercure entre en zone d'ombre — commence à ralentir tes projets de communication (rétro dans ${daysLeft}j).`,
+        conseil: `Mercure ralentit avant de reculer — commence à consolider tes projets de communication plutôt qu'en lancer de nouveaux (rétrograde dans ${daysLeft}j).`,
       };
     }
     // Stationnaire rétrograde : 2 premiers jours
@@ -864,9 +864,9 @@ export function getMercuryStatus(date: Date = new Date()): MercuryStatus {
       const daysLeft = Math.ceil((postShadow - now) / DAY);
       return {
         phase: 'post-shadow', points: -1,
-        label: 'Post-ombre Mercure',
+        label: 'Mercure retrouve sa clarté',
         daysLeft,
-        conseil: `Mercure sort de l'ombre — les malentendus se dissipent. Tu peux relancer progressivement (zone claire dans ${daysLeft}j).`,
+        conseil: `Mercure sort de sa zone d'ombre — les malentendus se dissipent progressivement. Tu peux relancer tes projets (clarté complète dans ${daysLeft}j).`,
       };
     }
   }
@@ -984,7 +984,7 @@ const PLANET_RETRO_CONFIG: Record<RetrogradePlanet, {
     icon: '♄',
     labelFr: 'Saturne',
     basePts: -1,
-    conseil: 'Saturne rétrograde — structures challengées. Leçons karmiques amplifiées, révise tes fondations.',
+    conseil: 'Saturne rétrograde — structures challengées. Leçons de vie amplifiées, révise tes fondations.',
     conseilPositif: 'Les structures qui résistent à l\'examen sont celles qui durent.',
   },
 };
@@ -1052,6 +1052,7 @@ export interface NatalMoon {
   needs: string;         // Besoins émotionnels
   instinct: string;      // Réaction instinctive
   security: string;      // Ce qui te sécurise
+  comfort?: string;      // Ce qui te sécurise (alias pour security) — fallback to security if missing
   qualities: string;     // Forces émotionnelles
   vigilance: string;     // Ombre émotionnelle
   hack: string;          // Conseil concret pour entrepreneurs
@@ -1429,7 +1430,7 @@ export function getLunarNodeTransit(birthDate: string, today: string): LunarNode
 
   if (angle < 15) {
     alignment = 'conjoint';
-    alignmentDesc = '🌟 Retour des Nœuds — moment karmique majeur. Ta direction de vie est réactivée avec une intensité maximale.';
+    alignmentDesc = '🌟 Retour des Nœuds — moment de vie majeur. Ta direction de vie est réactivée avec une intensité maximale.';
   } else if (Math.abs(angle - 180) < 15) {
     alignment = 'opposé';
     alignmentDesc = '🔄 Inversion des Nœuds — tension entre passé et futur. Ce qui te retient (Nœud Sud) réclame ton attention avant d\'avancer.';
@@ -1465,7 +1466,7 @@ export function getNodeKeyMoments(birthDate: string): { age: number; year: numbe
     .map(r => ({
       ...r,
       label: r.type === 'return'
-        ? `↻ Retour des Nœuds (${r.age} ans) — réactivation de la mission karmique`
+        ? `↻ Retour des Nœuds (${r.age} ans) — réactivation de la mission de vie`
         : `⇄ Inversion des Nœuds (${r.age} ans) — tension passé/futur, choix crucial`,
     }));
 }
@@ -1605,10 +1606,10 @@ export function getVoidOfCourseMoon(targetDate: string): VoidOfCourseMoon {
 
   if (isVoC && degreesLeft <= VOC_FORTE_DEG) {
     intensity = 'forte';
-    advice = `Lune Hors Cours — ne lance rien d'important. Les actions initiées maintenant n'aboutissent pas. Attends le passage en ${nextSign} (~${hoursUntilSignChange}h).`;
+    advice = `La Lune quitte son signe sans former de nouvel aspect (Lune "hors cours" en astrologie horaire) — ne lance rien d'important. Les actions initiées maintenant n'aboutissent pas. Attends le passage en ${nextSign} (~${hoursUntilSignChange}h).`;
   } else if (isVoC) {
     intensity = 'moyenne';
-    advice = `Lune en fin de signe (~${degreesLeft.toFixed(0)}° restants, VoC depuis ~${vocStartHoursAgo}h). Période de flottement — termine ce qui est en cours, mais ne lance pas de nouveau projet.`;
+    advice = `La Lune est en fin de signe (~${degreesLeft.toFixed(0)}° restants) — période de flottement dite "hors cours" en astrologie horaire. Termine ce qui est en cours, mais ne lance pas de nouveau projet.`;
   } else {
     intensity = 'faible';
     advice = `Lune active en ${MOON_SIGN_NAMES[Math.floor(moonLong / 30) % 12]} — les actions portent leurs fruits normalement.`;

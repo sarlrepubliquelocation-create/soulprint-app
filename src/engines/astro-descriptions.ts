@@ -39,15 +39,15 @@ export const PLANET_DESC: Record<string, Record<string, string>> = {
 
   // ☿ MERCURE — communication, pensée, apprentissage
   mercury: {
-    Aries:       "Pensée directe et rapide. Tu communiques sans filtre, allez droit au but. Bon pour les pitchs courts et les décisions flash.",
+    Aries:       "Pensée directe et rapide. Tu communiques sans filtre, va droit au but. Bon pour les pitchs courts et les décisions flash.",
     Taurus:      "Réflexion méthodique et pragmatique. Tu ne te précipites jamais — chaque idée est pesée, testée, validée.",
-    Gemini:      "Mental brillant et versatile. Tu jongles entre les sujets, connectez les dots. Communication naturelle et persuasive.",
-    Cancer:      "Pensée intuitive et mémorielle. Tu retenns tout, surtout les contextes émotionnels. Communication empathique et nuancée.",
+    Gemini:      "Mental brillant et versatile. Tu jongles entre les sujets, connecte les dots. Communication naturelle et persuasive.",
+    Cancer:      "Pensée intuitive et mémorielle. Tu retiens tout, surtout les contextes émotionnels. Communication empathique et nuancée.",
     Leo:         "Expression charismatique et créative. Tu communiques avec autorité et générosité. Bon storytelling naturel.",
-    Virgo:       "Analyse chirurgicale et pensée systématique. Tu décortiques, classez, optimisez. Excellent en audit, reporting, process.",
+    Virgo:       "Analyse chirurgicale et pensée systématique. Tu décortiques, classes, optimises. Excellent en audit, reporting, process.",
     Libra:       "Communication diplomatique et équilibrée. Tu peses chaque mot, cherche le consensus. Bon négociateur et médiateur.",
-    Scorpio:     "Pensée pénétrante et stratégique. Tu cherches ce qui est caché, détectez les mensonges. Communication incisive.",
-    Sagittarius: "Pensée globale et visionnaire. Tu connecttes les grandes idées mais pouvez négliger les détails. Communication enthousiaste.",
+    Scorpio:     "Pensée pénétrante et stratégique. Tu cherches ce qui est caché, détecte les mensonges. Communication incisive.",
+    Sagittarius: "Pensée globale et visionnaire. Tu connectes les grandes idées mais peux négliger les détails. Communication enthousiaste.",
     Capricorn:   "Mental structuré et pragmatique. Tu penses en termes de résultats, d'efficacité et de ROI. Communication factuelle.",
     Aquarius:    "Pensée originale et non-conventionnelle. Tu vois des solutions là où d'autres voient des murs. Communication innovante.",
     Pisces:      "Pensée intuitive et créative. Tu captes les ambiances et les sous-textes. Communication poétique, parfois floue sur les détails.",
@@ -63,22 +63,22 @@ export const PLANET_DESC: Record<string, Record<string, string>> = {
     Virgo:       "Amour discret et pratique. Tu montres ton affection par le service et l'attention aux détails. Gestion financière prudente.",
     Libra:       "Sens esthétique raffiné et talent relationnel. Tu crées l'harmonie autour de toi. Partenariats stratégiques naturels.",
     Scorpio:     "Intensité relationnelle et loyauté absolue. Tu investis totalement ou pas du tout. Flair financier instinctif.",
-    Sagittarius: "Relations libres et enthousiastes. Tu attires par ta joie de vivre et ta ouverture. Goût pour l'international.",
+    Sagittarius: "Relations libres et enthousiastes. Tu attires par ta joie de vivre et ton ouverture. Goût pour l'international.",
     Capricorn:   "Relations construites dans la durée. Tu valoris la fiabilité et le sérieux. Investissements conservateurs et rentables.",
-    Aquarius:    "Relations originales et libres. Tu attires par ta différence et ta indépendance d'esprit. Valeurs humanistes.",
+    Aquarius:    "Relations originales et libres. Tu attires par ta différence et ton indépendance d'esprit. Valeurs humanistes.",
     Pisces:      "Empathie et dévouement dans les relations. Tu attires par ta sensibilité et ta compassion. Attention à la naïveté financière.",
   },
 
   // ♂ MARS — action, énergie, combativité, gestion de conflit
   mars: {
-    Aries:       "Énergie explosive et initiative pure. Tu agisses d'abord, réfléchissez ensuite. Compétiteur né, leader d'action.",
+    Aries:       "Énergie explosive et initiative pure. Tu agis d'abord, réfléchis ensuite. Compétiteur né, leader d'action.",
     Taurus:      "Force constante et détermination implacable. Tu avances lentement mais rien ne t\'arrête. Endurance exceptionnelle.",
-    Gemini:      "Action par la communication et la stratégie. Tu combatttes avec les mots et l'agilité mentale. Multi-front efficace.",
-    Cancer:      "Énergie protectrice et défensive. Tu te battez férocement pour tes proches et tes projets. Action émotionnellement motivée.",
+    Gemini:      "Action par la communication et la stratégie. Tu combats avec les mots et l'agilité mentale. Multi-front efficace.",
+    Cancer:      "Énergie protectrice et défensive. Tu te bats férocement pour tes proches et tes projets. Action émotionnellement motivée.",
     Leo:         "Action théâtrale et courageuse. Tu mènes les charges, prends les risques visibles. Leadership par l'exemple.",
     Virgo:       "Action méthodique et précise. Tu avances étape par étape, sans gaspiller d'énergie. Efficacité opérationnelle maximale.",
     Libra:       "Action diplomatique et mesurée. Tu préfères la négociation au conflit direct. Attention à l'indécision sous pression.",
-    Scorpio:     "Puissance stratégique intense. Tu agisses en profondeur, planifie dans l'ombre. Capacité de transformation radicale.",
+    Scorpio:     "Puissance stratégique intense. Tu agis en profondeur, planifie dans l'ombre. Capacité de transformation radicale.",
     Sagittarius: "Action expansive et audacieuse. Tu vis grand, prends des risques calculés. Énergie abondante et optimiste.",
     Capricorn:   "Discipline d\'action et ambition structurée. Tu grimpes méthodiquement, dépasse les obstacles par la persévérance.",
     Aquarius:    "Action innovante et collective. Tu combats pour les causes et bouscule le statu quo. Énergie irrégulière mais percutante.",
@@ -103,7 +103,7 @@ export const PLANET_DESC: Record<string, Record<string, string>> = {
 
   // ♄ SATURNE — discipline, limites, maturité, structure
   saturn: {
-    Aries:       "Leçon de patience dans l'action. Tu apprends à canaliser ton impulsivité en force stratégique. Discipline du timing.",
+    Aries:       "Leçon de patience dans l'action. Tu apprends à canaliser ton impulsivité en force stratégique. Discipline du moment juste.",
     Taurus:      "Épreuves autour de la sécurité matérielle. Tu construis une solidité financière indestructible par le travail et la rigueur.",
     Gemini:      "Structure de la pensée et de la communication. Tu apprends la profondeur au détriment de la superficialité.",
     Cancer:      "Leçons émotionnelles et familiales. Tu construis une base solide, parfois après des épreuves d'attachement.",
@@ -113,7 +113,7 @@ export const PLANET_DESC: Record<string, Record<string, string>> = {
     Scorpio:     "Discipline émotionnelle et transformation profonde. Tu traverses les crises en en sortant plus fort.",
     Sagittarius: "Structure dans la vision et la philosophie. Tu apprends à concrétiser tes grandes idées avec méthode.",
     Capricorn:   "Saturne chez lui — discipline native. Ambition froide, construction patiente, récolte tardive mais solide.",
-    Aquarius:    "Structure dans l'innovation. Tu apprends à cadrer ta originalité pour qu'elle devienne viable et impactante.",
+    Aquarius:    "Structure dans l'innovation. Tu apprends à cadrer ton originalité pour qu'elle devienne viable et impactante.",
     Pisces:      "Leçon de limites dans la dissolution. Tu apprends à protéger ton énergie et canaliser ton empathie.",
   },
 

@@ -163,7 +163,7 @@ export const NAKSHATRAS: NakshatraData[] = [
     archetype: 'Le Roi Ancestral',
     keyTrait: 'Autorité et lignée',
     shadowAspect: 'Arrogance et attachement au passé',
-    coreText: "Magha est le Nakshatra des ancêtres et de l'autorité royale. Il y a en toi une conscience de ton lignée, de ce que tu as hérité et de ce que tu transmettres. Ce jour amplifie les questions de leadership, de statut et d'héritage. Favorable au Business, difficile pour l'humilité.",
+    coreText: "Magha est le Nakshatra des ancêtres et de l'autorité royale. Il y a en toi une conscience de ton lignée, de ce que tu as hérité et de ce que tu transmettres. Ce jour amplifie les questions de leadership, de statut et d'héritage. Favorable aux Affaires, difficile pour l'humilité.",
     globalBaseScore: 0,
     domainModifiers: { Business: 1.25, Amour: 0.9, Relations: 0.95, Créativité: 0.9, Introspection: 1.1, Vitalité: 1.0 },
   },

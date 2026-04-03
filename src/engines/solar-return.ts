@@ -1,6 +1,6 @@
 // ═══ SOLAR RETURN ENGINE V6.0 ═══
 // Révolution Solaire — 4 règles sans Maisons (Gemini R2 + Grok R2)
-// Décisions verrouillées : Ronde V6.0 R1+R2
+// Décisions verrouillées : Ronde V6.0 R1+R2, Ronde #3 (R1 tautologie → ASC SR)
 //
 // Algorithme :
 //   Binary search ±2j autour de l'anniversaire
@@ -144,21 +144,16 @@ function scoreSolarReturn(
   const breakdown: string[] = [];
   let score = 0;
 
-  // ── R1 : ASC SR dans signe natal du Soleil
-  // Approximation sans Maisons : Soleil SR dans signe natal = résonance identitaire
+  // ── Longitudes SR ──
   const srSunLong = getPlanetLongitudeForDate('sun', srDate);
   const srSaturnLong = getPlanetLongitudeForDate('saturn', srDate);
   const srJupiterLong = getPlanetLongitudeForDate('jupiter', srDate);
   const srMercuryLong = getPlanetLongitudeForDate('mercury', srDate);
   const srVenusLong = getPlanetLongitudeForDate('venus', srDate);
 
-  // R1 : Soleil SR dans même signe que natal (proxy ASC SR sans calcul de Maisons)
+  // R1 déplacée dans calcSolarReturn() : ASC SR dans signe ASC natal (Ronde #3 unanimité 3/3)
+  // L'ancienne R1 (Soleil SR = signe Soleil natal) était une tautologie pour un retour solaire
   const natalSunSign = signIndex(natalSunLong);
-  const srSunSign = signIndex(srSunLong);
-  if (natalSunSign === srSunSign) {
-    score += 3;
-    breakdown.push(`SR R1 +3 : Soleil SR dans ${SIGNS[natalSunSign]} (signe natal) — résonance identitaire`);
-  }
 
   // R2 : Saturne SR conjonction planète personnelle natale ±3°
   const personalNatal: Array<{ long: number | null; label: string }> = [
@@ -278,7 +273,7 @@ export function calcSolarReturn(
     }
 
     // 4. Scorer les 4 règles
-    const { score, breakdown } = scoreSolarReturn(
+    let { score, breakdown } = scoreSolarReturn(
       srDate,
       natalSunLong,
       natalMoonLong,
@@ -301,35 +296,19 @@ export function calcSolarReturn(
         const srAscDeg = +(srAscLon % 30).toFixed(1);
 
         // Déterminer dans quelle maison natale tombe l'ASC RS
-        // Méthode : comparer la longitude de l'ASC RS aux cusps natales
-        let natalHouse = 1;
-        if (astro.hs && astro.hs.length === 12) {
-          // Reconstruire les longitudes des cusps natales (approximation par signe)
-          // Pour WS: chaque cusp = début du signe
+        // Méthode Whole Sign pure (Ronde #1 — unanimité 3/3)
+        // Identique à lunar-return.ts : distance en signes entre ASC natal et ASC RS
+        let natalHouse: number | null = null;
+        {
           const natalAscIdx = SIGNS.indexOf(astro.b3.asc);
-          for (let i = 11; i >= 0; i--) {
-            const cuspSignIdx = SIGNS.indexOf(astro.hs[i]);
-            const cuspLon = cuspSignIdx * 30; // début du signe
-            const srAscNorm = ((srAscLon - cuspLon) % 360 + 360) % 360;
-            const nextCuspIdx = (i + 1) % 12;
-            const nextCuspSignIdx = SIGNS.indexOf(astro.hs[nextCuspIdx]);
-            const nextCuspLon = nextCuspSignIdx * 30;
-            const span = ((nextCuspLon - cuspLon) % 360 + 360) % 360;
-            if (srAscNorm >= 0 && srAscNorm < (span || 30)) {
-              natalHouse = i + 1;
-              break;
-            }
+          const srAscIdx = SIGNS.indexOf(srAscSign);
+          if (natalAscIdx >= 0 && srAscIdx >= 0) {
+            natalHouse = ((srAscIdx - natalAscIdx + 12) % 12) + 1;
           }
-          // Fallback simplifié: utiliser le signe
-          if (natalHouse === 1 && astro.hs) {
-            const srSignIdx = SIGNS.indexOf(srAscSign);
-            for (let i = 0; i < 12; i++) {
-              if (SIGNS.indexOf(astro.hs[i]) === srSignIdx) {
-                natalHouse = i + 1;
-                break;
-              }
-            }
-          }
+        }
+        if (natalHouse === null) {
+          if (import.meta.env.DEV) console.warn('[SolarReturn] Impossible de calculer la maison natale WS, fallback maison 1');
+          natalHouse = 1;
         }
 
         const theme = HOUSE_THEME[natalHouse] || 'identité';
@@ -343,10 +322,20 @@ export function calcSolarReturn(
 
         // Ajouter au breakdown narratif
         breakdown.push(`SR ASC : ${SIGN_FR[srAscSign] || srAscSign} ${srAscDeg}° → Maison natale ${natalHouse} (${theme})`);
+
+        // ── R1 : ASC SR dans même signe que ASC natal (+3) ──
+        // Ronde #3 unanimité 3/3 — remplace l'ancienne tautologie (Soleil SR = signe natal Soleil)
+        // Doctrine : Abu Ma'shar, Volguine — ASC RS dans signe ASC natal = année charnière
+        if (astro.b3?.asc && srAscSign === astro.b3.asc) {
+          score = Math.max(-6, Math.min(6, score + 3));
+          breakdown.push(`SR R1 +3 : ASC SR dans ${SIGN_FR[srAscSign] || srAscSign} (signe ASC natal) — année charnière`);
+        }
       }
     }
 
-    return { srDate, totalScore: score, breakdown, hasActiveSR, srAsc };
+    // Recalculer le cap final (R1 peut avoir été ajoutée après le cap initial)
+    const finalScore = Math.max(-6, Math.min(6, score));
+    return { srDate, totalScore: finalScore, breakdown, hasActiveSR, srAsc };
 
   } catch (e) {
     console.warn('[SolarReturn] Calcul échoué:', e);

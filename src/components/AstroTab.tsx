@@ -1,25 +1,29 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { sto } from '../engines/storage';
 import { type SoulData } from '../App';
-import { SIGNS, SIGN_FR, SIGN_SYM, SIGN_ELEM, PLANET_FR, PLANET_SYM, ASPECT_SYM, ASPECT_COL, ELEM_FR, ELEM_COL, DIG_SYM, DIG_FR, type AstroChart, type Stellium, type DominantPlanet, type GrandTrine, type TSquare } from '../engines/astrology';
+import { SIGNS, SIGN_FR, SIGN_SYM, SIGN_ELEM, PLANET_FR, PLANET_SYM, ASPECT_SYM, ASPECT_COL, ELEM_FR, ELEM_COL, DIG_SYM, DIG_FR, getPlanetHousePlacidus, type AstroChart, type Stellium, type DominantPlanet, type GrandTrine, type TSquare } from '../engines/astrology';
 import { getPlanetSignDesc } from '../engines/astro-descriptions';
-import { calcProfection, type ProfectionResult } from '../engines/profections';
-import { calcSolarReturn, type SolarReturnResult } from '../engines/solar-return';
-import { calcProgressions, type ProgressionsResult } from '../engines/progressions';
-import { getUpcomingLunarPhases, type UpcomingLunarPhase } from '../engines/moon';
-import { calcLunarReturn, type LunarReturnResult } from '../engines/lunar-return';
-import { Sec, Cd, P, SectionGroup } from './ui';
-import { getCalibOffset } from '../engines/calibration';
+import { Sec, Cd, P, SectionGroup, a11yClick } from './ui';
+// Phase 3d — calculs purs extraits dans useAstroComputed
+import { useAstroComputed } from '../hooks/useAstroComputed';
+
+// === Domaines de vie par maison (unique source de vérité) ===
+const HOUSE_DOMAIN: Record<number, string> = {
+  1: 'Identité', 2: 'Finances', 3: 'Communication', 4: 'Foyer',
+  5: 'Créativité', 6: 'Santé', 7: 'Relations', 8: 'Transformations',
+  9: 'Sagesse', 10: 'Carrière', 11: 'Projets', 12: 'Spiritualité',
+};
 
 // === Labels courts pour la roue ===
 const PL_SHORT: Record<string, string> = { sun:'So', moon:'Lu', mercury:'Me', venus:'Vé', mars:'Ma', jupiter:'Ju', saturn:'Sa', uranus:'Ur', neptune:'Ne', pluto:'Pl', northNode:'☊', southNode:'☋', chiron:'⚷', lilith:'⚸' };
 
 // === Ce que chaque planète représente EN TOI (langage humain) ===
 const PL_HUMAN: Record<string, string> = {
-  sun: 'ton identité', moon: 'tes émotions', mercury: 'ta pensée', venus: 'ton cœur',
+  sun: 'ton identité', moon: 'ton monde émotionnel', mercury: 'ta pensée', venus: 'ton cœur',
   mars: 'ton énergie', jupiter: 'ta chance', saturn: 'ta structure',
   uranus: 'ton originalité', neptune: 'ton intuition', pluto: 'ta transformation',
-  northNode: 'ta direction de vie', southNode: 'ton passé karmique',
-  chiron: 'ta blessure-guérison', lilith: 'ta part sauvage',
+  northNode: 'ta direction de vie', southNode: 'ton héritage passé',
+  chiron: 'ton point de sensibilité profonde', lilith: 'ta part sauvage',
 };
 
 // === Verbes d'aspect en langage naturel (pour lecture de thème) ===
@@ -27,6 +31,8 @@ const ASPECT_HUMAN: Record<string, string> = {
   conjunction: 'fusionne avec', opposition: 'doit composer avec',
   trine: 'nourrit naturellement', square: 'est en tension créative avec',
   sextile: 'ouvre des portes à',
+  quincunx: 'est en ajustement avec',
+  sesquisquare: 'est en friction subtile avec',
 };
 
 // ══════════════════════════════════════
@@ -36,25 +42,28 @@ const ASPECT_HUMAN: Record<string, string> = {
 // ══════════════════════════════════════
 
 function buildNatalContext(astro: AstroChart): string {
+  const pFR = (k: string) => PLANET_FR[k] || k;
+  const sFR = (k: string) => SIGN_FR[k] || k;
+  const eFR = (k: string) => ELEM_FR[k] || k;
   const parts: string[] = [];
-  parts.push(`Soleil : ${astro.b3.sun}`);
-  parts.push(`Lune : ${astro.b3.moon}`);
-  parts.push(`Ascendant : ${astro.b3.asc}`);
-  if (astro.mcSign) parts.push(`MC : ${astro.mcSign}`);
-  if (astro.dominant?.length) parts.push(`Dominante : ${astro.dominant[0].planet}`);
+  parts.push(`Soleil : ${sFR(astro.b3.sun)}`);
+  parts.push(`Lune : ${sFR(astro.b3.moon)}`);
+  parts.push(`Ascendant : ${sFR(astro.b3.asc)}`);
+  if (astro.mcSign) parts.push(`MC : ${sFR(astro.mcSign)}`);
+  if (astro.dominant?.length) parts.push(`Dominante : ${pFR(astro.dominant[0].planet)}`);
   astro.stelliums?.forEach((s: Stellium) => {
     if (s.planets.length >= 3)
-      parts.push(`Stellium ${s.type} ${s.name} (${s.planets.length} planètes) : ${s.planets.join(', ')}`);
+      parts.push(`Stellium ${s.type} ${s.name} (${s.planets.length} planètes) : ${s.planets.map(pFR).join(', ')}`);
   });
   astro.grandTrines?.forEach((gt: GrandTrine) => {
-    parts.push(`Grand Trigone ${gt.element} : ${gt.planets.join(' – ')}`);
+    parts.push(`Grand Trigone ${eFR(gt.element)} : ${gt.planets.map(pFR).join(' – ')}`);
   });
   astro.tSquares?.forEach((ts: TSquare) => {
-    parts.push(`T-Carré apex ${ts.apex} (opposition : ${ts.opposition.join(' / ')})`);
+    parts.push(`T-Carré apex ${pFR(ts.apex)} (opposition : ${ts.opposition.map(pFR).join(' / ')})`);
   });
   const topAspects = [...(astro.as || [])].sort((a, b) => a.o - b.o).slice(0, 8);
   if (topAspects.length)
-    parts.push(`Aspects serrés : ${topAspects.map(a => `${a.p1}-${a.p2} ${a.t} (${a.o.toFixed(1)}°)`).join(' | ')}`);
+    parts.push(`Aspects serrés : ${topAspects.map(a => `${pFR(a.p1)}-${pFR(a.p2)} ${a.t} (${a.o.toFixed(1)}°)`).join(' | ')}`);
   return parts.join('\n');
 }
 
@@ -104,10 +113,10 @@ const PL_ROLE: Record<string, string> = {
   uranus: 'Innovation · Rupture · Liberté',
   neptune: 'Intuition · Inspiration · Illusions',
   pluto: 'Pouvoir · Transformation · Ombres',
-  northNode: 'Destin · Direction karmique · Ce à développer',
-  southNode: 'Héritage · Acquis d\'âme · Ce à dépasser',
-  chiron: 'Blessure primordiale · Guérison · Sagesse par l\'épreuve',
-  lilith: 'Ombre instinctive · Désirs refoulés · Puissance brute',
+  northNode: 'Cap de vie · Ce que tu construis · Direction à cultiver',
+  southNode: 'Héritage naturel · Ce que tu portes déjà · À transcender',
+  chiron: 'Point de sensibilité · Là où l\'épreuve devient force · Guérison',
+  lilith: 'Énergie brute non filtrée · Puissance instinctive · Ce que tu n\'apprivoises pas encore',
 };
 
 // === Aspects en français clair ===
@@ -125,7 +134,7 @@ const ASPECT_VIBE: Record<string, { label: string; col: string }> = {
   opposition: { label: '🔵 Face-à-face (opposition)', col: '#60a5fa' },
   trine: { label: '🟢 Harmonie (trigone)', col: '#4ade80' },
   square: { label: '🟠 Friction créative (carré)', col: '#f97316' },
-  sextile: { label: '🟢 Soutien (sextile)', col: '#60a5fa' },
+  sextile: { label: '🟢 Opportunité (sextile)', col: '#60a5fa' },
   quincunx: { label: '🟠 Ajustement (quinconce)', col: '#FF8C00' },
   sesquisquare: { label: '🟠 Friction subtile (sesqui-carré)', col: '#FF6347' },
 };
@@ -398,16 +407,16 @@ const DIG_TOOLTIP: Record<string, string> = {
 // === Big Three descriptions contextuelles ===
 const B3_DESC: Record<string, Record<string, string>> = {
   mc: {
-    Aries:'Vocation pionnière — tu réussisses en prenant des initiatives audacieuses.',
+    Aries:'Vocation pionnière — tu réussis en prenant des initiatives audacieuses.',
     Taurus:'Vocation bâtisseur — tu excelles dans ce qui dure, le concret, la création de valeur.',
     Gemini:'Vocation communicateur — tu brilles par la parole, l\'écriture, la transmission.',
-    Cancer:'Vocation nourricière — tu réussisses en prenant soin des autres.',
+    Cancer:'Vocation nourricière — tu réussis en prenant soin des autres.',
     Leo:'Vocation créatrice — tu brilles sur scène, dans les arts, dans le leadership.',
     Virgo:'Vocation analytique — tu excelles dans le service, la précision, la santé.',
     Libra:'Vocation harmonisatrice — tu brilles dans la diplomatie, la beauté, la justice.',
     Scorpio:'Vocation transformatrice — tu excelles dans l\'investigation et les crises.',
     Sagittarius:'Vocation visionnaire — tu brilles dans l\'enseignement, le voyage, la philosophie.',
-    Capricorn:'Vocation architecte — tu réussisses par la discipline et l\'ambition structurée.',
+    Capricorn:'Vocation architecte — tu réussis par la discipline et l\'ambition structurée.',
     Aquarius:'Vocation innovatrice — tu brilles dans l\'avant-garde et le collectif.',
     Pisces:'Vocation artistique — tu excelles dans la créativité, la spiritualité, le soin.',
   },
@@ -429,13 +438,13 @@ const B3_DESC: Record<string, Record<string, string>> = {
     Aries:'Sous pression, tu réagis vite et passes à l\'action.',
     Taurus:'Tu as besoin de sécurité et de stabilité pour performer.',
     Gemini:'Tu gères le stress par l\'analyse et la communication.',
-    Cancer:'Ta intuition émotionnelle est ton super-pouvoir.',
+    Cancer:'Ton intuition émotionnelle est ton super-pouvoir.',
     Leo:'Sous pression, tu montes en puissance et prends les commandes.',
     Virgo:'Tu canalises le stress dans l\'action concrète et l\'organisation.',
     Libra:'Le conflit te déstabilise — tu cherches l\'harmonie.',
     Scorpio:'Tes émotions sont intenses mais maîtrisées — résilience remarquable.',
     Sagittarius:'Tu rebondis avec optimisme en prenant du recul.',
-    Capricorn:'Tu compartimentais et avances — force silencieuse.',
+    Capricorn:'Tu compartimentes et avances — force silencieuse.',
     Aquarius:'Tu analyses tes émotions avec détachement productif.',
     Pisces:'Tu absorbes les ambiances — créativité et intuition profondes.',
   },
@@ -486,11 +495,14 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
   }, [astro, houseSystem]);
 
   // R25: Recalcul des stelliums par maison selon le système actif
+  // Si noTime, on exclut les stelliums par maison (maisons non fiables sans heure)
   const displayStelliums = useMemo(() => {
     if (!astro?.stelliums) return [];
+    const signStelliums = astro.stelliums.filter(s => s.type === 'sign');
+    // Pas de maisons si heure inconnue
+    if (astro.noTime) return signStelliums;
     if (houseSystem === 'placidus' || houseSystem === 'equal') return astro.stelliums;
     // En Whole Sign, recalculer les stelliums par maison avec les nouvelles attributions
-    const signStelliums = astro.stelliums.filter(s => s.type === 'sign');
     // Recalculer les stelliums par maison
     const byH: Record<number, string[]> = {};
     displayPl.forEach(p => {
@@ -515,52 +527,16 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
   }, [astro, displayPl, houseSystem]);
   const toggleDiffCount = toggleDiffs.length;
 
-  // R25: Profection annuelle
-  // IMPORTANT: astro.b3.asc/sun sont en anglais ("Gemini") mais profections.ts attend du français ("Gémeaux")
-  const profection = useMemo<ProfectionResult | null>(() => {
-    if (!astro || !bd) return null;
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const ascFr = SIGN_FR[astro.b3.asc] || null;
-    const sunFr = SIGN_FR[astro.b3.sun] || 'Bélier';
-    return calcProfection(bd, todayStr, ascFr, sunFr, astro.noTime);
-  }, [astro, bd]);
-
-  // R25: Retour Solaire avec ASC RS dans maisons natales
-  const solarReturn = useMemo<SolarReturnResult | null>(() => {
-    if (!astro || !bd || astro.noTime) return null;
-    try {
-      return calcSolarReturn(astro, bd, new Date(), bp);
-    } catch { return null; }
-  }, [astro, bd, bp]);
-
-  // R26: Progressions secondaires
-  const progressions = useMemo<ProgressionsResult | null>(() => {
-    if (!astro || !bd || astro.noTime) return null;
-    try { return calcProgressions(bd, new Date(), astro); }
-    catch { return null; }
-  }, [astro, bd]);
-
-  // R26: Phases lunaires structurées (prochaines NL/PL)
-  const upcomingPhases = useMemo<UpcomingLunarPhase[]>(() => {
-    if (!astro) return [];
-    try { return getUpcomingLunarPhases(new Date(), astro.b3?.asc || null); }
-    catch { return []; }
-  }, [astro]);
-
-  // R26: Retour lunaire mensuel
-  const lunarReturn = useMemo<LunarReturnResult | null>(() => {
-    if (!astro || astro.noTime) return null;
-    try { return calcLunarReturn(astro, new Date(), bp); }
-    catch { return null; }
-  }, [astro, bp]);
+  // Phase 3d — calculs purs extraits dans useAstroComputed
+  const { profection, solarReturn, progressions, upcomingPhases, lunarReturn,
+          topTransit, displayScore, dashMood } = useAstroComputed(data, bd, bp);
 
   // Charger le cache localStorage au montage
   useEffect(() => {
     if (!astro) return;
     try {
       const key = getPortraitCacheKey(astro);
-      const cached = localStorage.getItem(key);
+      const cached = sto.getRaw(key);
       if (cached) {
         setPortrait(JSON.parse(cached));
         setPortraitStatus('done');
@@ -590,7 +566,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
       const parsed: PortraitData = JSON.parse(clean);
       setPortrait(parsed);
       setPortraitStatus('done');
-      localStorage.setItem(getPortraitCacheKey(astro), JSON.stringify(parsed));
+      try { sto.set(getPortraitCacheKey(astro), parsed); } catch { /* quota exceeded — portrait affiché quand même */ }
     } catch {
       setPortraitStatus('error');
     } finally {
@@ -629,27 +605,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
     return [C + r * Math.cos(a), C + r * Math.sin(a)];
   }
 
-  // R27: Dashboard — trouver le transit le plus fort du jour
-  const topTransit = useMemo(() => {
-    if (!astro?.tr?.length) return null;
-    // Trier par orbe (le plus serré = le plus fort)
-    const sorted = [...astro.tr].sort((a, b) => a.o - b.o);
-    return sorted[0] || null;
-  }, [astro]);
-
-  // R27: Score affiché = score brut + calibOffset (identique au Pilotage)
-  const displayScore = useMemo(() => {
-    const raw = data.conv?.score ?? 50;
-    const offset = getCalibOffset();
-    return Math.max(0, Math.min(100, Math.round(raw + offset)));
-  }, [data.conv?.score]);
-
-  // R27: Couleur et icône du dashboard selon le score calibré
-  const dashMood = useMemo(() => {
-    if (displayScore >= 80) return { bg: 'linear-gradient(135deg, #D4AF3712, #4ade8008)', border: '#D4AF3730', icon: '🌤', label: 'Énergie favorable' };
-    if (displayScore >= 60) return { bg: 'linear-gradient(135deg, #60a5fa08, #D4AF3708)', border: '#60a5fa20', icon: '🌫', label: 'Énergie neutre' };
-    return { bg: 'linear-gradient(135deg, #8b5cf608, #ef444408)', border: '#8b5cf620', icon: '🌧', label: 'Énergie exigeante' };
-  }, [displayScore]);
+  // topTransit, displayScore, dashMood — fournis par useAstroComputed (Phase 3d)
 
   // === Aspects pour l'overlay plein écran ===
   const MAJOR_TYPES = ['conjunction', 'opposition', 'trine', 'square', 'sextile'];
@@ -673,7 +629,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
           <style>{`@keyframes fadeInWheel { from { opacity: 0; } to { opacity: 1; } }`}</style>
 
           {/* Bouton fermer */}
-          <div style={{ position: 'absolute', top: 16, right: 20, fontSize: 28, color: P.textDim, cursor: 'pointer' }} onClick={() => setShowFullWheel(false)}>✕</div>
+          <div style={{ position: 'absolute', top: 16, right: 20, fontSize: 28, color: P.textDim, cursor: 'pointer' }} {...a11yClick(() => setShowFullWheel(false))} aria-label="Fermer la carte du ciel">✕</div>
 
           {/* Titre */}
           <div style={{ fontSize: 14, fontWeight: 700, color: P.gold, marginBottom: 12, letterSpacing: 1, textTransform: 'uppercase' }}>Ta carte du ciel</div>
@@ -973,6 +929,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
           <Cd>
             <div style={{ fontSize: 12, color: P.textDim, marginBottom: 10, lineHeight: 1.5 }}>
               Chaque anniversaire ouvre un nouveau chapitre avec un thème dominant. À <strong style={{ color: P.text }}>{profection.age} ans</strong>, la vie t'invite à te concentrer sur le domaine « <strong style={{ color: P.gold }}>{profection.domain}</strong> ».
+              {astro.noTime && <span style={{ fontSize: 10, color: P.textDim, opacity: 0.7 }}><br/>Calculé depuis ton signe solaire (heure inconnue).</span>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={{ padding: '10px 12px', background: P.bg, borderRadius: 8, border: `1px solid ${P.gold}30` }}>
@@ -1148,7 +1105,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                     return (
                       <div key={i} style={{ padding: '8px 10px', background: P.bg, borderRadius: 8, borderLeft: `3px solid ${moodCol}40` }}>
                         <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>
-                          {icon} Ton <strong style={{ color: P.text }}>{progName}</strong> intérieur est <span style={{ color: P.textMid }}>{aspectLabel}</span> ton <strong style={{ color: P.text }}>{natalName}</strong> natal.
+                          {icon} Ton <strong style={{ color: P.text }}>{progName}</strong> progressé (qui évolue avec le temps) est <span style={{ color: P.textMid }}>{aspectLabel}</span> ton <strong style={{ color: P.text }}>{natalName}</strong> de naissance.
                         </div>
                         <div style={{ fontSize: 10, color: moodCol, marginTop: 3 }}>
                           {a.points > 0
@@ -1163,9 +1120,9 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             )}
             {progressions.solarArcAspects.length > 0 && (
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: P.textDim, marginBottom: 4, fontWeight: 600 }}>Tournants de fond :</div>
+                <div style={{ fontSize: 11, color: P.textDim, marginBottom: 4, fontWeight: 600 }}>Ce qui se transforme en profondeur (1-2 ans) :</div>
                 <div style={{ fontSize: 10, color: P.textDim, marginBottom: 8, lineHeight: 1.4, fontStyle: 'italic' }}>
-                  Certaines parties de toi se déplacent très lentement et activent de nouveaux thèmes sur 1 à 2 ans. Ce sont des évolutions de fond, pas des événements du jour.
+                  Ces connexions (arcs solaires) évoluent très lentement — elles activent de nouveaux thèmes sur des mois ou des années, pas au jour le jour.
                 </div>
                 <div style={{ display: 'grid', gap: 6 }}>
                   {progressions.solarArcAspects.slice(0, 3).map((a, i) => {
@@ -1219,11 +1176,14 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
       {/* ═══════════════════════════════════════════════════ */}
       <Sec icon="🌙" title="Ton portrait céleste">
         <Cd>
-          {astro.noTime && <div style={{ marginBottom: 12, padding: '6px 12px', background: `${P.gold}10`, borderRadius: 6, fontSize: 11, color: P.gold, textAlign: 'center' }}>⏱ Heure inconnue — calcul à midi, Ascendant non disponible.</div>}
+          {astro.noTime && <div style={{ marginBottom: 14, padding: '10px 14px', background: `${P.gold}12`, borderRadius: 8, border: `1px solid ${P.gold}30`, fontSize: 11, color: P.gold, textAlign: 'center', lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>⏱ Heure de naissance inconnue</div>
+            <div style={{ color: P.textMid, fontSize: 10 }}>Calcul effectué à midi par convention astrologique. Les positions du Soleil et des planètes lentes restent fiables. <b style={{ color: P.gold }}>L'Ascendant et les maisons ne sont pas calculés</b> — ils dépendent de l'heure exacte.</div>
+          </div>}
 
           {/* Mini-roue avec aspects majeurs — tap pour vue complète */}
           {!astro.noTime && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, cursor: 'pointer' }} onClick={() => setShowFullWheel(true)}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, cursor: 'pointer' }} {...a11yClick(() => setShowFullWheel(true))} aria-label="Ouvrir la carte du ciel complète">
               <svg viewBox={`0 0 ${WHL} ${WHL}`} width="100%" style={{ maxWidth: 220 }}>
                 {SIGNS.map((sign, i) => {
                   const a1 = i * 30 - 90, a2 = a1 + 30;
@@ -1289,7 +1249,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                  { k: 'moon', s: astro.b3.moon, lb: '☽ Lune — Tes émotions', sub: 'Tes réflexes sous pression' }]
               : [{ k: 'sun', s: astro.b3.sun, lb: '☉ Soleil — Ton identité', sub: 'Qui tu es fondamentalement' },
                  { k: 'moon', s: astro.b3.moon, lb: '☽ Lune — Tes émotions', sub: 'Tes réflexes sous pression' },
-                 { k: 'asc', s: astro.b3.asc, lb: '↑ Ascendant — Ta image', sub: 'Comment les autres te voient' }]
+                 { k: 'asc', s: astro.b3.asc, lb: '↑ Ascendant — Ton image', sub: 'Comment les autres te voient' }]
             ).map(({ k, s, lb, sub }) => {
               const ec = ELEM_COL[SIGN_ELEM[s]] || P.textDim;
               const desc = B3_DESC[k]?.[s] || '';
@@ -1323,6 +1283,9 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                 >
                   ✨ Décoder ma signature astrale (IA)
                 </button>
+                <div style={{ fontSize: 10, color: P.textDim, marginTop: 5, lineHeight: 1.4 }}>
+                  Génère un portrait personnalisé de ta combinaison Soleil · Lune · Ascendant en langage clair
+                </div>
               </div>
             )}
             {portraitStatus === 'loading' && (
@@ -1337,7 +1300,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             {portraitStatus === 'error' && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 6 }}>Portrait temporairement indisponible.</div>
-                <button onClick={generatePortrait} style={{ padding: '6px 16px', borderRadius: 6, border: '1px solid #ef444440', background: 'transparent', color: '#ef4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Réessayer</button>
+                <button onClick={generatePortrait} aria-label="Réessayer de générer le portrait" style={{ padding: '6px 16px', borderRadius: 6, border: '1px solid #ef444440', background: 'transparent', color: '#ef4444', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Réessayer</button>
               </div>
             )}
             {portraitStatus === 'done' && portrait && (
@@ -1351,8 +1314,8 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                   </div>
                 ))}
                 <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
-                  <button onClick={() => { const text = portrait.sections.map(s => `${s.titre}\n${s.contenu}`).join('\n\n'); navigator.clipboard?.writeText(text).catch(() => {}); }} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid #a78bfa30', background: 'transparent', color: '#a78bfa', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Copier</button>
-                  <button onClick={() => { setPortrait(null); setPortraitStatus('idle'); if (astro) localStorage.removeItem(getPortraitCacheKey(astro)); }} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${P.cardBdr}`, background: 'transparent', color: P.textDim, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Regénérer</button>
+                  <button onClick={() => { const text = portrait.sections.map(s => `${s.titre}\n${s.contenu}`).join('\n\n'); navigator.clipboard?.writeText(text).catch(() => {}); }} aria-label="Copier le portrait" style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid #a78bfa30', background: 'transparent', color: '#a78bfa', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Copier</button>
+                  <button onClick={() => { setPortrait(null); setPortraitStatus('idle'); if (astro) sto.remove(getPortraitCacheKey(astro)); }} aria-label="Regénérer le portrait" style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${P.cardBdr}`, background: 'transparent', color: P.textDim, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>Regénérer</button>
                 </div>
               </div>
             )}
@@ -1375,7 +1338,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ fontSize: 11, color: P.textDim }}>Découpage des domaines de vie :</span>
               {(['placidus', 'wholesign'] as LocalHouseSystem[]).map(hs => (
-                <button key={hs} onClick={() => setHouseSystem(hs)} style={{
+                <button key={hs} onClick={() => setHouseSystem(hs)} aria-label={`Système de maisons: ${HOUSE_SYSTEM_FR[hs]}`} style={{
                   fontSize: 11, padding: '3px 10px', borderRadius: 5, cursor: 'pointer', fontWeight: 600,
                   background: houseSystem === hs ? P.gold + '25' : 'transparent',
                   color: houseSystem === hs ? P.gold : P.textDim,
@@ -1431,7 +1394,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               const isExp = expandedPl.has(pl.k);
               return (
                 <div key={pl.k} style={{ background: c + '08', borderRadius: 10, border: `1px solid ${c}20`, overflow: 'hidden' }}>
-                  <div onClick={() => togglePl(pl.k)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
+                  <div {...a11yClick(() => togglePl(pl.k))} aria-label={`Détails de ${PLANET_FR[pl.k] || pl.k}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
                     <div style={{ width: 36, height: 36, borderRadius: 8, background: c + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, color: c, flexShrink: 0 }}>
                       {PLANET_SYM[pl.k]}
                     </div>
@@ -1439,14 +1402,14 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{PLANET_FR[pl.k]}</span>
                         <span style={{ fontSize: 12, color: c, fontWeight: 600 }}>{SIGN_SYM[pl.s]} {SIGN_FR[pl.s]}</span>
-                        {pl.retro && <span style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, background: '#ef444418', padding: '1px 4px', borderRadius: 3 }}>℞</span>}
+                        {pl.retro && <span style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, background: '#ef444418', padding: '1px 4px', borderRadius: 3 }} title="Rétrograde — cette énergie travaille en profondeur">℞ Rétro</span>}
                         {pl.dig && <span title={DIG_TOOLTIP[pl.dig]} style={{ fontSize: 9, color: DIG_COL[pl.dig], background: DIG_COL[pl.dig] + '18', padding: '1px 4px', borderRadius: 3, cursor: 'help' }}>{DIG_SYM[pl.dig]} {DIG_FR[pl.dig]}</span>}
                       </div>
                       <div style={{ fontSize: 10, color: P.textDim, marginTop: 1 }}>{role}</div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                       <span style={{ fontSize: 10, color: P.textDim }} title={`Position : ${pl.d.toFixed(1)}° dans le signe`}>{pl.d.toFixed(0)}°</span>
-                      {!astro.noTime && <span style={{ fontSize: 9, color: P.gold + 'AA' }}>{HOUSE_THEME_FR[pl.h] || `M.${pl.h}`}</span>}
+                      {!astro.noTime && <span style={{ fontSize: 9, color: P.gold + 'AA' }}>{HOUSE_THEME_FR[pl.h] || `Maison ${pl.h}`}</span>}
                     </div>
                     <span style={{ fontSize: 10, color: P.textDim }}>{isExp ? '▲' : '▼'}</span>
                   </div>
@@ -1476,7 +1439,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             })()}
           </div>
           {!showAllPlanets && displayPl.length > 5 && (
-            <button onClick={() => setShowAllPlanets(true)} style={{
+            <button onClick={() => setShowAllPlanets(true)} aria-label={`Voir les ${displayPl.length - 2 - 3} autres planètes`} style={{
               width: '100%', marginTop: 8, padding: '10px 0', borderRadius: 8,
               background: P.gold + '10', border: `1px solid ${P.gold}30`, color: P.gold,
               fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
@@ -1485,7 +1448,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             </button>
           )}
           {showAllPlanets && (
-            <button onClick={() => setShowAllPlanets(false)} style={{
+            <button onClick={() => setShowAllPlanets(false)} aria-label="Réduire la liste des planètes" style={{
               width: '100%', marginTop: 8, padding: '8px 0', borderRadius: 8,
               background: 'transparent', border: `1px solid ${P.textDim}30`, color: P.textDim,
               fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
@@ -1514,7 +1477,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                 { key: 'elements' as const, label: 'Éléments' },
                 { key: 'modes' as const, label: 'Modes' },
               ]).map(seg => (
-                <button key={seg.key} onClick={() => setTempSegment(seg.key)} style={{
+                <button key={seg.key} onClick={() => setTempSegment(seg.key)} aria-label={`Vue ${seg.label}`} style={{
                   flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   background: tempSegment === seg.key ? P.gold + '20' : 'transparent',
                   color: tempSegment === seg.key ? P.gold : P.textDim,
@@ -1665,7 +1628,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                   <div style={{ fontSize: 12, color: P.textMid, marginBottom: 8, padding: '6px 10px', background: P.bg, borderRadius: 6, lineHeight: 1.5 }}>
                     {MODE_INTRO[topMode] || `Ton mode dominant : ${MODE_FR[topMode]}`}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  <div className="grid-responsive-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                     {Object.entries(astro.mo).map(([k, v]) => {
                       const isTop = v === mx;
                       return (
@@ -1846,24 +1809,19 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               {(() => {
                 const pofSign = SIGNS[Math.floor(((astro.pof % 360) + 360) % 360 / 30)];
                 const pofDeg = +((astro.pof % 30)).toFixed(1);
+                // Ronde #3 F1 : placement exact via cusps en degrés (plus de proxy par signe)
                 const pofHouse = (() => {
                   if (astro.houseSystem === 'wholesign') {
                     const ascIdx = SIGNS.indexOf(astro.b3.asc);
                     const pIdx = SIGNS.indexOf(pofSign);
                     return ((pIdx - ascIdx + 12) % 12) + 1;
                   }
-                  // Placidus/Equal: trouver la maison par cusps
-                  for (let i = 11; i >= 0; i--) {
-                    const cuspSign = astro.hs[i];
-                    if (cuspSign === pofSign) return i + 1;
+                  // Placidus/Equal: placement exact via longitudes des cusps
+                  if (astro.hsCusps?.length === 12) {
+                    return getPlanetHousePlacidus(((astro.pof % 360) + 360) % 360, astro.hsCusps);
                   }
                   return 1;
                 })();
-                const HOUSE_DOMAIN: Record<number, string> = {
-                  1: 'Identité', 2: 'Finances', 3: 'Communication', 4: 'Foyer',
-                  5: 'Créativité', 6: 'Santé', 7: 'Relations', 8: 'Transformations',
-                  9: 'Sagesse', 10: 'Carrière', 11: 'Projets', 12: 'Spiritualité'
-                };
                 return (
                   <div style={{ padding: '10px 12px', background: P.bg, borderRadius: 8, border: `1px solid #FFD70030` }}>
                     <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', marginBottom: 4 }}>⊕ Part de Fortune</div>
@@ -1883,23 +1841,18 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               {astro.pos !== undefined && (() => {
                 const posSign = SIGNS[Math.floor(((astro.pos % 360) + 360) % 360 / 30)];
                 const posDeg = +((astro.pos % 30)).toFixed(1);
+                // Ronde #3 F1 : placement exact via cusps en degrés
                 const posHouse = (() => {
                   if (astro.houseSystem === 'wholesign') {
                     const ascIdx = SIGNS.indexOf(astro.b3.asc);
                     const pIdx = SIGNS.indexOf(posSign);
                     return ((pIdx - ascIdx + 12) % 12) + 1;
                   }
-                  for (let i = 11; i >= 0; i--) {
-                    const cuspSign = astro.hs[i];
-                    if (cuspSign === posSign) return i + 1;
+                  if (astro.hsCusps?.length === 12) {
+                    return getPlanetHousePlacidus(((astro.pos % 360) + 360) % 360, astro.hsCusps);
                   }
                   return 1;
                 })();
-                const HOUSE_DOMAIN: Record<number, string> = {
-                  1: 'Identité', 2: 'Finances', 3: 'Communication', 4: 'Foyer',
-                  5: 'Créativité', 6: 'Santé', 7: 'Relations', 8: 'Transformations',
-                  9: 'Sagesse', 10: 'Carrière', 11: 'Projets', 12: 'Spiritualité'
-                };
                 return (
                   <div style={{ padding: '10px 12px', background: P.bg, borderRadius: 8, border: `1px solid #C0AAFF30` }}>
                     <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', marginBottom: 4 }}>⊗ Part d'Esprit</div>
@@ -1976,11 +1929,16 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               ctx.fillText('Mon Thème Natal', W / 2, 80);
 
               // --- Big Three ---
-              const b3Data = [
-                { icon: '☉', label: 'Soleil', value: SIGN_FR[astro.b3.sun], sym: SIGN_SYM[astro.b3.sun] },
-                { icon: '☽', label: 'Lune', value: SIGN_FR[astro.b3.moon], sym: SIGN_SYM[astro.b3.moon] },
-                { icon: '↑', label: 'Ascendant', value: SIGN_FR[astro.b3.asc], sym: SIGN_SYM[astro.b3.asc] },
-              ];
+              const b3Data = astro.noTime
+                ? [
+                    { icon: '☉', label: 'Soleil', value: SIGN_FR[astro.b3.sun], sym: SIGN_SYM[astro.b3.sun] },
+                    { icon: '☽', label: 'Lune', value: SIGN_FR[astro.b3.moon], sym: SIGN_SYM[astro.b3.moon] },
+                  ]
+                : [
+                    { icon: '☉', label: 'Soleil', value: SIGN_FR[astro.b3.sun], sym: SIGN_SYM[astro.b3.sun] },
+                    { icon: '☽', label: 'Lune', value: SIGN_FR[astro.b3.moon], sym: SIGN_SYM[astro.b3.moon] },
+                    { icon: '↑', label: 'Ascendant', value: SIGN_FR[astro.b3.asc], sym: SIGN_SYM[astro.b3.asc] },
+                  ];
 
               const startY = 130;
               b3Data.forEach((item, i) => {
@@ -2070,7 +2028,9 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                 if (navigator.share && navigator.canShare?.({ files: [new File([blob], 'mon-theme-kaironaute.png', { type: 'image/png' })] })) {
                   navigator.share({
                     title: 'Mon Thème Natal — Kaironaute',
-                    text: `☉ ${SIGN_FR[astro.b3.sun]} · ☽ ${SIGN_FR[astro.b3.moon]} · ↑ ${SIGN_FR[astro.b3.asc]}`,
+                    text: astro.noTime
+                      ? `☉ ${SIGN_FR[astro.b3.sun]} · ☽ ${SIGN_FR[astro.b3.moon]}`
+                      : `☉ ${SIGN_FR[astro.b3.sun]} · ☽ ${SIGN_FR[astro.b3.moon]} · ↑ ${SIGN_FR[astro.b3.asc]}`,
                     files: [new File([blob], 'mon-theme-kaironaute.png', { type: 'image/png' })],
                   }).catch(() => {});
                 } else {

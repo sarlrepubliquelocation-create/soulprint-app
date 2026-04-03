@@ -54,9 +54,9 @@ export const sto = {
    */
   set(key: string, value: unknown, ttlDays?: number): void {
     const serialized = typeof value === 'string' ? value : JSON.stringify(value);
-    localStorage.setItem(key, serialized);
+    try { localStorage.setItem(key, serialized); } catch { /* quota exceeded — silent */ }
     if (ttlDays !== undefined) {
-      localStorage.setItem(key + TTL_SUFFIX, String(Date.now() + ttlDays * 86400000));
+      try { localStorage.setItem(key + TTL_SUFFIX, String(Date.now() + ttlDays * 86400000)); } catch { /* quota */ }
     }
   },
 

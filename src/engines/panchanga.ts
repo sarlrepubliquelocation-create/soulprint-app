@@ -336,11 +336,11 @@ export function calcTarabala(
 
   let label: string;
   if (delta > 0) {
-    label = `⭐ Tarabala ${name} (+${delta})`;
+    label = `⭐ Résonance ${name} (+${delta})`;
   } else if (delta < 0) {
-    label = `⚠️ Tarabala ${name} (${delta})`;
+    label = `⚠️ Résonance ${name} (${delta})`;
   } else {
-    label = `🌙 Tarabala ${name} (neutre)`;
+    label = `🌙 Résonance ${name} (neutre)`;
   }
 
   return { index: idx, name, delta, label };

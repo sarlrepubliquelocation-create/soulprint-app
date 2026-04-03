@@ -358,7 +358,7 @@ function buildTzolkinSynergies(
 
   // Cauac (Tempête) : journée de catalyse forcée
   if (glyph.name === 'Cauac') {
-    synergies.push('⛈ Glyphe Cauac — catalyse par friction, ne résistez pas au mouvement');
+    synergies.push('⛈ Glyphe Cauac — catalyse par friction, ne résiste pas au mouvement');
   }
 
   // Etznab (Miroir) : clarté tranchante

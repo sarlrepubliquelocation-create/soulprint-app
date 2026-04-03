@@ -159,8 +159,13 @@ export function calcLunarReturn(
     ? activeLR
     : findNextLunarReturn(natalMoonLong, today, 30);
 
+  // Ronde #3 F8 : diff calendaire (jours civils) au lieu de Math.ceil
   const daysUntilNext = nextLR
-    ? Math.ceil((nextLR.getTime() - today.getTime()) / 86400000)
+    ? Math.round(
+        (new Date(nextLR.getFullYear(), nextLR.getMonth(), nextLR.getDate()).getTime()
+         - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime())
+        / 86400000
+      )
     : 0;
 
   // Calculer l'ASC du retour lunaire

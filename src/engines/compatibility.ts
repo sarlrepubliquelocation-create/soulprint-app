@@ -63,7 +63,7 @@ function bondGaussianCDFFamille(rawScore: number): number {
 }
 
 // Variante Pro — μ=50, σ=16 (Ronde 13 — consensus 3/3 GPT+Grok+Gemini)
-// Médiane finale ≈68%, distribution plus "business" que Amour
+// Médiane finale ≈65% (identique Amour/Famille : 5+93×0.65), σ plus serré que Amour
 function bondGaussianCDFPro(rawScore: number): number {
   const z = (rawScore - 50) / 16;
   const phi = normalCDF(z);
@@ -179,7 +179,7 @@ const WEIGHTS: Record<BondMode, { bazi: number; num: number; iching: number; pea
 
 // Labels de compatibilité
 const BOND_LABELS: { min: number; label: BondLabel }[] = [
-  { min: 90, label: { name: 'Âmes Sœurs',       icon: '💫', color: '#E0B0FF', desc: 'Connexion exceptionnelle — lien karmique rare' } },
+  { min: 90, label: { name: 'Âmes Sœurs',       icon: '💫', color: '#E0B0FF', desc: 'Connexion exceptionnelle — lien d\'âme rare' } },
   { min: 78, label: { name: 'Alchimie Forte',    icon: '🔥', color: '#FFD700', desc: 'Compatibilité naturelle — énergie de fusion' } },
   { min: 65, label: { name: 'Belle Synergie',    icon: '✨', color: '#4ade80', desc: 'Complémentarité solide — terrain fertile' } },
   { min: 50, label: { name: 'Équilibre Possible', icon: '⚖️', color: '#60a5fa', desc: 'Potentiel à cultiver — dialogue nécessaire' } },
@@ -203,7 +203,7 @@ const FAMILLE_LABELS: { min: number; label: BondLabel }[] = [
   { min: 58, label: { name: 'Lien Complémentaire',     icon: '🌿', color: '#4ade80', desc: 'Différences enrichissantes — force dans la diversité' } },
   { min: 42, label: { name: 'Lien Exigeant',           icon: '🔮', color: '#818cf8', desc: 'Relation stimulante — le lien se construit par l\'effort conscient' } },
   { min: 28, label: { name: 'Lien de Transformation',  icon: '🧗', color: '#a78bfa', desc: 'Friction formatrice — croissance profonde par le défi' } },
-  { min: 0,  label: { name: 'Noeud Karmique Profond',  icon: '🔥', color: '#7c3aed', desc: 'Opposition structurelle — leçon de vie majeure' } },
+  { min: 0,  label: { name: 'Lien de Vie Profond',  icon: '🔥', color: '#7c3aed', desc: 'Opposition structurelle — leçon de vie majeure' } },
 ];
 
 function getFamilleLabel(score: number): BondLabel {
@@ -238,10 +238,11 @@ export interface ContextBadge {
 }
 
 type ScoreTier = 'high' | 'good' | 'moderate' | 'low';
+// Seuils alignés sur FAMILLE_LABELS : Âme≥88, Harmonie≥72, Complémentaire≥58, Exigeant≥42
 function getScoreTier(score: number): ScoreTier {
-  if (score >= 75) return 'high';
-  if (score >= 55) return 'good';
-  if (score >= 40) return 'moderate';
+  if (score >= 72) return 'high';
+  if (score >= 58) return 'good';
+  if (score >= 42) return 'moderate';
   return 'low';
 }
 
@@ -266,7 +267,7 @@ const CONTEXT_BADGES: Record<FamilleCategory, Record<ScoreTier, ContextBadge>> =
   },
   fratrie: {
     high: {
-      icon: '💛', title: 'Lien Fusionnel',
+      icon: '💛', title: 'Harmonie Fraternelle',
       narrative: 'Une fratrie bénie par une complicité rare. L\'énergie entre vous coule naturellement — un lien de fond solide qui n\'a pas besoin de grands mots.',
     },
     good: {
@@ -297,13 +298,13 @@ const CONTEXT_BADGES: Record<FamilleCategory, Record<ScoreTier, ContextBadge>> =
     },
     low: {
       icon: '🔥', title: 'Défi Fondateur',
-      narrative: 'La relation porte une friction réelle qui te a profondément forgé. Ce n\'est pas un lien facile, c\'est un lien qui demande du travail pour devenir juste.',
+      narrative: 'La relation porte une friction réelle qui t\'a profondément forgé. Ce n\'est pas un lien facile, c\'est un lien qui demande du travail pour devenir juste.',
     },
   },
   grands_parents: {
     high: {
       icon: '🌳', title: 'Racines Ancestrales',
-      narrative: 'Un lien intergénérationnel exceptionnel. La mémoire familiale se transmet naturellement à travers vous.',
+      narrative: 'Un lien intergénérationnel exceptionnel. La mémoire familiale se transmet naturellement à travers ce lien.',
     },
     good: {
       icon: '🌿', title: 'Transmission Douce',
@@ -350,7 +351,7 @@ export function getContextBadge(score: number, familleSubType?: FamilleSubType):
 export const FAMILLE_DESC: Record<string, Record<string, string>> = {
   'Lien d\'Âme Familial': {
     fratrie:       "Miroir d'âme puissant — loyauté fraternelle indéfectible",
-    parent:        "Héritage d'âme majeur — transmission karmique profonde",
+    parent:        "Héritage d'âme majeur — transmission de vie profonde",
     grands_parents:"Résurgence d'âme — le clan se reconnaît à travers les âges",
     ami:           "Âmes complices — une amitié qui transcende le temps",
     coloc:         "Cohabitation magique — harmonie rare sous le même toit",
@@ -383,7 +384,7 @@ export const FAMILLE_DESC: Record<string, Record<string, string>> = {
     ami:           "Amitié-défi — la friction se transforme en stimulation mutuelle",
     coloc:         "Cohabitation transformatrice — grandir ensemble malgré les tensions",
   },
-  'Noeud Karmique Profond': {
+  'Lien de Vie Profond': {
     fratrie:       "Altérité radicale — respecter les distances s'impose",
     parent:        "L'enfant révèle l'ombre du parent — miroir intense",
     grands_parents:"Rupture énergétique — histoire familiale complexe",
@@ -481,8 +482,8 @@ function calcNumeroCompat(bdA: string, nameA: string, bdB: string, nameB: string
   const lpRaw = getNumCompat(lpA.v, lpB.v);
   const lpScore = Math.round(lpRaw * lpMultiplier);
 
-  if (lpRaw >= 8) signals.push(`CdV ${lpA.v}×${lpB.v} — résonance forte`);
-  else if (lpRaw <= 3) alerts.push(`CdV ${lpA.v}×${lpB.v} — vibrations très différentes`);
+  if (lpRaw >= 8) signals.push(`Chemin de Vie ${lpA.v}×${lpB.v} — résonance forte`);
+  else if (lpRaw <= 3) alerts.push(`Chemin de Vie ${lpA.v}×${lpB.v} — vibrations très différentes`);
 
   // Expression
   let exprScore = 0;
@@ -602,13 +603,27 @@ function calcIChingCompat(bdA: string, bdB: string): IChingCompatResult {
   const hiLowPts = scorePair(hexA.upper, hexB.lower, TRIGRAM_REL_CROSS);
   score += lowHiPts + hiLowPts;
 
-  // Signaux pour les paires significatives
+  // Signaux : afficher la paire la plus significative (pas toujours les trigrammes bas)
   const trigramMatch = lowLowPts > 0 || hiHiPts > 0 || lowHiPts > 0 || hiLowPts > 0;
-  const elemLowA = TRIGRAM_ELEMENT[hexA.lower] || 'Terre';
-  const elemLowB = TRIGRAM_ELEMENT[hexB.lower] || 'Terre';
+  const pairs = [
+    { pts: lowLowPts, a: hexA.lower, b: hexB.lower },
+    { pts: hiHiPts,   a: hexA.upper, b: hexB.upper },
+    { pts: lowHiPts,  a: hexA.lower, b: hexB.upper },
+    { pts: hiLowPts,  a: hexA.upper, b: hexB.lower },
+  ];
 
-  if (score > 0) signals.push(`☰ ${TRIGRAM_NAMES[hexA.lower]} (${elemLowA}) ↔ ${TRIGRAM_NAMES[hexB.lower]} (${elemLowB}) — flux favorable`);
-  if (score < 0) alerts.push(`☰ ${TRIGRAM_NAMES[hexA.lower]} (${elemLowA}) ↔ ${TRIGRAM_NAMES[hexB.lower]} (${elemLowB}) — tension élémentaire`);
+  if (score > 0) {
+    const best = pairs.reduce((a, b) => b.pts > a.pts ? b : a);
+    const eA = TRIGRAM_ELEMENT[best.a] || 'Terre';
+    const eB = TRIGRAM_ELEMENT[best.b] || 'Terre';
+    signals.push(`☰ ${TRIGRAM_NAMES[best.a]} (${eA}) ↔ ${TRIGRAM_NAMES[best.b]} (${eB}) — flux favorable`);
+  }
+  if (score < 0) {
+    const worst = pairs.reduce((a, b) => b.pts < a.pts ? b : a);
+    const eA = TRIGRAM_ELEMENT[worst.a] || 'Terre';
+    const eB = TRIGRAM_ELEMENT[worst.b] || 'Terre';
+    alerts.push(`☰ ${TRIGRAM_NAMES[worst.a]} (${eA}) ↔ ${TRIGRAM_NAMES[worst.b]} (${eB}) — tension élémentaire`);
+  }
 
   // 3. Même hexagramme — Ronde 9 (3/3) : +2
   if (hexA.hexNum === hexB.hexNum) {
@@ -623,7 +638,7 @@ function calcIChingCompat(bdA: string, bdB: string): IChingCompatResult {
     signals.push(`☰ Paire du Roi Wen (#${hexA.hexNum} ↔ #${hexB.hexNum}) — complémentarité structurelle`);
   }
 
-  const elementMatch = elemLowA === elemLowB;
+  const elementMatch = (TRIGRAM_ELEMENT[hexA.lower] || 'Terre') === (TRIGRAM_ELEMENT[hexB.lower] || 'Terre');
   const roiWen = ROI_WEN_PAIRS.has(pairKey);
 
   // Range [-6, +16] — pas de clamp artificiel
@@ -640,7 +655,7 @@ function calcIChingCompat(bdA: string, bdB: string): IChingCompatResult {
 
 const BAZI_INTERACTION_TEXT: Record<string, Record<BondMode, string>> = {
   tian_he: {
-    amour: "Entre vous, quelque chose s'accorde avant même les mots — cette fusion céleste invite à bâtir un lien rare, à condition de ne pas confondre évidence et acquis.",
+    amour: "Quelque chose s'accorde entre toi et l'autre avant même les mots — cette fusion céleste invite à bâtir un lien rare, à condition de ne pas confondre évidence et acquis.",
     pro: "Une vision commune t\'aligne instinctivement — cette fusion céleste accélère les projets à condition de garder des rôles clairs.",
     famille: "Au-delà du sang, une résonance d'âme t\'unit — cette fusion céleste te ramène toujours à l'essentiel, même dans le silence.",
   },
@@ -650,13 +665,13 @@ const BAZI_INTERACTION_TEXT: Record<string, Record<BondMode, string>> = {
     famille: "Un lien silencieux te protège mutuellement — cette alliance secrète est le ciment invisible de ta famille.",
   },
   san_he: {
-    amour: "Tu avances comme si une troisième force soutenait le lien — ce triangle d'harmonie donne de l'élan au couple quand tu choisisses la même direction intérieure.",
+    amour: "Tu avances comme si une troisième force soutenait le lien — ce triangle d'harmonie donne de l'élan au couple quand tu choisis la même direction intérieure.",
     pro: "La coopération est innée entre vous — ce triangle d'harmonie porte les projets loin si chacun nourrit le mouvement commun.",
     famille: "Tu incarnes la force du clan — ce triangle harmonieux crée une fondation solide sur laquelle toute la structure familiale peut s'appuyer.",
   },
   clash: {
     amour: "Tes différences te percutent pour mieux te réveiller — cette passion électrique exige de ne jamais chercher à soumettre la nature de l'autre.",
-    pro: "Le choc de tes méthodes est ton meilleur atout créatif — accepte la contradiction, c'est elle qui te empêche de stagner.",
+    pro: "Le choc de tes méthodes est ton meilleur atout créatif — accepte la contradiction, c'est elle qui t'empêche de stagner.",
     famille: "Ce lien bouscule tes certitudes générationnelles — c'est une épreuve de tolérance qui te pousse à accepter ce que tu ne comprends pas.",
   },
   harm: {
@@ -665,8 +680,8 @@ const BAZI_INTERACTION_TEXT: Record<string, Record<BondMode, string>> = {
     famille: "Les vieilles rancœurs ou les maladresses non dites testent ce lien — la guérison passe par le pardon des petites imperfections quotidiennes.",
   },
   punishment: {
-    amour: "Ton lien ne vient pas seulement apporter du confort, mais une leçon — cette épreuve karmique te demande de transformer une vieille manière d'aimer.",
-    pro: "Cette relation te confronte à une exigence plus grande que la simple efficacité — l'épreuve karmique pousse chacun à corriger ce qu'il répétait sans le voir.",
+    amour: "Ton lien ne vient pas seulement apporter du confort, mais une leçon — ce Défi d'évolution te demande de transformer une vieille manière d'aimer.",
+    pro: "Cette relation te confronte à une exigence plus grande que la simple efficacité — ce Défi d'évolution pousse chacun à corriger ce qu'il répétait sans le voir.",
     famille: "Tu portes ensemble une dette ou un fardeau transgénérationnel — ta relation est le creuset parfait pour briser enfin ce cycle.",
   },
 };
@@ -727,15 +742,15 @@ function baziBriefText(bazi: BaZiCompatResult, mode: BondMode): string {
 // ── Q2 : Numérologie — 45 paires + 6 Maîtres (GPT expert) ──
 
 const LP_PAIR_TEXT: Record<string, string> = {
-  '1-1': "Deux leaders se rencontrent ici — ton lien devient puissant quand tu décidds de construire ensemble au lieu de mesurer sans cesse qui mène.",
+  '1-1': "Deux leaders se rencontrent ici — ton lien devient puissant quand tu décides de construire ensemble au lieu de mesurer sans cesse qui mène.",
   '1-2': "Le pionnier (1) trace la voie, le diplomate (2) harmonise le voyage. Honore tes rôles respectifs : l'un donne l'impulsion, l'autre crée le ciment qui fait durer.",
   '1-3': "Le leader (1) et le créateur (3) forment un duo étincelant. Canalise cette énergie électrique dans des projets audacieux pour ne pas t\'épuiser en batailles d'ego.",
   '1-4': "L'initiateur (1) apporte l'étincelle, le bâtisseur (4) pose les fondations. Respecte le rythme de l'autre : la fulgurance a besoin de patience pour s'incarner.",
-  '1-5': "Le leader (1) trouve en l\'aventurier (5) un allié qui repousse ses limites. Ensemble, transformez les idées en mouvement, tout en gardant un point d\'ancrage.",
+  '1-5': "Le leader (1) trouve en l\'aventurier (5) un allié qui repousse ses limites. Ensemble, transforme les idées en mouvement, tout en gardant un point d\'ancrage.",
   '1-6': "Le leader (1) veut agir, le protecteur (6) veut prendre soin — ton lien s'épanouit quand l'ambition sert aussi quelque chose de plus grand.",
   '1-7': "L'homme d'action (1) croise le chercheur (7). Accepte tes silences mutuels : l'un a besoin de conquérir le monde, l'autre de le comprendre de l'intérieur.",
   '1-8': "Deux puissances pures (1 et 8) qui visent les sommets. Cette alliance de titans soulèvera des montagnes, à condition de partager le pouvoir avec une loyauté totale.",
-  '1-9': "Le pionnier (1) donne l'élan, l'humaniste (9) donne le sens global. Mets ton intensité commune au service d'un idéal plus grand que vous deux.",
+  '1-9': "Le pionnier (1) donne l'élan, l'humaniste (9) donne le sens global. Mets ton intensité commune au service d'un idéal plus grand que ton couple.",
   '2-2': "Deux diplomates créent un havre de paix absolue. Prends garde cependant à ne pas fuir les confrontations nécessaires par peur de briser cette douce harmonie.",
   '2-3': "Le conciliateur (2) offre l'écoute, l'artiste (3) apporte la lumière. Laisse la joie irradier ton lien tout en protégeant la grande sensibilité de chacun.",
   '2-4': "Le diplomate (2) et le bâtisseur (4) posent les fondations en silence. Ta force est dans la constance : célèbre la sécurité inébranlable de ton lien.",
@@ -743,7 +758,7 @@ const LP_PAIR_TEXT: Record<string, string> = {
   '2-6': "Entre le diplomate (2) et le nourricier (6), le dévouement est roi. Ton lien est un nid chaleureux, veille juste à ne pas t\'oublier en voulant trop donner.",
   '2-7': "La sensibilité du diplomate (2) s'allie à la profondeur du sage (7). Ta connexion est spirituelle : respecte ton besoin de calme pour mieux te retrouver.",
   '2-8': "Le diplomate (2) soutient, l'ambitieux (8) dirige. C'est un tandem redoutable si la valeur inestimable de celui qui reste dans l'ombre est pleinement reconnue.",
-  '2-9': "Le conciliateur (2) soigne l'individu, l'humaniste (9) embrasse le monde. Ta relation est un baume apaisant, irriguez-la de compassion mutuelle.",
+  '2-9': "Le conciliateur (2) soigne l'individu, l'humaniste (9) embrasse le monde. Ta relation est un baume apaisant, irrigue-la de compassion mutuelle.",
   '3-3': "Deux créateurs ensemble font pétiller l'existence ! Partage ton enthousiasme et tes rires, mais n'oublie pas d'ancrer tes rêves dans la réalité matérielle.",
   '3-4': "L'artiste (3) colore la vie, le bâtisseur (4) dresse les murs. Tes différences sont ta richesse : la fantaisie a besoin d'un cadre pour s'épanouir.",
   '3-5': "Le créatif (3) et l'aventurier (5) forment une tornade d'enthousiasme. Mange la vie à pleines dents, mais construis un point de chute pour ne pas te disperser.",
@@ -751,36 +766,36 @@ const LP_PAIR_TEXT: Record<string, string> = {
   '3-7': "Le communicant (3) rencontre l'analyste silencieux (7). C'est le dialogue entre la lumière et la profondeur : apprends à chérir l'authenticité derrière les mots non dits.",
   '3-8': "L'inspirateur (3) vend le rêve, l'ambitieux (8) le réalise et le structure. Un potentiel immense, si la légèreté de l'un respecte le sérieux de l'autre.",
   '3-9': "Le créatif (3) et le philosophe (9) portent une vision romantique de l'existence. Exprime tes idéaux par l'art, le verbe ou le cœur pour inspirer le monde.",
-  '4-4': "Deux bâtisseurs cimentent une relation indestructible. L'engagement est total, mais pensez à ouvrir parfois les fenêtres pour laisser entrer l'imprévu et la légèreté.",
-  '4-5': "La structure absolue (4) face à la liberté pure (5). C'est un défi magnétique : offrez-toi des racines et des ailes, sans jamais chercher à t\'enfermer.",
+  '4-4': "Deux bâtisseurs cimentent une relation indestructible. L'engagement est total, mais pense à ouvrir parfois les fenêtres pour laisser entrer l'imprévu et la légèreté.",
+  '4-5': "La structure absolue (4) face à la liberté pure (5). C'est un défi magnétique : offre-toi des racines et des ailes, sans jamais chercher à t\'enfermer.",
   '4-6': "Le roc (4) s'associe au nid (6). C'est la garantie d'une sécurité matérielle et affective absolue : la base idéale pour faire grandir la confiance sereinement.",
   '4-7': "Le pragmatique (4) et l'intellectuel (7) se rejoignent dans l'exigence. Ton lien est profond : partage tes connaissances et bâtis un refuge loin du tumulte.",
   '4-8': "Le travailleur (4) et le visionnaire matériel (8) forment un empire. La solidité est garantie, à condition de ne pas oublier d'y injecter de la tendresse gratuite.",
-  '4-9': "L'ancrage strict du bâtisseur (4) face aux vastes idéaux de l'humaniste (9). Rapprochez tes mondes en donnant une utilité concrète à tes rêves de changement.",
-  '5-5': "Deux électrons libres sur la même longueur d\'onde. Le mouvement est ton moteur : innovez ensemble, mais définissez un pacte clair pour ne pas vous perdre de vue.",
-  '5-6': "L\'esprit libre (5) rencontre le gardien du foyer (6). Apprends à aimer l\'ancrage sans te sentir pris au piège, et offrez la sécurité sans chercher à retenir.",
+  '4-9': "L'ancrage strict du bâtisseur (4) face aux vastes idéaux de l'humaniste (9). Rapproche tes mondes en donnant une utilité concrète à tes rêves de changement.",
+  '5-5': "Deux électrons libres sur la même longueur d\'onde. Le mouvement est ton moteur : innove ensemble, mais définis un pacte clair pour ne pas te perdre de vue.",
+  '5-6': "L\'esprit libre (5) rencontre le gardien du foyer (6). Apprends à aimer l\'ancrage sans te sentir pris au piège, et offre la sécurité sans chercher à retenir.",
   '5-7': "L'explorateur du monde (5) et l'explorateur de l'âme (7) s'intriguent mutuellement. Respecte ton besoin commun d'indépendance pour nourrir de passionnantes conversations.",
   '5-8': "L'adaptabilité de l'aventurier (5) au service de la puissance de l'ambitieux (8). Un quotidien trépidant t\'attend, si l'adrénaline ne masque pas le besoin de douceur.",
   '5-9': "L'aventurier (5) et le citoyen du monde (9) regardent tous deux vers l'horizon. Vis ce lien comme une grande épopée, sans chercher à figer l'instant.",
-  '6-6': "Deux âmes nourricières débordantes d'amour. Le risque n'est pas le manque, mais l'étouffement : aimez-toi intensément, mais préserve tes identités individuelles.",
+  '6-6': "Deux âmes nourricières débordantes d'amour. Le risque n'est pas le manque, mais l'étouffement : aime-toi intensément, mais préserve tes identités individuelles.",
   '6-7': "Le cœur chaud (6) enlace l'esprit analytique (7). La chaleur humaine apprivoise la distance : respecte le mystère de l'autre sans jamais te sentir rejeté.",
   '6-8': "Le protecteur (6) gère l'humain, l'ambitieux (8) gère la direction. Une complémentarité redoutable pour construire un patrimoine solide et un foyer florissant.",
-  '6-9': "Le dévouement aux proches (6) rencontre le dévouement à l\'humanité (9). Ton amour a vocation à déborder : accueillez les autres dans ta lumière sans te sacrifier.",
+  '6-9': "Le dévouement aux proches (6) rencontre le dévouement à l\'humanité (9). Ton amour a vocation à déborder : accueille les autres dans ta lumière sans te sacrifier.",
   '7-7': "Deux chercheurs de vérité partagent un silence éloquent. Ton lien est d'une grande noblesse intellectuelle : n'oublie pas d'y ramener la chaleur du corps et du rire.",
   '7-8': "L'analyste profond (7) conseille le décideur puissant (8). Une alliance stratégique brillante où l'esprit guide l'action. Honore la sagesse de l'un et le courage de l'autre.",
   '7-9': "Le mystique solitaire (7) et l'idéaliste (9) tissent une connexion spirituelle rare. Échange sur tes visions du monde pour élever constamment ta relation.",
   '8-8': "Deux puissances souveraines se mesurent l'une à l'autre. Le succès est garanti si te reste des alliés indéfectibles, fuyant à tout prix la compétition intime.",
   '8-9': "L'architecte matériel (8) soutient l'idéaliste (9). Mets ta puissance au service de causes nobles : tu accompliras des miracles main dans la main.",
-  '9-9': "Deux philanthropes portés par des idéaux immenses. Ton lien porte naturellement plus loin que vous, à condition de cultiver ton propre jardin d'intimité.",
+  '9-9': "Deux philanthropes portés par des idéaux immenses. Ton lien porte naturellement plus loin que le duo, à condition de cultiver ton propre jardin d'intimité.",
 };
 
 const LP_MASTER_TEXT: Record<string, string> = {
-  '11-11': "Deux intuitions fulgurantes en miroir. La résonance psychique est magique mais électrisante : ancre-toi régulièrement dans le réel pour ne pas épuiser tes systèmes nerveux.",
+  '11-11': "Deux intuitions fulgurantes (11) en miroir. La résonance psychique est magique mais électrisante : ancre-toi régulièrement dans le réel pour ne pas épuiser tes systèmes nerveux.",
   '11-22': "Le messager spirituel (11) face à l'architecte terrien (22). Une tension stimulante entre l'idéal et le concret : apprends patiemment la langue de l'autre pour marier le ciel et la terre.",
-  '11-33': "Le visionnaire inspiré (11) s'allie au guide bienveillant (33). Une harmonie d'âme exceptionnelle : ta relation est un sanctuaire de lumière qui élèvera tous ceux qui te entourent.",
-  '22-22': "Deux maîtres bâtisseurs érigent un empire. Tes capacités de concrétisation sont hors normes : vise l\'excellence, mais garde du temps pour la douceur et le lâcher-prise.",
-  '22-33': "La maîtrise matérielle (22) au service de l'amour universel (33). Un potentiel de création phénoménal : utilise ton solidité pour offrir un refuge aux idéaux les plus purs.",
-  '33-33': "Deux maîtres de compassion unissent leurs cœurs. Ta relation est portée par une grâce absolue : veille simplement à ne pas porter toute la misère du monde sur tes épaules.",
+  '11-33': "Le visionnaire inspiré (11) s'allie au guide bienveillant (33). Une harmonie d'âme exceptionnelle : ta relation est un sanctuaire de lumière qui élèvera tous ceux qui t'entourent.",
+  '22-22': "Deux maîtres bâtisseurs (22) érigent un empire. Tes capacités de concrétisation sont hors normes : vise l\'excellence, mais garde du temps pour la douceur et le lâcher-prise.",
+  '22-33': "La maîtrise matérielle (22) au service de l'amour universel (33). Un potentiel de création phénoménal : utilise ta solidité pour offrir un refuge aux idéaux les plus purs.",
+  '33-33': "Deux maîtres de compassion (33) unissent leurs cœurs. Ta relation est portée par une grâce absolue : veille simplement à ne pas porter toute la misère du monde sur tes épaules.",
 };
 
 const LP_MODE_SUFFIX: Record<BondMode, string> = {
@@ -800,7 +815,7 @@ function lpRelationText(lpA: number, lpB: number, mode: BondMode): string {
   const a = lpA > 9 ? (lpA === 11 ? 2 : lpA === 22 ? 4 : 6) : lpA;
   const b = lpB > 9 ? (lpB === 11 ? 2 : lpB === 22 ? 4 : 6) : lpB;
   const key = `${Math.min(a, b)}-${Math.max(a, b)}`;
-  base = LP_PAIR_TEXT[key] || `Chemin ${lpA} × ${lpB} — explorez ta complémentarité unique.`;
+  base = LP_PAIR_TEXT[key] || `Chemin ${lpA} × ${lpB} — explore ta complémentarité unique.`;
   return `${base} ${LP_MODE_SUFFIX[mode]}`;
 }
 
@@ -808,8 +823,8 @@ function lpRelationText(lpA: number, lpB: number, mode: BondMode): string {
 
 const ICHING_TEMPLATES: Record<string, Record<BondMode, string>> = {
   same_hex: {
-    amour: "Marqués tous deux par {hexA}, te regarde dans l'âme de l'autre — protège ta individualité pour ne pas te dissoudre dans cette fusion.",
-    pro: "Double dose de {hexA} — tes méthodes sont identiques. Excellent pour l'exécution, mais pensez à chercher l'inspiration à l'extérieur.",
+    amour: "Marqués tous deux par {hexA}, tu te regardes dans l'âme de l'autre — protège ton individualité pour ne pas te dissoudre dans cette fusion.",
+    pro: "Double dose de {hexA} — tes méthodes sont identiques. Excellent pour l'exécution, mais pense à chercher l'inspiration à l'extérieur.",
     famille: "Partageant {hexA}, tu portes le même bagage existentiel — c'est un lien de compréhension absolue, rare et précieux au sein du clan.",
   },
   roi_wen: {
@@ -819,8 +834,8 @@ const ICHING_TEMPLATES: Record<string, Record<BondMode, string>> = {
   },
   synergy: {
     amour: "Entre {hexA} et {hexB}, ton amour coule de source — l'osmose de tes énergies transforme le quotidien en une création continue.",
-    pro: "L'association de {hexA} et {hexB} décuple ta efficacité — ensemble, tu franchisses des paliers inaccessibles en solitaire.",
-    famille: "De {hexA} vers {hexB}, ce lien de sang est une bénédiction fluide — tu te portez et tu élevs mutuellement avec grâce.",
+    pro: "L'association de {hexA} et {hexB} décuple ton efficacité — ensemble, tu franchis des paliers inaccessibles en solitaire.",
+    famille: "De {hexA} vers {hexB}, ce lien de sang est une bénédiction fluide — tu te portes et tu élèves mutuellement avec grâce.",
   },
   dialogue: {
     amour: "La rencontre de {hexA} et {hexB} demande de l'écoute, mais tes différences se révèlent être de magnifiques forces complémentaires.",
@@ -828,12 +843,12 @@ const ICHING_TEMPLATES: Record<string, Record<BondMode, string>> = {
     famille: "Tes rythmes entre {hexA} et {hexB} diffèrent, mais une profonde bienveillance familiale permet d'en faire une richesse plutôt qu'un clivage.",
   },
   neutral: {
-    amour: "De {hexA} à {hexB}, rien ne force le lien, mais rien ne l'empêche — cette neutralité devient profondeur si tu choisisses vraiment d'habiter la relation.",
+    amour: "De {hexA} à {hexB}, rien ne force le lien, mais rien ne l'empêche — cette neutralité devient profondeur si tu choisis vraiment d'habiter la relation.",
     pro: "De {hexA} à {hexB}, le terrain est sobre, sans friction majeure — cela demande plus de conscience, mais laisse une grande liberté de construction.",
     famille: "{hexA} et {hexB} coexistent sereinement — l'absence d'entremêlement excessif garantit une paix familiale appréciable.",
   },
   tension: {
-    amour: "Entre {hexA} et {hexB}, l'alchimie brûle et frotte — ne fuyez pas les crises, elles viennent polir ta relation comme un joyau.",
+    amour: "Entre {hexA} et {hexB}, l'alchimie brûle et frotte — ne fuis pas les crises, elles viennent polir ta relation comme un joyau.",
     pro: "La confrontation de {hexA} et {hexB} génère des étincelles — canalise cette tension vers la résolution de problèmes plutôt que vers l'ego.",
     famille: "Le défi entre {hexA} et {hexB} est réel — cette rudesse apparente cache souvent une leçon d'émancipation nécessaire pour la lignée.",
   },
@@ -866,7 +881,7 @@ const PEACH_TEXT: Record<'double' | 'active' | 'inactive', Record<BondMode, stri
   double: {
     amour: "La Double Fleur de Pêcher brille des deux côtés — une attraction magnétique réciproque et rare, comme deux miroirs qui s'illuminent mutuellement. Ce lien charnel est exceptionnel.",
     pro: "Un magnétisme professionnel bidirectionnel rare — chacun inspire l'autre naturellement, créant un duo dont le charisme combiné dépasse la somme des parties.",
-    famille: "Un favoritisme affectueux et chaleureux caractérise ce lien — tu éprouvs une sympathie instinctive qui adoucit même les pires désaccords.",
+    famille: "Un favoritisme affectueux et chaleureux caractérise ce lien — tu éprouves une sympathie instinctive qui adoucit même les pires désaccords.",
   },
   active: {
     amour: "La mystérieuse étoile de la Fleur de Pêcher illumine ton lien — une attirance magnétique, presque irrationnelle, te pousse irrésistiblement l'un vers l'autre.",
@@ -876,7 +891,7 @@ const PEACH_TEXT: Record<'double' | 'active' | 'inactive', Record<BondMode, stri
   inactive: {
     amour: "L'absence de cette étoile romantique n'est pas une faille — ton amour repose sur des fondations bien plus profondes et pérennes qu'une simple étincelle éphémère.",
     pro: "Ta relation repose sur le mérite et le respect des compétences, loin des jeux de séduction ou de favoritisme.",
-    famille: "Un lien authentique et traditionnel — l'attachement se construit par la loyauté de l'histoire partagée, sans fioritures émotionnelles.",
+    famille: "Un lien authentique et traditionnel — ton attachement se construit par la loyauté de l'histoire partagée, sans fioritures émotionnelles.",
   },
 };
 
@@ -895,7 +910,7 @@ const FAMILY_CONTEXT_SUFFIX: Partial<Record<FamilleSubType | 'autre', string>> =
   gm_petit_fils:    "Une grand-mère et son petit-fils forment un duo complice — l'héritage prend vie quand il inspire plutôt qu'il n'oblige.",
   gm_petite_fille:  "Une grand-mère et sa petite-fille se reconnaissent à travers le temps — ce lien porte une douceur que les années n'effacent pas.",
   coloc:            "Ce lien quotidien demande une attention simple : respirer ensemble sans s'envahir.",
-  ami:              "L'amitié choisie porte une liberté que les liens du sang n'ont pas — honorez-la en restant vrais l'un envers l'autre.",
+  ami:              "L'amitié choisie porte une liberté que les liens du sang n'ont pas — honore-la en restant vrai l'un envers l'autre.",
 };
 
 function appendFamilyContext(text: string, mode: BondMode, familleSubType?: FamilleSubType): string {
@@ -1026,8 +1041,8 @@ export function calcBond(
   const baziTechs = [...bazi.signals, ...bazi.alerts];
   const numTechs = [...numero.signals, ...numero.alerts];
   const ichTechs = [...iching.signals, ...iching.alerts];
-  // Ajouter CdV comme premier technical numérologie
-  numTechs.unshift(`CdV ${lpA.v}×${lpB.v}`);
+  // Ajouter Chemin de Vie comme premier technical numérologie
+  numTechs.unshift(`Chemin de Vie ${lpA.v}×${lpB.v}`);
   // Ajouter hex numbers comme premier technical Yi King
   ichTechs.unshift(`#${iching.hexA.hexNum} ${HEX_NAMES[iching.hexA.hexNum] || ''} ↔ #${iching.hexB.hexNum} ${HEX_NAMES[iching.hexB.hexNum] || ''}`);
 
@@ -1040,13 +1055,13 @@ export function calcBond(
     : peachLevel === 1 ? PEACH_TEXT.active[mode]
     : PEACH_TEXT.inactive[mode];
   const peachTechs = peachLevel === 2
-    ? ['🌸🌸 Double Peach Blossom — bidirectionnelle']
+    ? ['🌸🌸 Double Fleur de Pêcher — bidirectionnelle']
     : peachLevel === 1
-    ? ['🌸 Peach Blossom croisée — active']
+    ? ['🌸 Fleur de Pêcher croisée — active']
     : [];
 
   const breakdown = [
-    { system: 'BaZi', icon: '干', score: baziNorm, weight: `${Math.round(w.bazi * 100)}%`,
+    { system: 'BaZi', icon: '☯', score: baziNorm, weight: `${Math.round(w.bazi * 100)}%`,
       detail: baziDetail,
       technicals: baziTechs },
     { system: 'Numérologie', icon: '✦', score: numNorm, weight: `${Math.round(w.num * 100)}%`,
@@ -1063,15 +1078,26 @@ export function calcBond(
   // ── Ronde 13 (3/3) : Badges "Golden Tickets" — signaux positifs visibles ──
   const badges: string[] = [];
   if (bazi.heavenlyCombination) badges.push('🌟 Fusion Céleste');
-  if (peachLevel === 2) badges.push('🌸🌸 Double Peach Blossom');
-  else if (peachLevel === 1) badges.push('🌸 Peach Blossom Active');
+  // Fleur de Pêcher : badge visible uniquement hors mode famille (poids 0% en famille)
+  if (mode !== 'famille') {
+    if (peachLevel === 2) badges.push('🌸🌸 Double Fleur de Pêcher');
+    else if (peachLevel === 1) badges.push('🌸 Fleur de Pêcher Active');
+  }
   if (isMaster(lpA.v) && isMaster(lpB.v)) badges.push('✨ Maîtres Nombres en Résonance');
   if (iching.roiWen) badges.push('☯ Âmes Complémentaires (Roi Wen)');
-  if (bazi.liuHe) badges.push('💫 Harmonie Terrestre (Liu He)');
+  if (bazi.liuHe) badges.push('💫 Harmonie Terrestre (Liù Hé)');
   if (bazi.triad) badges.push('🔺 Triangle Sacré (San He)');
 
   // ── Ronde 13 (3/3) : Résumé narratif unifié — force majeure + défi + action ──
-  const sortedBreakdown = [...breakdown].sort((a, b) => b.score - a.score);
+  // En mode famille, exclure Peach Blossom du tri (poids 0%, ne doit pas apparaître dans le résumé)
+  const relevantBreakdown = mode === 'famille'
+    ? breakdown.filter(b => b.system !== 'Peach Blossom')
+    : [...breakdown];
+  // Tri par contribution pondérée (score × poids) — reflète le vrai impact sur le score final
+  const parseWeight = (w: string) => parseFloat(w) / 100;
+  const sortedBreakdown = relevantBreakdown.sort((a, b) =>
+    (b.score * parseWeight(b.weight)) - (a.score * parseWeight(a.weight))
+  );
   const strongest = sortedBreakdown[0];
   const weakest = sortedBreakdown[sortedBreakdown.length - 1];
 
@@ -1091,15 +1117,19 @@ export function calcBond(
   const forceText = SYSTEM_LABELS[strongest.system]?.[mode] || 'une connexion notable';
   const defiText = SYSTEM_DEFIS[weakest.system]?.[mode] || 'trouver ton équilibre';
 
+  // Noms d'affichage français pour le résumé narratif
+  const DISPLAY_NAME: Record<string, string> = { 'Peach Blossom': 'Fleur de Pêcher', 'BaZi': 'BaZi', 'Numérologie': 'Numérologie', 'Yi King': 'Yi King' };
+  const strongName = DISPLAY_NAME[strongest.system] || strongest.system;
+
   let summary: string;
   if (scoreGlobal >= 85) {
-    summary = `Ce lien repose sur ${forceText} (${strongest.system} à ${strongest.score}%). Ton principal défi sera de ${defiText}. Cultive cette connexion rare avec gratitude.`;
+    summary = `Ce lien repose sur ${forceText} (${strongName} à ${strongest.score}%). Ton principal défi sera de ${defiText}. Cultive cette connexion rare avec gratitude.`;
   } else if (scoreGlobal >= 65) {
-    summary = `Ce lien brille par ${forceText} (${strongest.system} à ${strongest.score}%). Pour le renforcer, travaillez à ${defiText}. L'effort conscient transformera le bon en excellent.`;
+    summary = `Ce lien brille par ${forceText} (${strongName} à ${strongest.score}%). Pour le renforcer, travaille à ${defiText}. L'effort conscient transformera le bon en excellent.`;
   } else if (scoreGlobal >= 45) {
-    summary = `Ce lien a du potentiel grâce à ${forceText} (${strongest.system} à ${strongest.score}%). Le chemin de croissance passe par ${defiText}. Les différences sont un terrain d'apprentissage, pas un obstacle.`;
+    summary = `Ce lien a du potentiel grâce à ${forceText} (${strongName} à ${strongest.score}%). Le chemin de croissance passe par ${defiText}. Les différences sont un terrain d'apprentissage, pas un obstacle.`;
   } else {
-    summary = `Ce lien t\'invite à ${defiText}. Même si les défis sont réels, ${forceText} (${strongest.system}) offre un point d'ancrage. La patience et la communication seront tes alliées.`;
+    summary = `Ce lien t\'invite à ${defiText}. Même si les défis sont réels, ${forceText} (${strongName}) offre un point d'ancrage. La patience et la communication seront tes alliées.`;
   }
 
   // ── Ronde 17 (3/3 unanime) : Badge contextuel Score×Type (famille uniquement) ──
@@ -1144,9 +1174,9 @@ export function calcBondDaily(
   // ── Peach Blossom du jour pour chacun ──
   const peachA = getPeachBlossom(birthDateA, dateObj);
   const peachB = getPeachBlossom(birthDateB, dateObj);
-  if (peachA.active) { rawScore += 8; signals.push(`🌸 Peach Blossom active pour ${bdA.split('-')[0]}`); }
-  if (peachB.active) { rawScore += 8; signals.push(`🌸 Peach Blossom active pour ${bdB.split('-')[0]}`); }
-  if (peachA.active && peachB.active) { rawScore += 5; signals.push('💫 Double Peach Blossom — journée exceptionnelle !'); }
+  if (peachA.active) { rawScore += 8; signals.push(`🌸 Fleur de Pêcher active pour ${bdA.split('-')[0]}`); }
+  if (peachB.active) { rawScore += 8; signals.push(`🌸 Fleur de Pêcher active pour ${bdB.split('-')[0]}`); }
+  if (peachA.active && peachB.active) { rawScore += 5; signals.push('💫 Double Fleur de Pêcher — journée exceptionnelle !'); }
 
   // ── Day Masters du jour ──
   const pillarA = calcDayMaster(birthDateA);
@@ -1156,7 +1186,7 @@ export function calcBondDaily(
   // Si le DM du jour est dans la triade de l'un des partenaires
   const dailyBranch = dailyPillar.branch.index;
 
-  // Check si le jour favorise la relation (branche du jour = Liu He d'un des partenaires)
+  // Check si le jour favorise la relation (branche du jour = Liù Hé d'un des partenaires)
   const liuHeA = LIU_HE_PAIRS.some(([a, b]) =>
     (a === pillarA.branch.index && b === dailyBranch) || (b === pillarA.branch.index && a === dailyBranch)
   );
@@ -1166,10 +1196,10 @@ export function calcBondDaily(
 
   if (liuHeA && liuHeB) {
     rawScore += 12;
-    signals.push('🤝 Liu He double — le jour unit les deux partenaires');
+    signals.push('🤝 Liù Hé double — le jour unit les deux partenaires');
   } else if (liuHeA || liuHeB) {
     rawScore += 5;
-    signals.push('🤝 Liu He — le jour soutient un partenaire');
+    signals.push('🤝 Liù Hé — le jour soutient un partenaire');
   }
 
   // ── Clash du jour avec un partenaire ──
@@ -1182,10 +1212,10 @@ export function calcBondDaily(
 
   if (clashA && clashB) {
     rawScore -= 12;
-    alerts.push('⚔️ Double clash — tension maximale pour le couple');
+    alerts.push('⚔️ Double opposition — tension maximale pour le couple');
   } else if (clashA || clashB) {
     rawScore -= 5;
-    alerts.push('⚔️ Clash — un partenaire est sous tension');
+    alerts.push('⚔️ Opposition — un partenaire est sous tension');
   }
 
   // Clamp 5-97
@@ -1230,9 +1260,9 @@ function buildBondConseil(
 
     // Conseils indexés par [label][catégorie fine] — Ronde 12
     const CONSEILS: Record<string, Record<string, string>> = {
-      karmique: {
+      'Lien de Vie Profond': {
         frere:            "Entre frères, ta loyauté dépasse les mots. Ce lien ancien te demande de te respecter comme deux forces égales, chacune indispensable à l'autre.",
-        soeur:            "Entre sœurs, ton complicité touche à l'âme. Ce lien profond t\'invite à protéger la confiance mutuelle comme un trésor transmis par le sang.",
+        soeur:            "Entre sœurs, ta complicité touche à l'âme. Ce lien profond t\'invite à protéger la confiance mutuelle comme un trésor transmis par le sang.",
         fratrie_mixte:    "Ton lien fraternel cache une loyauté ancienne. Respecte tes différences comme deux piliers d'une même maison.",
         pere_fils:        "Ce lien père-fils porte une mémoire fondatrice. Transmets l'essentiel sans modeler — le fils trouve sa voie en marchant, pas en suivant.",
         pere_fille:       "Ce lien père-fille recèle une tendresse ancienne. Offre la confiance avant la protection — c'est elle qui libère vraiment.",
@@ -1243,13 +1273,13 @@ function buildBondConseil(
         gp_petite_fille:  "Le lien grand-père–petite-fille porte une douceur rare. Offre ton expérience comme un cadeau, sans attendre de retour.",
         gm_petit_fils:    "La complicité grand-mère–petit-fils est un trésor discret. L'histoire familiale prend vie quand elle inspire plutôt qu'elle n'oblige.",
         gm_petite_fille:  "Une mémoire du cœur relie grand-mère et petite-fille à travers le temps. Ce fil d'or ne demande qu'à être entretenu avec tendresse.",
-        coloc:            "Ton rencontre a du sens. Préserve ton espace intérieur comme une pièce à clé personnelle.",
+        coloc:            "Ta rencontre a du sens. Préserve ton espace intérieur comme une pièce à clé personnelle.",
         ami:              "Cette amitié porte une reconnaissance d'âme rare. Entretiens ce lien librement choisi — c'est sa gratuité qui fait sa puissance.",
       },
       fusionnel: {
-        frere:            "Ton complicité fraternelle est instinctive et puissante. Laisse-toi respirer pour que la proximité reste une force, jamais un poids.",
-        soeur:            "Ta connexion sororale est lumineuse et enveloppante. Garde un espace rien qu'à vous pour que cette chaleur ne devienne jamais étouffante.",
-        fratrie_mixte:    "Ton complicité est instinctive. Laisse chacun respirer pour éviter que la proximité ne devienne étouffante.",
+        frere:            "Ta complicité fraternelle est instinctive et puissante. Laisse-toi respirer pour que la proximité reste une force, jamais un poids.",
+        soeur:            "Ta connexion sororale est lumineuse et enveloppante. Garde un espace rien qu'à toi pour que cette chaleur ne devienne jamais étouffante.",
+        fratrie_mixte:    "Ta complicité est instinctive. Laisse chacun respirer pour éviter que la proximité ne devienne étouffante.",
         pere_fils:        "L'attachement père-fils est fort, presque instinctif. Desserre l\'étreinte — la confiance du fils grandit dans l\'espace que tu lui offres.",
         pere_fille:       "La tendresse père-fille est naturellement enveloppante. Laisse-la s'affirmer — la distance choisie renforce le lien.",
         mere_fils:        "L'osmose mère-fils est puissante et protectrice. Laisse l'indépendance grandir — c'est le plus beau cadeau d'une mère.",
@@ -1267,8 +1297,8 @@ function buildBondConseil(
         soeur:            "Tes forces se complètent avec une évidence rare. Ce tandem sororal brille quand chacune laisse l\'autre occuper pleinement sa place.",
         fratrie_mixte:    "Tu compenses les failles de l\'autre. Valorise ces différences au lieu de les comparer.",
         pere_fils:        "Le père apporte au fils ce qu'il ignore encore. Fais de cette transmission un pont, pas un terrain d'attente.",
-        pere_fille:       "Le père offre à sa fille une assise que rien ne remplace. Complétez-toi en laissant la confiance circuler dans les deux sens.",
-        mere_fils:        "La mère devine chez son fils ce qu'il n'ose pas dire. Transformez cette intuition en dialogue ouvert.",
+        pere_fille:       "Le père offre à sa fille une assise que rien ne remplace. Complète-toi en laissant la confiance circuler dans les deux sens.",
+        mere_fils:        "La mère devine chez son fils ce qu'il n'ose pas dire. Transforme cette intuition en dialogue ouvert.",
         mere_fille:       "La mère et la fille se complètent comme deux faces d'un même miroir. Ose nommer ce qui unit autant que ce qui distingue.",
         parent:           "L'un apporte ce que l'autre ignore. Fais-en un pont plutôt qu'un terrain d'attente.",
         gp_petit_fils:    "Le grand-père transmet au petit-fils par l'exemple plus que par la parole. Un rituel partagé — une marche, un outil — nourrit le lien.",
@@ -1279,14 +1309,14 @@ function buildBondConseil(
         ami:              "Tes talents se complètent naturellement. Cette amitié brille quand chacun occupe sa place sans rivaliser.",
       },
       croissance: {
-        frere:            "Tes frictions fraternelles ne sont pas des obstacles mais des meules qui te affûtent. Grandissez côte à côte sans chercher à prouver qui a raison.",
+        frere:            "Tes frictions fraternelles ne sont pas des obstacles mais des meules qui t'affûtent. Grandis côte à côte sans chercher à prouver qui a raison.",
         soeur:            "Ce lien sororal te pousse à te dépasser. Les moments de tension sont des invitations déguisées à mieux te comprendre.",
         fratrie_mixte:    "Les tensions sont des pierres qui polissent. Accepte-les comme un apprentissage commun.",
-        pere_fils:        "Le lien père-fils traverse une mue nécessaire. Le fils a besoin de place pour devenir — soutenez sans diriger.",
+        pere_fils:        "Le lien père-fils traverse une mue nécessaire. Le fils a besoin de place pour devenir — soutiens sans diriger.",
         pere_fille:       "Le père et sa fille grandissent ensemble à travers les ajustements. Fais confiance à ce qui émerge plutôt qu'à ce que tu planifies.",
         mere_fils:        "Le lien mère-fils évolue vers un nouveau chapitre. Le fils a besoin de sentir que partir, c'est aussi honorer ce lien.",
         mere_fille:       "La relation mère-fille se réinvente à chaque étape. Accompagne le changement en acceptant que la fille trace sa propre route.",
-        parent:           "Une étape de séparation s'annonce. Soutenez sans diriger chaque pas.",
+        parent:           "Une étape de séparation s'annonce. Soutiens sans diriger chaque pas.",
         gp_petit_fils:    "Le grand-père apprend à lâcher prise sur ce qu'il connaissait. Le petit-fils en fera quelque chose de neuf — fais-lui confiance.",
         gp_petite_fille:  "Le lien grand-père–petite-fille évolue avec la douceur du temps. Ajuste tes attentes avec la patience que tu as toujours su montrer.",
         gm_petit_fils:    "Les rôles évoluent et la grand-mère le sait mieux que quiconque. Laisse le petit-fils réinventer ce lien à sa manière.",
@@ -1299,28 +1329,28 @@ function buildBondConseil(
         soeur:            "L'intensité entre sœurs demande du courage. Nomme ce qui doit l'être avec douceur, la vérité libère plus qu'elle ne blesse.",
         fratrie_mixte:    "Le feu peut brûler ou éclairer. Pose des limites claires pour éviter l'escalade.",
         pere_fils:        "Certains schémas père-fils demandent à être nommés. Le fils se libère quand le père accepte de ne plus avoir toutes les réponses.",
-        pere_fille:       "Le lien père-fille peut porter des attentes silencieuses. Nommez-les avec douceur — la vérité renforce ce que le silence fragilise.",
+        pere_fille:       "Le lien père-fille peut porter des attentes silencieuses. Nomme-les avec douceur — la vérité renforce ce que le silence fragilise.",
         mere_fils:        "Des attentes maternelles anciennes pèsent parfois sur le fils. L'amour se renforce quand il cesse d'être conditionnel.",
         mere_fille:       "Le miroir mère-fille peut amplifier les tensions autant que les joies. Revisite les attentes pour que l'amour redevienne léger.",
         parent:           "Certains schémas demandent à être nommés. La vérité dite calmement libère.",
         gp_petit_fils:    "Des blessures anciennes peuvent remonter par la lignée masculine. Écoute le silence du grand-père — il en dit souvent plus que ses mots.",
         gp_petite_fille:  "Le grand-père porte parfois des non-dits d'un autre temps. Sa petite-fille peut adoucir ces silences en offrant sa présence sans exiger de mots.",
         gm_petit_fils:    "La grand-mère transmet parfois des non-dits d'une autre époque. Le petit-fils peut transformer cet héritage en choisissant ce qu'il garde.",
-        gm_petite_fille:  "Entre grand-mère et petite-fille, les blessures anciennes se transmettent parfois en silence. Offrez-toi l'écoute que les générations passées n'ont pas eue.",
+        gm_petite_fille:  "Entre grand-mère et petite-fille, les blessures anciennes se transmettent parfois en silence. Offre-toi l'écoute que les générations passées n'ont pas eue.",
         coloc:            "La tension signale un déséquilibre. Redéfinir les règles peut tout changer.",
         ami:              "Cette amitié traverse une zone de turbulence. Pose les mots avec franchise — un vrai ami préfère la vérité au confort.",
       },
       profond: {
         frere:            "L'intensité entre frères peut être volcanique. Prends du recul avant de répondre — le silence peut guérir autant que les mots.",
-        soeur:            "Ce lien sororal porte des émotions puissantes. Accordez-toi des pauses pour que la profondeur ne devienne pas une charge.",
+        soeur:            "Ce lien sororal porte des émotions puissantes. Accorde-toi des pauses pour que la profondeur ne devienne pas une charge.",
         fratrie_mixte:    "L'intensité émotionnelle est forte. Prends du recul avant de répondre.",
-        pere_fils:        "Les émotions père-fils peuvent être brutes et silencieuses. Installez des moments courts d'apaisement — un geste vaut parfois mille mots.",
+        pere_fils:        "Les émotions père-fils peuvent être brutes et silencieuses. Installe des moments courts d'apaisement — un geste vaut parfois mille mots.",
         pere_fille:       "Le lien père-fille porte des émotions profondes, parfois non dites. Un mot juste au bon moment peut dénouer ce que des années de silence ont tissé.",
-        mere_fils:        "Le lien mère-fils porte parfois plus qu'il ne devrait. Allégez-le en partageant le poids de l'histoire à voix haute.",
-        mere_fille:       "L'intensité mère-fille peut être lumineuse et lourde à la fois. Accordez-toi des pauses pour que la profondeur reste une force.",
-        parent:           "Les émotions peuvent être puissantes. Installez des moments courts mais réguliers d'apaisement.",
+        mere_fils:        "Le lien mère-fils porte parfois plus qu'il ne devrait. Allège-le en partageant le poids de l'histoire à voix haute.",
+        mere_fille:       "L'intensité mère-fille peut être lumineuse et lourde à la fois. Accorde-toi des pauses pour que la profondeur reste une force.",
+        parent:           "Les émotions peuvent être puissantes. Installe des moments courts mais réguliers d'apaisement.",
         gp_petit_fils:    "Le passé pèse parfois sur la lignée masculine. Grand-père et petit-fils peuvent choisir ensemble ce qu'ils gardent et ce qu'ils libèrent.",
-        gp_petite_fille:  "Le grand-père transmet à sa petite-fille une charge émotionnelle parfois insoupçonnée. Prends ce qui nourrit, libérez le reste avec douceur.",
+        gp_petite_fille:  "Le grand-père transmet à sa petite-fille une charge émotionnelle parfois insoupçonnée. Prends ce qui nourrit, libère le reste avec douceur.",
         gm_petit_fils:    "L'héritage émotionnel de la grand-mère touche le petit-fils de façon inattendue. Accueille ce qui résonne, laisse aller ce qui ne t\'appartient pas.",
         gm_petite_fille:  "Entre grand-mère et petite-fille, l'héritage est à la fois un trésor et un poids. Choisis consciemment ce que tu portes et ce que tu déposes.",
         coloc:            "Si l\'atmosphère devient dense, ajuste la distance. L\'espace protège la relation.",
@@ -1330,7 +1360,7 @@ function buildBondConseil(
 
     // Sélection du conseil selon le score
     const labelKey =
-      score >= 91 ? 'karmique'
+      score >= 91 ? 'Lien de Vie Profond'
       : score >= 79 ? 'fusionnel'
       : score >= 64 ? 'complementaire'
       : score >= 48 ? 'croissance'
@@ -1350,28 +1380,42 @@ function buildBondConseil(
 
   if (score >= 90) {
     if (bazi.heavenlyCombination) {
-      return `Connexion exceptionnelle ! La Combinaison Divine ${bazi.heavenlyCombination.label} crée un lien karmique rare. Sur le plan ${modeLabel}, c'est un alignement qui se manifeste naturellement — laisse l'énergie circuler sans forcer.`;
+      return mode === 'amour'
+        ? `Connexion exceptionnelle ! La Combinaison Divine ${bazi.heavenlyCombination.label} crée un lien d'âme rare. L'alchimie amoureuse se manifeste naturellement — laisse l'énergie circuler sans forcer.`
+        : `Connexion exceptionnelle ! La Combinaison Divine ${bazi.heavenlyCombination.label} crée un lien d'âme rare. Côté professionnel, c'est un duo qui peut déplacer des montagnes — capitalise sur cette synergie naturelle.`;
     }
-    return `Alignement remarquable sur le plan ${modeLabel}. Les systèmes convergent vers une synergie naturelle. Cultive cette connexion avec gratitude — elle est rare.`;
+    return mode === 'amour'
+      ? `Alignement remarquable. Les systèmes convergent vers une complicité amoureuse naturelle. Cultive cette connexion avec gratitude — elle est rare.`
+      : `Alignement remarquable. Les systèmes convergent vers un partenariat professionnel exceptionnel. Ce duo a le potentiel de créer quelque chose de grand — structure-le avec confiance.`;
   }
 
   if (score >= 78) {
-    const bestSystem = bazi.score > numero.total ? 'BaZi' : 'Numérologie';
-    return `Belle alchimie ! Le ${bestSystem} est le moteur principal de ta connexion ${modeLabel}e. ${peachCrossed ? 'La Peach Blossom croisée amplifie l\'attraction physique.' : 'Investis dans la communication pour amplifier le potentiel.'}`;
+    const bestSystem = bazi.score > numero.total ? 'le BaZi' : 'la Numérologie';
+    return mode === 'amour'
+      ? `Belle alchimie ! ${bestSystem.charAt(0).toUpperCase() + bestSystem.slice(1)} est le moteur principal de ta connexion amoureuse. ${peachCrossed ? 'La Fleur de Pêcher croisée amplifie l\'attraction physique.' : 'Investis dans la communication pour amplifier le potentiel.'}`
+      : `Belle alchimie ! ${bestSystem.charAt(0).toUpperCase() + bestSystem.slice(1)} est le moteur principal de cette collaboration. ${peachCrossed ? 'Le charisme mutuel est un atout — utilise-le dans les négociations.' : 'Clarifie les rôles pour transformer cette compatibilité en résultats concrets.'}`;
   }
 
   if (score >= 65) {
-    return `Synergie solide sur le plan ${modeLabel}. Quelques zones de friction ${bazi.alerts.length > 0 ? `(${bazi.alerts[0].split('—')[0].trim()})` : ''} stimulent la croissance mutuelle. L'effort conscient transforme le bon en excellent.`;
+    return mode === 'amour'
+      ? `Synergie solide sur le plan amoureux. Quelques zones de friction ${bazi.alerts.length > 0 ? `(${bazi.alerts[0].split('—')[0].trim()})` : ''} stimulent la croissance mutuelle. L'effort conscient transforme le bon en excellent.`
+      : `Synergie solide côté professionnel. ${bazi.alerts.length > 0 ? `Un point de vigilance : ${bazi.alerts[0].split('—')[0].trim().toLowerCase()}. ` : ''}Définis clairement les responsabilités pour que les complémentarités jouent à plein.`;
   }
 
   if (score >= 50) {
-    return `Potentiel ${modeLabel} à cultiver. ${numero.signals.length > 0 ? numero.signals[0] + '.' : ''} Les différences sont un terrain d'apprentissage — ni obstacle, ni force automatique.`;
+    return mode === 'amour'
+      ? `Potentiel amoureux à cultiver. ${numero.signals.length > 0 ? numero.signals[0] + '.' : ''} Les différences sont un terrain d'apprentissage — ni obstacle, ni force automatique.`
+      : `Potentiel professionnel à cultiver. ${numero.signals.length > 0 ? numero.signals[0] + '.' : ''}Mise sur des projets courts et cadrés pour construire la confiance avant de viser plus grand.`;
   }
 
   if (score >= 35) {
     const mainTension = bazi.alerts[0] || numero.alerts[0] || 'Vibrations différentes';
-    return `Friction ${modeLabel}e significative. ${mainTension}. Cette tension peut devenir créative si les deux personnes acceptent leurs différences fondamentales.`;
+    return mode === 'amour'
+      ? `Friction amoureuse significative. ${mainTension}. Cette tension peut devenir créative si chacun accepte la nature profonde de l'autre.`
+      : `Friction professionnelle significative. ${mainTension}. Cette tension peut devenir productive si les rôles sont bien séparés et les attentes clairement posées.`;
   }
 
-  return `Défi ${modeLabel} majeur. Les systèmes détectent des frictions profondes. Cela ne veut pas dire "impossible" — mais cela demande un travail conscient et beaucoup de patience des deux côtés.`;
+  return mode === 'amour'
+    ? `Défi amoureux majeur. Les systèmes détectent des frictions profondes. Cela ne veut pas dire "impossible" — mais cela demande un travail conscient et beaucoup de patience.`
+    : `Défi professionnel majeur. Les frictions détectées compliquent la collaboration au quotidien. Si ce partenariat est nécessaire, structure au maximum les échanges et délimite clairement les territoires.`;
 }

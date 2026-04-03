@@ -144,7 +144,9 @@ export function calcEventCentroid(
     for (let i = 0; i < dims; i++) sum[i] += vec[i];
   }
 
-  return sum.map(s => parseFloat((s / records.length).toFixed(4))) as NormalizedVector;
+  return records.length
+    ? sum.map(s => parseFloat((s / records.length).toFixed(4))) as NormalizedVector
+    : sum.map(() => 0) as NormalizedVector;
 }
 
 // ══════════════════════════════════════

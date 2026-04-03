@@ -285,7 +285,7 @@ export function calcSlowModules(
           system: 'Vimshottari Dasha', icon: '🕉',
           value: `${dasha.maha.lord} / ${dasha.antar.lord} / ${dasha.pratyantar.lord}${sandhiTag}`,
           points: 0, // V6.3: Dasha = multiplicateur pur (R19 GPT+Gemini unanime)
-          detail: `Terrain karmique ×${dashaMult} · ` + dashaResult.breakdown.join(' · '),
+          detail: `Trame de fond ×${dashaMult} · ` + dashaResult.breakdown.join(' · '),
           signals: dashaTotal > 0 ? [`Dasha ${dasha.maha.lord} actif (${sign}${dashaTotal})`] : [],
           alerts:  dashaTotal < 0 ? [`Dasha ${dasha.maha.lord} en tension (${dashaTotal})`]   : [],
         });
@@ -303,7 +303,7 @@ export function calcSlowModules(
         }
         const jupiterConjSun = astro.tr.some(t => t.tp === 'jupiter' && t.np === 'sun' && t.t === 'conjunction');
         if (jupiterConjSun && dashaTotal > 0) {
-          signals.push('🌟 EXPANSION STRATIFIÉE — Jupiter conjoint ton Soleil natal dans une saison karmique favorable : croissance alignée.');
+          signals.push('🌟 EXPANSION STRATIFIÉE — Jupiter conjoint ton Soleil natal dans une saison de vie favorable : croissance alignée.');
         }
         const uranusConjMC = astro.tr.some(t => t.tp === 'uranus' && (t.np === 'mc' || t.np === 'midheaven') && t.t === 'conjunction');
         if (uranusConjMC && pyv === 1) {
@@ -593,7 +593,7 @@ export function calcSlowModules(
       const nodeLordScore = ([1, 4, 7, 10].includes(houseRahu) && eclipseNatalPts < 4) ? 3 : 0;
       if (nodeLordScore > 0) {
         delta += nodeLordScore;
-        const nLabel = `☊ Rahu natal en maison ${houseRahu} (kendra) → activation karmique (+${nodeLordScore})`;
+        const nLabel = `☊ Rahu natal en maison ${houseRahu} (kendra) → activation de vie (+${nodeLordScore})`;
         signals.push(nLabel);
         breakdown.push({
           system: 'Nœuds Lunaires', icon: '☊',

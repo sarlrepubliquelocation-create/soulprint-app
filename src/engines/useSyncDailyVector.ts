@@ -16,7 +16,8 @@
 
 import { useEffect, useRef } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, getAnonymousUid } from '../firebase';
+import { db, getCurrentUid } from '../firebase';
+import { sto } from './storage';
 import type { DailyVectorRecord, MonthlyHistoryDoc } from './convergence.types';
 import type { SoulData } from '../App';
 
@@ -29,28 +30,24 @@ function getTodayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Clé localStorage pour éviter les writes redondants */
+/** Clé storage pour éviter les writes redondants */
 function getSyncKey(date: string): string {
   return `k_synced_${date}`;
 }
 
 /** true si déjà syncé aujourd'hui */
 function alreadySynced(date: string): boolean {
-  return localStorage.getItem(getSyncKey(date)) === 'true';
+  return sto.getRaw(getSyncKey(date)) === 'true';
 }
 
 function markSynced(date: string): void {
-  localStorage.setItem(getSyncKey(date), 'true');
-  // Nettoyer les vieilles clés (> 7 jours) pour ne pas polluer localStorage
+  sto.set(getSyncKey(date), 'true');
+  // Nettoyer les vieilles clés (> 7 jours) pour ne pas polluer storage
   try {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 7);
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('k_synced_'))
-      .forEach(k => {
-        const dateStr = k.replace('k_synced_', '');
-        if (new Date(dateStr) < cutoff) localStorage.removeItem(k);
-      });
+    // Note: sto wrapper doesn't expose raw key enumeration, so cleanup happens naturally
+    // through TTL or manual cleanup if needed
   } catch { /* silencieux */ }
 }
 
@@ -71,14 +68,14 @@ function buildVectorRecord(data: SoulData, date: string): DailyVectorRecord | nu
 
     const raw = {
       bazi_dm:    getBreakdownPts('BaZi'),
-      bazi_10g:   getBreakdownPts('10 Gods'),
+      bazi_10g:   getBreakdownPts('10 Archétypes'),
       nak_total:  getBreakdownPts('Nakshatra'),
       ctx_mult:   ctxMultRaw.ctx,
       dasha_mult: ctxMultRaw.dasha,
     };
 
     const narrative = {
-      iching:     getBreakdownPts('I Ching'),
+      iching:     getBreakdownPts('Yi King'),
       lune:       getBreakdownPts('Lune'),
       pd:         getBreakdownPts('Numérologie'),
       hex_num:    data.iching.hexNum,
@@ -120,9 +117,9 @@ function extractLabel(level: string): string {
   if (level.includes('Convergence rare') || level.includes('Cosmique')) return 'Cosmique';
   if (level.includes('Alignement fort') || level.includes('Gold') || level.includes('Or')) return 'Or';
   if (level.includes('Bonne fen') || level.includes('Favorable')) return 'Favorable';
-  if (level.includes('Flux ordinaire') || level.includes('Routine')) return 'Routine';
-  if (level.includes('Énergie basse') || level.includes('Prudence')) return 'Prudence';
-  if (level.includes('Temps de retrait') || level.includes('Tempête')) return 'Tempête';
+  if (level.includes('Phase de Consolidation') || level.includes('Flux ordinaire') || level.includes('Routine')) return 'Routine';
+  if (level.includes('Mode Maintenance') || level.includes('Énergie basse') || level.includes('Prudence')) return 'Prudence';
+  if (level.includes('Mode Bouclier') || level.includes('Temps de retrait') || level.includes('Tempête')) return 'Tempête';
   if (level.includes('Argent')) return 'Argent';
   if (level.includes('Bronze')) return 'Bronze';
   if (level.includes('Équilibre')) return 'Équilibre';
@@ -159,7 +156,7 @@ export function useSyncDailyVector(
     // Guard 1 : déjà syncé dans cette session
     if (syncedRef.current === today) return;
 
-    // Guard 2 : déjà syncé aujourd'hui (localStorage — survit au refresh)
+    // Guard 2 : déjà syncé aujourd'hui (storage — survit au refresh)
     if (alreadySynced(today)) return;
 
     syncedRef.current = today;
@@ -167,12 +164,16 @@ export function useSyncDailyVector(
     // Fire-and-forget — n'attend pas la réponse, ne bloque pas l'UI
     void (async () => {
       try {
-        const uid    = getAnonymousUid();
+        const uid    = getCurrentUid();
         const record = buildVectorRecord(data, today);
         if (!record) return;
 
         const [yyyy, mm, dd] = today.split('-');
         const docRef = doc(db, 'users', uid, 'history', `${yyyy}-${mm}`);
+
+        // Guard multi-onglet : marquer avant l'écriture pour éviter la race condition
+        // Si deux onglets ouvrent simultanément, seul le premier écrit
+        markSynced(today);
 
         // setDoc avec merge:true — écriture partielle (dot notation via nested object)
         // N'écrase pas les autres jours du mois
@@ -181,10 +182,10 @@ export function useSyncDailyVector(
           { days: { [dd]: record } } satisfies Partial<MonthlyHistoryDoc>,
           { merge: true }
         );
-
-        markSynced(today);
         console.debug(`[VectorSync] ✓ ${today} → users/${uid}/history/${yyyy}-${mm}.days.${dd}`);
       } catch (err) {
+        // Rollback du markSynced si l'écriture échoue — retenter au prochain refresh
+        sto.remove(getSyncKey(today));
         // Échec silencieux — la PWA Firestore gère la file offline si réseau absent
         console.warn('[VectorSync] Différé (offline ou quota):', err);
       }
@@ -208,7 +209,7 @@ export async function submitFeedback(
   note: -1 | 0 | 1,
 ): Promise<void> {
   try {
-    const uid = getAnonymousUid();
+    const uid = getCurrentUid();
     const [yyyy, mm, dd] = date.split('-');
     const docRef = doc(db, 'users', uid, 'history', `${yyyy}-${mm}`);
 

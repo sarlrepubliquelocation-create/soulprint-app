@@ -1,3 +1,5 @@
+import { calcAgeFromStrings } from './date-utils';
+
 // ═══ NUMEROLOGY ENGINE V3.2 ═══
 // Pythagorean + Chaldean + Karmic + Lo Shu + Cycles + Essences Annuelles
 // V2: Decoz Life Path + Active Pinnacle/Challenge helper
@@ -369,9 +371,7 @@ export function calcLifeCycle(bd: string, today: string): LifeCycle {
 }
 
 export function getActivePinnacleIdx(bd: string, today: string, lp: Reduced): number {
-  const birthYear = parseInt(bd.split('-')[0]);
-  const currentYear = parseInt(today.split('-')[0]);
-  const age = currentYear - birthYear;
+  const age = calcAgeFromStrings(today, bd);
 
   // For age calculation, reduce LP to single digit (11→2, 22→4, 33→6)
   const lpSingle = lp.v > 9 ? reduce(lp.v, false).v : lp.v;

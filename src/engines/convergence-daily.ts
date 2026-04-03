@@ -17,7 +17,7 @@ import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
 import { calcDMStrength, getDMMultiplier, type DMStrengthResult } from './dm-strength'; // Sprint AI
 import { getAyanamsa, calcNakshatraComposite, type NakshatraData } from './nakshatras'; // Sprint AO P6: getPada, PADA_MULTIPLIERS, PADA_NAMES retirés
 import { getActiveLineScore, getNuclearScore } from './iching-yao';
-import { type SystemBreakdown, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
+import { type SystemBreakdown, type SignalDisplay, type LifeDomain, type DayType, type DayTypeInfo, SLOW_PLANETS } from './convergence.types';
 import { getCurrentPlanetaryHour, type PlanetaryHour } from './planetary-hours'; // V9 Sprint 4
 import { calcFixedStarScore, type FixedStarResult } from './fixed-stars'; // V9.6 Sprint A3
 import { calcAshtakavarga, buildSAV, calcMoonBAVSAV, extractNatalSiderealSignIdx } from './ashtakavarga'; // V9.6 Sprint C + Sprint AK SAV
@@ -30,7 +30,7 @@ import { calcPanchanga, type PanchangaResult, calcTarabala, calcChandrabala, typ
 
 const DAY_TYPES: Record<DayType, Omit<DayTypeInfo, 'type'>> = {
   decision:      { label: 'Décision',      icon: '🌟', desc: 'Énergie favorable aux choix importants et engagements',      color: '#FFD700' },
-  observation:   { label: 'Observation',   icon: '🔍', desc: "Énergie tournée vers l'analyse et la compréhension",          color: '#60a5fa' },
+  observation:   { label: 'Observation',   icon: '🔍', desc: "Lucidité accrue — agis avec discernement, vise juste",          color: '#60a5fa' },
   communication: { label: 'Communication', icon: '🤝', desc: 'Énergie propice aux échanges, contacts et négociations',     color: '#4ade80' },
   retrait:       { label: 'Retrait',       icon: '🧘', desc: 'Énergie de repos stratégique et de recentrage',              color: '#9370DB' },
   expansion:     { label: 'Expansion',     icon: '🚀', desc: 'Énergie de croissance — terrain favorable pour avancer',     color: '#FF69B4' },
@@ -72,6 +72,25 @@ const JIAN_CHU_OFFICERS: ReadonlyArray<{ zh: string; fr: string; pts: number }> 
   { zh: '开', fr: 'Ouvrir',     pts:  2 },  // 10 — débuter, voyager
   { zh: '闭', fr: 'Fermer',     pts: -1 },  // 11 — éviter les actions
 ];
+
+/**
+ * Traduction des labels 10 Dieux BaZi en langage humain pour les signaux utilisateur.
+ * Élimine les caractères chinois et le jargon technique.
+ */
+function tenGodToHuman(label: string): string {
+  const l = label.replace(/^[\u4e00-\u9fff\s]+/, '').trim().toLowerCase();
+  if (l.includes('compagnon'))          return 'Énergie de coopération';
+  if (l.includes('concurrent'))         return 'Énergie de compétition';
+  if (l.includes('expression'))         return 'Énergie d\'expression';
+  if (l.includes('création brute'))     return 'Énergie créative';
+  if (l.includes('richesse directe'))   return 'Énergie de gain stable';
+  if (l.includes('richesse indirecte')) return 'Énergie d\'opportunité';
+  if (l.includes('pouvoir direct'))     return 'Énergie d\'autorité';
+  if (l.includes('pouvoir indirect'))   return 'Énergie de contrôle';
+  if (l.includes('soutien'))            return 'Énergie de soutien';
+  if (l.includes('savoir'))             return 'Énergie de sagesse';
+  return label.replace(/^[\u4e00-\u9fff\s]+/, '').trim(); // fallback sans sinogrammes
+}
 
 /**
  * Sprint AT — Jian Chu score pur (débias + ×0.5).
@@ -152,6 +171,11 @@ export interface DailyModuleResult {
   luneGroupDelta: number;   // C_LUNE capé ±12 (Sprint AO BONUS)
   ephemGroupDelta: number;  // C_EPHEM capé ±10 (Sprint AN — était ±14)
   indivGroupDelta: number;  // Sprint AN — C_INDIV capé ±8
+  // Ronde #22 — Progressive Disclosure
+  richSignals: SignalDisplay[];
+  richAlerts: SignalDisplay[];
+  // Ronde #24 — Résonance Lunaire Natale (longitude sidérale Lune transit à 12h UTC)
+  transitMoonSid: number | null;
 }
 
 // ══════════════════════════════════════
@@ -443,9 +467,9 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     baziResult = calcBaZiDaily(birthDate, todayDate, 50);
     baziDMPts = Math.max(-6, Math.min(6, Math.round(baziResult.totalScore * 2)));
     if (baziDMPts > 0) {
-      baziSignals.push(`${baziResult.dailyStem.archetype} → ${baziResult.relation === 'produced_by' ? 'soutien' : 'harmonie'}`);
+      baziSignals.push(`Énergie du jour porteuse — ${baziResult.relation === 'produced_by' ? 'tu es soutenu' : 'bonne harmonie'}`);
     } else if (baziDMPts < 0) {
-      baziAlerts.push(`${baziResult.dailyStem.archetype} → ${baziResult.relation === 'destroyed_by' ? 'pression' : 'friction'}`);
+      baziAlerts.push(`Énergie du jour sous tension — ${baziResult.relation === 'destroyed_by' ? 'reste vigilant' : 'petite friction'}`);
     }
 
     tenGodsResult = calc10Gods(birthDate, todayDate);
@@ -462,8 +486,8 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     if (tenGodsResult.dominant) {
       const d = tenGodsResult.dominant;
       const zhengLabel = d.isZheng ? '正' : '偏';
-      if (tenGodsPts > 0) baziSignals.push(`${d.label} (${zhengLabel}) → favorable`);
-      else if (tenGodsPts < 0) baziAlerts.push(`${d.label} (${zhengLabel}) → friction`);
+      if (tenGodsPts > 0) baziSignals.push(`${tenGodToHuman(d.label)} — favorable`);
+      else if (tenGodsPts < 0) baziAlerts.push(`${tenGodToHuman(d.label)} — en friction`);
     }
   } catch { /* BaZi/10Gods fail silently */ }
 
@@ -491,7 +515,7 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
 
   if (tenGodsResult) {
     breakdowns.push({
-      system: '10 Gods', icon: '神',
+      system: '10 Archétypes', icon: '神',
       value: tenGodsResult.dominant ? tenGodsResult.dominant.label : 'Neutre',
       points: tenGodsPts,
       detail: tenGodsResult.gods.map(g => g.label.split(' ')[0]).join('+'),
@@ -504,8 +528,8 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     breakdowns.push({
       system: 'Peach Blossom', icon: '🌸',
       value: '桃花 Active', points: 2,
-      detail: 'Peach Blossom du jour → charme amplifié',
-      signals: ['🌸 Peach Blossom active — magnétisme relationnel'], alerts: [],
+      detail: 'Fleur de Pêcher du jour → charme amplifié',
+      signals: ['🌸 Fleur de Pêcher active — magnétisme relationnel'], alerts: [],
     });
   }
 
@@ -534,12 +558,13 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     shenShaPts = Math.max(-4, Math.min(4, Math.round(rawShenSha * 10) / 10));
 
     for (const star of shenShaResult.active) {
-      if (star.global > 0) signals.push(`${star.chinese} ${star.label_fr}`);
-      else if (star.global < 0) alerts.push(`${star.chinese} ${star.label_fr}`);
+      const starHuman = star.label_fr.split('—')[0].trim();
+      if (star.global > 0) signals.push(`${starHuman} → favorable (étoile chinoise)`);
+      else if (star.global < 0) alerts.push(`${starHuman} → friction (étoile chinoise)`);
     }
     if (shenShaResult.active.length > 0) {
       breakdowns.push({
-        system: 'Shen Sha', icon: '⭐',
+        system: 'Étoiles symboliques', icon: '⭐',
         value: shenShaResult.active.map(s => s.chinese).join(' '),
         points: shenShaPts,
         detail: shenShaResult.active.map(s => s.label_fr).join(' · '),
@@ -555,15 +580,15 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
   const jianchuOfficer = jianChuResult.officer;
   if (jianchuOfficer) {
     const officerLabel = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
-    if (jianchuOfficer.pts > 0) signals.push(`${officerLabel} — officier favorable`);
-    else if (jianchuOfficer.pts < 0) alerts.push(`${officerLabel} — journée à timing difficile`);
+    if (jianchuOfficer.pts > 0) signals.push(`Timing favorable → ${jianchuOfficer.fr} (calendrier chinois)`);
+    else if (jianchuOfficer.pts < 0) alerts.push(`Timing difficile → ${jianchuOfficer.fr} (calendrier chinois)`);
     breakdowns.push({
-      system: 'Jian Chu', icon: '建',
+      system: 'Cycle des 12 Officiers', icon: '建',
       value: officerLabel,
       points: jianchuOfficer.pts,
-      detail: `Officer Jian Chu`,
-      signals: jianchuOfficer.pts > 0 ? [`${officerLabel} → timing favorable`] : [],
-      alerts: jianchuOfficer.pts < 0 ? [`${officerLabel} → timing difficile`] : [],
+      detail: `Officier du Cycle`,
+      signals: jianchuOfficer.pts > 0 ? [`${officerLabel} → moment favorable`] : [],
+      alerts: jianchuOfficer.pts < 0 ? [`${officerLabel} → moment difficile`] : [],
     });
   }
 
@@ -689,7 +714,7 @@ function _calcLuneGroup(bd: string, todayStr: string, astro: AstroChart | null):
         else if (chandrabalaRes.delta < 0) alerts.push(chandrabalaRes.label);
 
         breakdowns.push({
-          system: 'Tarabala', icon: '⭐',
+          system: 'Résonance lunaire védique', icon: '⭐',
           value: `${tarabalaRes.name} (pos.${tarabalaRes.index})`,
           points: tarabalaRes.delta,
           detail: `Nakshatra transit vs natal — Muhurta Chintamani §12-18`,
@@ -775,7 +800,7 @@ function _calcLuneGroup(bd: string, todayStr: string, astro: AstroChart | null):
       alerts.push(...panchangaResult.alerts);
     }
     breakdowns.push({
-      system: 'Panchanga', icon: '🪷',
+      system: 'Calendrier védique', icon: '🪷',
       value: `${panchangaResult.tithi.name} · ${panchangaResult.yoga.name} · ${panchangaResult.vara.name}`,
       points: panchangaResult.total,
       detail: `Tithi ${panchangaResult.tithi.tithi} (${panchangaResult.tithi.quality}) | Yoga ${panchangaResult.yoga.yoga} | ${panchangaResult.vara.icon} ${panchangaResult.vara.planet}`,
@@ -840,18 +865,20 @@ function _calcEphemGroup(
     astroPts = Math.max(-6, Math.min(6, Math.round(personalTransits.total - drOverlapR)));
     if (astroPts > 0) {
       const top = personalTransits.breakdown.sort((a, b) => b.score - a.score)[0];
-      astroSignals.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'harmonic' ? 'trigone/sextile' : 'conjonction'} favorable (+${astroPts})`);
+      const planetName = PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet;
+      astroSignals.push(`Aspect harmonieux → ${planetName} (transit personnel)`);
     } else if (astroPts < 0) {
       const top = personalTransits.breakdown.sort((a, b) => a.score - b.score)[0];
-      astroAlerts.push(`${PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet} → ${top?.aspectType === 'tense' ? 'carré/opposition' : 'conjonction'} en tension (${astroPts})`);
+      const planetName = PLANET_FR[top?.transitPlanet] ?? top?.transitPlanet;
+      astroAlerts.push(`Aspect tendu → ${planetName} (transit personnel)`);
     }
   } else if (!_isLiveDay && astro && astro.pl.length) {
     const liteTotal = calcTransitsLite(astro.pl, todayStr);
     astroPts = Math.max(-6, Math.min(6, Math.round(liteTotal)));
     if (astroPts > 0) {
-      astroSignals.push(`Transits personnels recalculés → favorable (+${astroPts})`);
+      astroSignals.push(`Transits personnels → favorable (astro)`);
     } else if (astroPts < 0) {
-      astroAlerts.push(`Transits personnels recalculés → tension (${astroPts})`);
+      astroAlerts.push(`Transits personnels → tension (astro)`);
     }
   }
   ephemGroupPts += astroPts;
@@ -956,13 +983,13 @@ function _calcIndivGroup(
 
   const ichingSignals: string[] = [];
   const ichingAlerts: string[] = [];
-  if (ichRes.pts > 0) ichingSignals.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'A' ? 'puissant' : 'favorable'} (narratif)`);
-  if (ichRes.pts < 0) ichingAlerts.push(`Hex. ${iching.hexNum} (${iching.name}) → ${ichRes.tier === 'E' ? 'épreuve' : 'tension'} (narratif)`);
+  if (ichRes.pts > 0) ichingSignals.push(`${ichRes.tier === 'A' ? 'Yi King puissant' : 'Yi King favorable'} : ${iching.name}`);
+  if (ichRes.pts < 0) ichingAlerts.push(`${ichRes.tier === 'E' ? 'Yi King d\'épreuve' : 'Yi King tendu'} : ${iching.name}`);
   signals.push(...ichingSignals);
   alerts.push(...ichingAlerts);
 
   breakdowns.push({
-    system: 'I Ching', icon: '☰',
+    system: 'Yi King', icon: '☰',
     value: `#${iching.hexNum} ${iching.name}`,
     points: 0,
     detail: `Tier ${ichRes.tier} · L${iching.changing + 1} · Yao ${ichRes.yao >= 0 ? '+' : ''}${ichRes.yao} / Dynamique cachée ${ichRes.nuclear >= 0 ? '+' : ''}${ichRes.nuclear}`,
@@ -1096,6 +1123,52 @@ function _calcIndivGroup(
 // Orchestrateur : appelle les 4 sous-groupes + sections narratives
 // ══════════════════════════════════════
 
+// ══════════════════════════════════════
+// ═══ Ronde #22 — PROGRESSIVE DISCLOSURE HELPERS ═══
+// ══════════════════════════════════════
+
+/** Dual-push : écrit dans le string[] legacy ET le SignalDisplay[] enrichi */
+function sig(human: string, technical: string, source: string, polarityLabel: string, legacyArr: string[], richArr: SignalDisplay[], interpretation?: string): void {
+  legacyArr.push(`${human} → ${polarityLabel} (${source.toLowerCase()})`);
+  richArr.push({ human, technical, source, polarity: 'positive', polarityLabel, interpretation });
+}
+function alt(human: string, technical: string, source: string, polarityLabel: string, legacyArr: string[], richArr: SignalDisplay[], interpretation?: string): void {
+  legacyArr.push(`${human} → ${polarityLabel} (${source.toLowerCase()})`);
+  richArr.push({ human, technical, source, polarity: 'negative', polarityLabel, interpretation });
+}
+
+/**
+ * Ronde #22 — Catch-all : convertit un string signal legacy en SignalDisplay.
+ * Heuristique : détecte la source par mots-clés, extrait le texte humain.
+ */
+function _legacyToRich(text: string, polarity: 'positive' | 'negative'): SignalDisplay {
+  // Détection source (sous-catégories BaZi précises)
+  let source = 'Autre';
+  if (/lune|luna|croissant|décroissant|pleine|nouvelle|éclipse|VoC/i.test(text)) source = 'Lune';
+  else if (/10 dieux/i.test(text)) source = '10 Dieux';
+  else if (/jour maître/i.test(text)) source = 'Jour Maître';
+  else if (/étoile chinoise|shen sha/i.test(text)) source = 'Étoile chinoise';
+  else if (/calendrier chinois|jian chu/i.test(text)) source = 'Calendrier chinois';
+  else if (/bazi|tige|branche/i.test(text)) source = 'BaZi';
+  else if (/transit|planét|jupiter|saturne|mars|vénus|mercure|neptune|uranus|pluton|astro/i.test(text)) source = 'Astro';
+  else if (/yi jing|yi king|hexagramme|hex\./i.test(text)) source = 'Yi King';
+  else if (/chemin|jour \d|maître|personnel|année|pinnacle|karma/i.test(text)) source = 'Numéro';
+  else if (/nakshatra|dasha|tithi|yoga|karana|vedique|panchanga/i.test(text)) source = 'Védique';
+  else if (/nœud|nodal|retour des/i.test(text)) source = 'Astro';
+
+  // Nettoyage : enlever l'emoji de tête + tag source trailing
+  const cleaned = text
+    .replace(/^[^\w\u00C0-\u024F]+/, '')
+    .replace(/\s*\((?:bazi|astro|lune|yi jing|yi king|numéro|védique|étoile chinoise|transit personnel|jour maître|10 dieux|calendrier chinois)\)\s*/gi, ' ')
+    .trim();
+  // Extraire le human (avant →) et le polarityLabel (après →)
+  const parts = cleaned.split('→').map(p => p.trim());
+  const human = parts[0] || cleaned;
+  const polarityLabel = parts[1] || (polarity === 'positive' ? 'favorable' : 'friction');
+
+  return { human, technical: cleaned, source, polarity, polarityLabel };
+}
+
 export function calcDailyModules(
   params: {
     num: NumerologyProfile;
@@ -1114,6 +1187,19 @@ export function calcDailyModules(
   let delta = 0;
   const pdv = num.ppd.v;
 
+  // Ronde #24 — Résonance Lunaire Natale : longitude sidérale Lune transit à 12h UTC
+  let _transitMoonSid: number | null = null;
+  try {
+    const _tmsDate = new Date(todayStr + 'T12:00:00Z');
+    const _tmsTrop = getMoonPhase(_tmsDate).longitudeTropical;
+    const _tmsAy   = getAyanamsa(_tmsDate.getFullYear());
+    _transitMoonSid = ((_tmsTrop - _tmsAy) + 360) % 360;
+  } catch { /* moonSid calc fail silently */ }
+
+  // Ronde #22 — Progressive Disclosure
+  const richSignals: SignalDisplay[] = [];
+  const richAlerts: SignalDisplay[] = [];
+
   // ═══════════════════════════════════
   // 1. NUMÉROLOGIE — narrative (delta=0 depuis V8)
   // ═══════════════════════════════════
@@ -1123,11 +1209,11 @@ export function calcDailyModules(
 
   // ── PD (±7) ──
   let pdPts = 0;
-  if (pdv === num.lp.v)        { pdPts = 7; numSignals.push(`Jour ${pdv} = Chemin de Vie → alignement majeur`); }
-  else if (pdv === num.expr.v) { pdPts = 5; numSignals.push(`Jour ${pdv} = Expression → talents amplifiés`); }
-  else if (pdv === num.soul.v) { pdPts = 4; numSignals.push(`Jour ${pdv} = Âme → désirs profonds activés`); }
-  else if (pdv === num.pers.v) { pdPts = 3; numSignals.push(`Jour ${pdv} = Personnalité → charisme renforcé`); }
-  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); numSignals.push(`Jour Maître ${pdv} → énergie spirituelle`); }
+  if (pdv === num.lp.v)        { pdPts = 7; sig('Alignement majeur', `Jour Personnel ${pdv} = Chemin de Vie`, 'Numéro', 'alignement majeur', numSignals, richSignals, 'Le nombre du jour résonne avec ton chemin de vie — journée alignée.'); }
+  else if (pdv === num.expr.v) { pdPts = 5; sig('Talents amplifiés', `Jour Personnel ${pdv} = Expression`, 'Numéro', 'talents amplifiés', numSignals, richSignals, 'Le jour active ton nombre d\'expression — communique, crée.'); }
+  else if (pdv === num.soul.v) { pdPts = 4; sig('Désirs profonds activés', `Jour Personnel ${pdv} = Âme`, 'Numéro', 'désirs activés', numSignals, richSignals, 'Le jour résonne avec ton nombre d\'âme — écoute ton intuition.'); }
+  else if (pdv === num.pers.v) { pdPts = 3; sig('Charisme renforcé', `Jour Personnel ${pdv} = Personnalité`, 'Numéro', 'charisme', numSignals, richSignals, 'Le jour active ton nombre de personnalité — ton image rayonne.'); }
+  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); sig('Énergie spirituelle', `Jour Maître ${pdv}`, 'Numéro', 'énergie spirituelle', numSignals, richSignals, 'Nombre maître — potentiel d\'inspiration hors norme.'); }
   if (num.kl.includes(pdv))    { pdPts = Math.min(7, pdPts + 1); }
   pdPts = Math.max(-7, Math.min(7, pdPts));
 
@@ -1156,7 +1242,7 @@ export function calcDailyModules(
   if (num.hasKarmicDebt && num.karmicDebt) {
     const kd = num.karmicDebt;
     const kdMsg = kd === 13 ? 'effort & discipline' : kd === 14 ? 'liberté & excès' : kd === 16 ? 'ego & humilité' : 'puissance & abus';
-    signals.push(`⚖️ Dette karmique ${kd} — ${kdMsg}`);
+    signals.push(`⚖️ Schéma à transcender ${kd} — ${kdMsg}`);
   }
   signals.push(...numSignals);
   alerts.push(...numAlerts);
@@ -1267,8 +1353,8 @@ export function calcDailyModules(
   const nodeAlerts: string[] = [];
   if (nodeTransit) {
     switch (nodeTransit.alignment) {
-      case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission karmique'); break;
-      case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux karmique'); break;
+      case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission de vie'); break;
+      case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux de vie'); break;
       case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
       case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
     }
@@ -1319,5 +1405,19 @@ export function calcDailyModules(
     luneGroupDelta:     lune.luneGroupCapped,
     ephemGroupDelta:    ephem.ephemGroupCapped,
     indivGroupDelta:    indiv.indivGroupCapped,
+    // Ronde #22 — Progressive Disclosure
+    // Catch-all : convertit les signaux string legacy qui n'ont pas encore été migrés vers sig()/alt()
+    richSignals: [
+      ...richSignals,
+      ...signals.filter(s => !richSignals.some(r => s.includes(r.human) || s.includes(r.polarityLabel)))
+        .map(s => _legacyToRich(s, 'positive')),
+    ],
+    richAlerts: [
+      ...richAlerts,
+      ...alerts.filter(a => !richAlerts.some(r => a.includes(r.human) || a.includes(r.polarityLabel)))
+        .map(a => _legacyToRich(a, 'negative')),
+    ],
+    // Ronde #24 — Résonance Lunaire Natale
+    transitMoonSid: _transitMoonSid,
   };
 }

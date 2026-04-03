@@ -10,6 +10,8 @@
  * Système : Tarot de Marseille (VIII=Justice, XI=Force, Le Mat=0)
  */
 
+import { sto } from './storage';
+
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
@@ -400,6 +402,22 @@ export function calcTarotDayNumber(dateStr: string): number {
 }
 
 /**
+ * Carte du Jour Personnelle — Méthode Mary K. Greer "Personal Day Card"
+ * Ronde #3 2026-04-01 — Vote 2/3 (GPT + Gemini)
+ * Formule : birthDay + birthMonth + currentYear + currentMonth + currentDay
+ * Note : n'utilise PAS l'année de naissance (par design Greer)
+ * @param bd  Date de naissance YYYY-MM-DD
+ * @param day Date du jour YYYY-MM-DD
+ * @returns num ∈ [0–21]
+ */
+export function calcPersonalDayCard(bd: string, day: string): number {
+  const [, bm, bday] = parseDateComponents(bd);
+  const [dy, dm, dd] = parseDateComponents(day);
+  const sum = bday + bm + dy + dm + dd;
+  return arcanaNumFrom1to22(reduceTo1to22(sum));
+}
+
+/**
  * Récupère un arcane par son numéro [0–21].
  */
 export function getArcana(num: number): MajorArcana {
@@ -414,18 +432,18 @@ export function getArcana(num: number): MajorArcana {
 const LS_KEY_TAROT = 'kaironaute_tarot_draws';
 
 export function loadTarotHistory(): TarotDrawRecord[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY_TAROT) || '[]'); } catch { return []; }
+  try { return sto.get<TarotDrawRecord[]>(LS_KEY_TAROT) || []; } catch { return []; }
 }
 
 export function saveTarotDraw(rec: TarotDrawRecord): void {
   const arr = loadTarotHistory();
   arr.unshift(rec);
-  localStorage.setItem(LS_KEY_TAROT, JSON.stringify(arr.slice(0, 10)));
+  sto.set(LS_KEY_TAROT, arr.slice(0, 10));
 }
 
 export function deleteTarotDraw(id: string): void {
   const arr = loadTarotHistory().filter(r => r.id !== id);
-  localStorage.setItem(LS_KEY_TAROT, JSON.stringify(arr));
+  sto.set(LS_KEY_TAROT, arr);
 }
 
 /**
@@ -505,21 +523,21 @@ export function drawConscious3Cards(question: string): Tarot3CardDraw {
 export function saveTarot3CardDraw(rec: Tarot3CardRecord): void {
   const key = 'kaironaute_tarot_3card_draws';
   let arr: Tarot3CardRecord[] = [];
-  try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch { /* noop */ }
+  try { arr = sto.get<Tarot3CardRecord[]>(key) || []; } catch { /* noop */ }
   arr.unshift(rec);
-  localStorage.setItem(key, JSON.stringify(arr.slice(0, 10)));
+  sto.set(key, arr.slice(0, 10));
 }
 
 export function loadTarot3CardHistory(): Tarot3CardRecord[] {
   const key = 'kaironaute_tarot_3card_draws';
-  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+  try { return sto.get<Tarot3CardRecord[]>(key) || []; } catch { return []; }
 }
 
 export function deleteTarot3CardDraw(id: string): void {
   const key = 'kaironaute_tarot_3card_draws';
   let arr: Tarot3CardRecord[] = [];
-  try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch { /* noop */ }
-  localStorage.setItem(key, JSON.stringify(arr.filter(r => r.id !== id)));
+  try { arr = sto.get<Tarot3CardRecord[]>(key) || []; } catch { /* noop */ }
+  sto.set(key, arr.filter(r => r.id !== id));
 }
 
 // ─────────────────────────────────────────────
@@ -570,27 +588,27 @@ const LS_JOURNAL_KEY = 'kaironaute_journal_notes';
 
 export function loadJournalNote(drawId: string): string {
   try {
-    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    const notes = sto.get<Record<string, string>>(LS_JOURNAL_KEY) || {};
     return notes[drawId] || '';
   } catch { return ''; }
 }
 
 export function saveJournalNote(drawId: string, text: string): void {
   try {
-    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    const notes = sto.get<Record<string, string>>(LS_JOURNAL_KEY) || {};
     if (text.trim()) {
       notes[drawId] = text;
     } else {
       delete notes[drawId];
     }
-    localStorage.setItem(LS_JOURNAL_KEY, JSON.stringify(notes));
+    sto.set(LS_JOURNAL_KEY, notes);
   } catch { /* noop */ }
 }
 
 export function deleteJournalNote(drawId: string): void {
   try {
-    const notes = JSON.parse(localStorage.getItem(LS_JOURNAL_KEY) || '{}');
+    const notes = sto.get<Record<string, string>>(LS_JOURNAL_KEY) || {};
     delete notes[drawId];
-    localStorage.setItem(LS_JOURNAL_KEY, JSON.stringify(notes));
+    sto.set(LS_JOURNAL_KEY, notes);
   } catch { /* noop */ }
 }

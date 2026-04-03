@@ -8,6 +8,7 @@
 // V4.3 : Étoiles 1-5 + Spearman
 
 import { useState, useEffect, useCallback } from 'react';
+import { sto } from '../engines/storage';
 import { submitFeedback } from '../engines/useSyncDailyVector';
 import { getDayFeedback, getValidationStats, type ValidationStats, saveBreakdownForDate } from '../engines/validation-tracker';
 import { getOnboardingMessage, getFlatlineAlert, loadPersonalWeights } from '../engines/personalization';
@@ -65,7 +66,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
     setStats(s);
     const weights = loadPersonalWeights();
     setOnboardMsg(getOnboardingMessage(s.totalFeedbacks, weights));
-    const feedbacks = JSON.parse(localStorage.getItem('sp_validation_feedback') || '[]');
+    const feedbacks = sto.get<any[]>('sp_validation_feedback') || [];
     setFlatlineMsg(getFlatlineAlert(feedbacks));
   }, [date]);
 
@@ -93,7 +94,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
     <div style={{ marginTop: 14 }}>
 
       <div style={{ fontSize: 11, color: P.textDim, marginBottom: 8, fontWeight: 600, letterSpacing: 1 }}>
-        COMMENT S'EST PASSÉE TA JOURNÉE ?
+        NOTE TA JOURNÉE POUR AFFINER TES PRÉDICTIONS
       </div>
 
       {/* 5 étoiles */}
@@ -130,49 +131,40 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
         )}
       </div>
 
-      {/* Stats localStorage (rétrocompat, pendant migration vers Firestore) */}
-      {stats && stats.totalFeedbacks >= 3 && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 10, marginTop: 4,
-          background: stats.concordanceRate >= 70 ? '#4ade8010' : stats.concordanceRate >= 50 ? `${P.gold}10` : '#ef444410',
-          border: `1px solid ${stats.concordanceRate >= 70 ? '#4ade8025' : stats.concordanceRate >= 50 ? `${P.gold}25` : '#ef444425'}`,
-          fontSize: 11, color: P.textMid, lineHeight: 1.6,
-        }}>
-          {stats.spearman && stats.spearman.n >= 10 ? (
+      {/* Stats localStorage — V11.1 UX : masqué si précision faible, langage humain */}
+      {stats && stats.totalFeedbacks >= 5 && (() => {
+        // V11.1 : n'afficher que si on a des résultats encourageants
+        const precision = stats.spearman?.precision ?? 0;
+        const concordance = stats.concordanceRate ?? 0;
+        const bestMetric = precision > 0 ? precision : concordance;
+        if (bestMetric < 55) return null; // Masquer si trop faible — évite "Précision: 37%"
+        const isGood = bestMetric >= 70;
+        return (
+          <div style={{
+            padding: '10px 14px', borderRadius: 10, marginTop: 4,
+            background: isGood ? '#4ade8010' : `${P.gold}10`,
+            border: `1px solid ${isGood ? '#4ade8025' : `${P.gold}25`}`,
+            fontSize: 11, color: P.textMid, lineHeight: 1.6,
+          }}>
             <div style={{ fontWeight: 700, marginBottom: 4, color: P.text }}>
-              {stats.spearman.icon} {stats.spearman.precision > 0
-                ? `Précision : ${stats.spearman.precision}% — ${stats.spearman.label}`
-                : `Calibration en apprentissage — ${stats.spearman.label}`}
-              <span style={{ fontWeight: 400, fontSize: 10, color: P.textDim, marginLeft: 6 }}>
-                ({stats.spearman.n} jours{stats.spearman.significant ? ' · ✓ fiable' : ''})
-              </span>
+              {isGood ? '🎯' : '📊'}{' '}
+              {isGood
+                ? 'Le scoring est bien adapté à ton profil'
+                : 'Le scoring s\'affine avec tes retours'}
             </div>
-          ) : (
-            <div style={{ fontWeight: 700, marginBottom: 4, color: P.text }}>
-              🎯 Concordance : {stats.concordanceRate}% — {stats.label}
+            <div style={{ fontSize: 10, color: P.textDim }}>
+              {stats.streak >= 3 && <span>🔥 {stats.streak} jours de suite — </span>}
+              {isGood
+                ? 'Tes notations confirment la fiabilité des prédictions.'
+                : 'Continue à noter tes journées pour améliorer la précision.'}
             </div>
-          )}
-          <div>
-            {stats.totalFeedbacks} jours notés
-            {stats.streak >= 3 && ` · 🔥 ${stats.streak}j consécutifs`}
-            {stats.last7Days > 0 && ` · 7j: ${stats.last7Days}%`}
           </div>
-          {stats.spearman && stats.spearman.n > 0 && stats.spearman.n < 10 && (
-            <div style={{ marginTop: 4, fontSize: 10, color: P.textDim }}>
-              📊 Encore {10 - stats.spearman.n} notation{10 - stats.spearman.n > 1 ? 's' : ''} pour mesurer la précision
-            </div>
-          )}
-          {stats.insights.length > 0 && (
-            <div style={{ marginTop: 4, fontSize: 10, color: P.textDim, fontStyle: 'italic' }}>
-              {stats.insights[0]}
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
-      {stats && stats.totalFeedbacks > 0 && stats.totalFeedbacks < 3 && (
+      {stats && stats.totalFeedbacks > 0 && stats.totalFeedbacks < 5 && (
         <div style={{ fontSize: 10, color: P.textDim, fontStyle: 'italic', marginTop: 4 }}>
-          Encore {3 - stats.totalFeedbacks} jour{3 - stats.totalFeedbacks > 1 ? 's' : ''} pour les premières stats…
+          Encore {5 - stats.totalFeedbacks} jour{5 - stats.totalFeedbacks > 1 ? 's' : ''} pour que le calcul s'adapte à toi
         </div>
       )}
 
