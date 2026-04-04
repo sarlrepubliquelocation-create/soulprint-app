@@ -85,7 +85,9 @@ function buildBrief(data: SoulData, rarity?: { icon: string; label: string; rank
   // Ronde #26 (3/3) : rang ordinal supprimé — remplacé par "Fenêtre de levier" pour les jours rares.
   // Le rang brut ("2e meilleur jour") crée une pression de performance toxique (Yerkes-Dodson).
   const _r = rarity ?? conv.rarityIndex;
-  const lineRarity = _r
+  // Rareté affichée uniquement pour les jours rares/peu communs (≤15%) — les jours ordinaires
+  // (Modéré ◆, Courant ○) n'ont pas besoin de label de fréquence, ça crée de la confusion.
+  const lineRarity = _r && _r.percentage <= 15
     ? (_r.percentage <= 5 ? `${_r.icon} ${_r.label} — Fenêtre de levier (≈ 12 fois/an)` : `${_r.icon} ${_r.label}`)
     : '';
   const lineBaZi = conv.baziDaily ? `☯ Énergie du jour : ${conv.baziDaily.dailyStem.element} — ${conv.baziDaily.interaction.dynamique.split('.')[0]}` : '';
@@ -113,7 +115,7 @@ function buildBrief(data: SoulData, rarity?: { icon: string; label: string; rank
       return `  ${prefix} ${d.icon} ${d.label} ${qual} — ${d.directive || ''}`;
     }).join('\n');
   })() : '';
-  const line10Gods = conv.tenGods?.dominant ? `✦ ${tenGodHuman(conv.tenGods.dominant.label)}` : '';
+  const line10Gods = conv.tenGods?.dominant ? `✦ ${tenGodHuman(conv.tenGods.dominant.label, _briefScore)}` : '';
   return [
     `🔮 Kaironaute — Brief du ${new Date().toLocaleDateString('fr-FR')}`,
     '', line1, lineNarr, line2, lineAR, lineMoon, lineBaZi, line10Gods,
@@ -203,13 +205,22 @@ function dayTypeHint(label: string, score?: number): string {
   }
 }
 
-/** Ronde 21-bis — Traduction des 10 Dieux BaZi en langage compréhensible */
-function tenGodHuman(label: string): string {
+/** Ronde 21-bis — Traduction des 10 Dieux BaZi en langage compréhensible
+ *  score : score du jour (avec calibOffset) — adapte le conseil aux jours modérés vs forts
+ */
+function tenGodHuman(label: string, score = 100): string {
   const l = label.replace(/^[\u4e00-\u9fff\s]+/, '').trim().toLowerCase();
+  const isHigh = score >= 65;
   if (l.includes('compagnon'))          return 'Énergie de coopération — appuie-toi sur tes alliés';
-  if (l.includes('concurrent'))         return 'Énergie de compétition — dépasse-toi avec audace';
-  if (l.includes('expression'))         return 'Énergie d\'expression — communique, partage tes idées';
-  if (l.includes('création brute'))     return 'Énergie créative brute — innove, bouscule les codes';
+  if (l.includes('concurrent'))         return isHigh
+    ? 'Énergie de compétition — dépasse-toi avec audace'
+    : 'Énergie de compétition — canalise ton élan avec méthode';
+  if (l.includes('expression'))         return isHigh
+    ? 'Énergie d\'expression — communique, partage tes idées'
+    : 'Énergie d\'expression — prends le temps d\'articuler tes idées';
+  if (l.includes('création brute'))     return isHigh
+    ? 'Énergie créative brute — innove, bouscule les codes'
+    : 'Énergie créative brute — innove à ton rythme';
   if (l.includes('richesse directe'))   return 'Énergie de gain stable — sécurise tes acquis';
   if (l.includes('richesse indirecte')) return 'Énergie d\'opportunité — saisis les chances imprévues';
   if (l.includes('autorité'))           return 'Énergie de structure — organise, cadre, décide';
@@ -887,7 +898,8 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
               return (
                 <div style={{ marginTop: 14, padding: '10px 16px', background: '#27272a33', borderRadius: 12, border: `1px solid ${P.cardBdr}`, maxWidth: 400, margin: '14px auto 0' }}>
                   {vals.map(v => (
-                    <div key={v.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div key={v.key} style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 90, textAlign: 'right', flexShrink: 0 }}>
                         <div style={{ fontSize: 11, color: P.textMid }}>{v.icon} {v.label}</div>
                         <div style={{ fontSize: 8, color: P.textDim, marginTop: 1 }}>{Math.round(v.val) === 0 ? 'Ni frein ni élan — fond stable' : v.sub}</div>
@@ -913,6 +925,13 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
                         {Math.round(v.val) === 0 ? '—' : (v.val >= 0 ? '+' : '') + Math.round(v.val)}
                       </span>
                     </div>
+                    {/* D2 — Note Pleine Lune : explique pourquoi la lune peut être négative */}
+                    {v.key === 'lune' && Math.round(v.val) < 0 && moon.phase === 4 && (
+                      <div style={{ fontSize: 9, color: '#a78bfa', marginTop: 2, marginLeft: 98, lineHeight: 1.4, opacity: 0.85 }}>
+                        Pleine Lune — amplifie aussi bien les élans que les tensions
+                      </div>
+                    )}
+                  </div>
                   ))}
                   <div style={{ fontSize: 9, color: P.textDim, textAlign: 'center', marginTop: 6, opacity: 0.7 }}>
                     Influence de chaque système sur ton score du jour
@@ -1120,6 +1139,12 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
                         ? '2 cycles sur 3 alignés'
                         : dsp.label}
                     </div>
+                    {/* C — micro-explication quand Cycle long ✗ mais court-terme positif */}
+                    {alignment.fondPolarity === '-' && alignment.tendancePolarity === '+' && (
+                      <div style={{ fontSize: 8, color: state.colorHex, opacity: 0.65, marginTop: 2, lineHeight: 1.3 }}>
+                        cycle de vie en construction
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
                       {(['Cycle long', 'Année', 'Jour'] as const).map((ch, i) => {
                         // "Jour" intègre aussi la résonance védique : si cycles profonds en tension → ✗
@@ -1167,16 +1192,20 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
                   <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.65, fontStyle: 'italic' }}>
                     {(() => {
                       const vedicTense = cv.shadowBaseSignal !== undefined && cv.shadowBaseSignal < -0.22;
-                      // Si résonance en tension, surcharger "Tes 3 cycles sont alignés"
-                      if (vedicTense && synthesisPhrase.includes('cycles sont alignés')) {
-                        return synthesisPhrase.replace(
+                      // Composer le texte final AVANT la vérification vedicTense
+                      // (le pattern "cycles sont alignés" peut venir de dsp.uxText, pas de synthesisPhrase)
+                      const fullText = (dsp.uxText !== state.uxText)
+                        ? `${synthesisPhrase.split('—')[0]}— ${dsp.uxText}`
+                        : synthesisPhrase;
+                      // Si résonance védique en tension, remplacer "Tes 3 cycles sont alignés" pour
+                      // être cohérent avec le badge "2 cycles sur 3 alignés"
+                      if (vedicTense && fullText.includes('cycles sont alignés')) {
+                        return fullText.replace(
                           /Tes 3 cycles sont alignés, mais/,
                           'Tes cycles de fond sont porteurs, mais des courants profonds freinent et'
                         );
                       }
-                      return (dsp.uxText !== state.uxText)
-                        ? `${synthesisPhrase.split('—')[0]}— ${dsp.uxText}`
-                        : synthesisPhrase;
+                      return fullText;
                     })()}
                   </div>
                   <div style={{ marginTop: 8, fontSize: 11, color: state.colorHex, fontWeight: 600 }}>
@@ -1395,7 +1424,7 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, paddingTop: 6, borderTop: `1px solid ${P.cardBdr}` }}>
                       <span style={{ fontSize: 14 }}>⏱</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa' }}>Meilleurs créneaux</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa' }}>Créneaux du jour</span>
                       <span style={{ fontSize: 11, color: P.textMid, flex: 1 }}>Agis vers {hText}</span>
                     </div>
                   );
@@ -2214,7 +2243,7 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>
-                          {tenGodHuman(dom.label)}
+                          {tenGodHuman(dom.label, displayScore)}
                         </div>
                         <div style={{ fontSize: 11, color: dom.isZheng ? '#4ade80' : '#f59e0b', marginTop: 4, fontWeight: 600 }}>
                           Impact : {tg.totalScore > 0 ? '+' : ''}{tg.totalScore} sur ton journée

@@ -97,7 +97,7 @@ const MOON_PHASE_TEXT: Record<number, string[]> = {
   1: ["Portée par une lune naissante, ton intention se cristallise", "Le croissant pousse doucement — tes projets aussi"],
   2: ["Sous une lune qui gonfle, ta détermination grandit", "La lumière croît chaque nuit, et ta clarté avec elle"],
   3: ["L'énergie lunaire monte et amplifie tes intuitions", "Porté par la lune gibbeuse, tu gagnes en assurance"],
-  4: ["Sous pleine lune, tout ce qui couve émerge à la surface", "Baigné de lumière lunaire, ta perception est à son maximum"],
+  4: ["Sous pleine lune, ce que tu as semé est prêt à être récolté", "Baigné de lumière lunaire, ta perception est à son maximum"],
   5: ["La lune commence à relâcher — bon moment pour faire le tri", "L'intensité redescend doucement, laisse décanter"],
   6: ["En lune descendante, ton regard se tourne vers l'essentiel", "Le cycle lunaire s'apaise — simplifie, allège"],
   7: ["Sous un mince croissant, le calme revient naturellement", "La lune s'efface — dernière fenêtre pour clore ce qui traîne"],
@@ -132,6 +132,8 @@ function hasNarrativeConflict(
   if (baziElement === 'Fire' && /glace|g[eè]le|froid|giv?r/.test(lower)) return true;
   // Score très bas + injection expansive
   if (scoreLevel <= 1 && /croissance|déploie|amplifie|intensité/.test(lower)) return true;
+  // Pleine Lune + message de récolte active + score bas/moyen → contradictoire avec le ton prudent
+  if (moonPhase === 4 && scoreLevel <= 2 && /récolté|prêt à être/.test(lower)) return true;
   return false;
 }
 
@@ -407,7 +409,7 @@ function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string,
       `La mécanique est huilée. Déploie tes projets avec audace et confiance. ${hexKeyword}.`,
       `Ton élan et le contexte sont synchronisés — chaque initiative lancée maintenant porte plus loin. ${hexKeyword}.`,
       `Le terrain est dégagé, les feux sont au vert. Lance ce que tu repousses depuis des jours. ${hexKeyword}.`,
-      `Ta voix porte, tes idées percutent — journée idéale pour convaincre, présenter ou négocier. ${hexKeyword}.`,
+      `Ta voix porte, tes idées percutent — l'heure est venue de convaincre, présenter ou négocier. ${hexKeyword}.`,
       `Le vent est dans ton dos. Avance vite sur les projets prioritaires avant que le courant change. ${hexKeyword}.`,
       `Tes décisions ont du poids aujourd'hui — signe, engage, officialise ce qui est mûr. ${hexKeyword}.`,
       `Tout coopère : ton corps, ton esprit, l'instant. Ne laisse pas cette fenêtre se refermer sans avoir agi. ${hexKeyword}.`,
@@ -457,11 +459,17 @@ function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string,
 
   const pool = conseils[verb];
   // R19 — rotation profil × jour pour anti-doublon entre profils
-  const rawConseil = pool[(profileSeed + dayOfYear) % pool.length];
-  // R20 — enrichissement contextuel (même logique que les narratifs)
-  const _sLvl = score < 25 ? 0 : score < 40 ? 1 : score < 65 ? 2 : score < 80 ? 3 : 4;
-  const conseil = enrichNarrative(rawConseil, moonPhase, baziElement, dayOfYear, profileSeed, isVoC, _sLvl);
-  return { ...ACTION_DEFS[verb], conseil };
+  let rawConseil = pool[(profileSeed + dayOfYear) % pool.length];
+  // NOTE : enrichNarrative() volontairement absente ici.
+  // Le narratif score (uxText) utilise déjà enrichNarrative() → même hash → doublon garanti.
+  // Fix C/D : retirer le suffixe "${hexKeyword}." en fin de conseil — le keyword est déjà
+  // affiché dans la ligne Yi King dédiée du brief → évite la redondance visible.
+  if (hexKeyword && rawConseil.endsWith(` ${hexKeyword}.`)) {
+    const stripped = rawConseil.slice(0, -(` ${hexKeyword}.`.length)).trimEnd();
+    // Ne pas ajouter "." si la chaîne se termine déjà par "." → évite le double point ".."
+    rawConseil = stripped.endsWith('.') ? stripped : stripped + '.';
+  }
+  return { ...ACTION_DEFS[verb], conseil: rawConseil };
 }
 
 // ══════════════════════════════════════
@@ -531,7 +539,7 @@ const DOMAIN_AFFINITY: Record<string, Record<LifeDomain, number>> = {
 };
 
 const DOMAIN_DIRECTIVES: Record<LifeDomain, { haut: string; bon: string; neutre: string; bas: string }> = {
-  BUSINESS:      { haut: 'Feu vert pour signer, négocier et lancer.', bon: 'Avance tes dossiers — le terrain est porteur.', neutre: 'Exécute le courant, reporte les décisions lourdes.', bas: 'Pas de signature ni d\'engagement aujourd\'hui.' },
+  BUSINESS:      { haut: 'Feu vert pour signer, négocier et lancer.', bon: 'Avance tes dossiers — les conditions sont réunies.', neutre: 'Exécute le courant, reporte les décisions lourdes.', bas: 'Pas de signature ni d\'engagement aujourd\'hui.' },
   AMOUR:         { haut: 'Déclare, invite, ose — le cœur est aligné.', bon: 'Bon moment pour connecter et approfondir.', neutre: 'Présence tranquille — pas de grandes déclarations.', bas: 'Protège ton énergie émotionnelle aujourd\'hui.' },
   RELATIONS:     { haut: 'Réseaute, allie-toi, fédère — ton charisme rayonne.', bon: 'Tes échanges seront fluides — profites-en.', neutre: 'Maintiens tes relations sans forcer de nouveau contact.', bas: 'Risque de malentendu — choisis tes mots avec soin.' },
   CREATIVITE:    { haut: 'Crée, innove, écris — l\'inspiration coule.', bon: 'Bonne énergie créative — exploite-la.', neutre: 'Peaufine l\'existant plutôt que de créer du neuf.', bas: 'Pas le jour pour brainstormer — recharge.' },
@@ -802,35 +810,41 @@ function computeRarityIndex(
 // ═══ CONSEIL CONTEXTUEL ═══
 // ══════════════════════════════════════
 
+// Affiche "NomHex (Keyword)" seulement si les deux sont différents — évite "Approche (Approche)"
+function hexLabel(hexName: string, hexKeyword: string): string {
+  return hexName.toLowerCase() === hexKeyword.toLowerCase() ? hexName : `${hexName} (${hexKeyword})`;
+}
+
 function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexKeyword: string): string {
   const t = dayType.type;
+  const hl = hexLabel(hexName, hexKeyword);
   if (score >= COSMIC_THRESHOLD) {
-    if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hexName} (${hexKeyword}) confirme : ce moment est rare.`;
+    if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hl} confirme : ce moment est rare.`;
     if (t === 'communication') return `🌟 CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
     if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lance maintenant.`;
     if (t === 'observation')   return `🌟 CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
     return `🌟 CONVERGENCE RARE — Énergie exceptionnelle tournée vers l'intérieur. Médite, visualise, pose une intention profonde — ce que tu ancres aujourd'hui rayonnera.`;
   }
   if (score >= 80) {
-    if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hexName} (${hexKeyword}) : c'est le moment d'agir.`;
+    if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hl} : c'est le moment d'agir.`;
     if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. ${hexName} amplifie tes échanges.`;
     if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. ${hexName} soutient tes ambitions.`;
     return `Journée d'intériorité dans des conditions rares. Méditation, introspection profonde — ta clarté intérieure est à son maximum.`;
   }
   if (score >= 65) {
-    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hexName} (${hexKeyword}) t\'encourage à avancer.`;
+    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hl} t\'encourage à avancer.`;
     if (t === 'communication') return `Énergie porteuse pour les échanges. ${hexName} favorise le dialogue.`;
     return `Le courant est porteur. Maintiens le cap. ${hexName} soutient l'élan.`;
   }
   if (score >= 40) {
-    if (t === 'decision')      return `Tu peux décider, mais vérifie tes données. ${hexName} (${hexKeyword}) appelle à la prudence mesurée.`;
-    return `L'énergie est stable. ${hexName} (${hexKeyword}) invite à se concentrer sur l'essentiel.`;
+    if (t === 'decision')      return `Tu peux décider, mais vérifie tes données. ${hl} appelle à la prudence mesurée.`;
+    return `L'énergie est stable. ${hl} invite à se concentrer sur l'essentiel.`;
   }
   if (score >= 25) {
-    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hexName} (${hexKeyword}) : ne décide que si c'est urgent.`;
-    return `L'énergie résiste. ${hexName} (${hexKeyword}) recommande la prudence.`;
+    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hl} : ne décide que si c'est urgent.`;
+    return `L'énergie résiste. ${hl} recommande la prudence.`;
   }
-  return `Repli stratégique. ${hexName} (${hexKeyword}) signale des vents contraires — préserve ton énergie.`;
+  return `Repli stratégique. ${hl} signale des vents contraires — préserve ton énergie.`;
 }
 
 // ══════════════════════════════════════
