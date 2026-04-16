@@ -158,7 +158,7 @@ export const NORTH_NODE_MISSION: Record<ZodiacSign, string> = {
 };
 
 export const CDV_MISSION: Record<number, string> = {
-  1: 'Ton chemin exige leadership et indépendance — tu es fait pour ouvrir la voie.',
+  1: 'Ton chemin exige initiative et indépendance — tu es fait pour ouvrir la voie.',
   2: 'Ton chemin exige coopération et diplomatie — tu es fait pour créer des alliances.',
   3: 'Ton chemin exige créativité et expression — tu es fait pour inspirer.',
   4: 'Ton chemin exige discipline et construction — tu es fait pour bâtir.',
@@ -196,7 +196,7 @@ export const AME_MISSION: Record<number, string> = {
 export const KARMIC_TENSIONS: Record<string, string> = {
   // Bélier ↔ Balance
   'Bélier_Balance':
-    'Ton âme veut conquérir, mais ton chemin exige l\'harmonie — tension créatrice entre leadership et diplomatie.',
+    'Ton âme veut conquérir, mais ton chemin exige l\'harmonie — tension créatrice entre initiative et diplomatie.',
   'Balance_Bélier':
     'Ton âme veut l\'équilibre, mais ton chemin exige l\'audace — tension créatrice entre harmonie et initiative.',
 
@@ -222,7 +222,7 @@ export const KARMIC_TENSIONS: Record<string, string> = {
   'Lion_Verseau':
     'Ton âme veut briller, mais ton chemin exige le collectif — tension entre ego et humanisme.',
   'Verseau_Lion':
-    'Ton âme veut le collectif, mais ton chemin exige le rayonnement personnel — tension entre innovation et leadership visible.',
+    'Ton âme veut le collectif, mais ton chemin exige le rayonnement personnel — tension entre innovation et autorité visible.',
 
   // Vierge ↔ Poissons
   'Vierge_Poissons':

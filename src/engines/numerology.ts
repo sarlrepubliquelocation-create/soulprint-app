@@ -418,9 +418,9 @@ export const NUMBER_INFO: Record<number, NumberInfo> = {
 };
 
 export const KARMIC_MEANINGS: Record<number, string> = {
-  1: "Affirmation de soi", 2: "Diplomatie & coopération", 3: "Créativité & expression",
-  4: "Discipline & rigueur", 5: "Changement & liberté", 6: "Amour & responsabilité",
-  7: "Intériorité & sagesse", 8: "Pouvoir & abondance", 9: "Compassion & service"
+  1: "Affirmation de soi", 2: "Diplomatie et coopération", 3: "Créativité et expression",
+  4: "Discipline et rigueur", 5: "Changement et liberté", 6: "Amour et responsabilité",
+  7: "Intériorité et sagesse", 8: "Pouvoir et abondance", 9: "Compassion et service"
 };
 
 export function getNumberInfo(n: number): NumberInfo {
@@ -597,15 +597,15 @@ export function calcNumerology(fn: string, mn: string, ln: string, bd: string, t
 export const INCLUSION_DOMAIN_MAP: Record<number, {
   domain: string; secondary: string; lesson: string; bannerTitle: string; activationText: string; icon: string;
 }> = {
-  1: { domain: 'DÉCISION',   secondary: 'BUSINESS',  lesson: 'Affirmation',     bannerTitle: "Aujourd'hui, affirme-toi",           icon: '🔥', activationText: "Affirme tes choix aujourd'hui — ton manque de 1 devient ta force !" },
-  2: { domain: 'AMOUR',      secondary: 'SOCIAL',    lesson: 'Coopération',     bannerTitle: "Aujourd'hui, ouvre-toi aux autres",  icon: '🤝', activationText: "Ouvre ton cœur — ton karma du 2 s'éclaire pour t\'unir aux autres." },
-  3: { domain: 'CRÉATIVITÉ', secondary: 'SOCIAL',    lesson: 'Expression',      bannerTitle: "Aujourd'hui, exprime ta créativité", icon: '🎨', activationText: "Libère ta voix créative — ton manque de 3 est ton atout aujourd'hui." },
-  4: { domain: 'BUSINESS',   secondary: 'SANTÉ',     lesson: 'Discipline',      bannerTitle: "Aujourd'hui, structure et construis", icon: '🏗️', activationText: "Bâtis avec confiance — ton karma du 4 te donne une base solide." },
-  5: { domain: 'SOCIAL',     secondary: 'DÉCISION',  lesson: 'Liberté',         bannerTitle: "Aujourd'hui, accueille l'imprévu",   icon: '🌊', activationText: "Accueille l'imprévu avec joie — ton manque de 5 devient une aventure." },
-  6: { domain: 'AMOUR',      secondary: 'SANTÉ',     lesson: 'Responsabilité',  bannerTitle: "Aujourd'hui, cultive l'harmonie",    icon: '💚', activationText: "Cultive l'harmonie — ton karma du 6 trouve son point d'équilibre." },
-  7: { domain: 'SPIRITUEL',  secondary: 'DÉCISION',  lesson: 'Foi',             bannerTitle: "Aujourd'hui, écoute ton intuition",  icon: '🔮', activationText: "Écoute ton intuition — ton karma du 7 illumine ta pleine conscience." },
-  8: { domain: 'BUSINESS',   secondary: 'DÉCISION',  lesson: 'Abondance',       bannerTitle: "Aujourd'hui, saisis les opportunités", icon: '🌟', activationText: "🌟 Saisis les opportunités — ton manque de 8 t\'invite à la réussite." },
-  9: { domain: 'SPIRITUEL',  secondary: 'SOCIAL',    lesson: 'Sagesse',         bannerTitle: "Aujourd'hui, ouvre-toi au monde",    icon: '🌍', activationText: "Fais preuve de compassion — ton karma du 9 t\'ouvre grand au monde." },
+  1: { domain: 'Décision',    secondary: 'Affaires',     lesson: 'Affirmation',     bannerTitle: "Aujourd'hui, affirme-toi",           icon: '🔥', activationText: "Le 1 s'active dans ta journée — c'est ton moment pour affirmer tes choix." },
+  2: { domain: 'Amour',       secondary: 'Relations',    lesson: 'Coopération',     bannerTitle: "Aujourd'hui, ouvre-toi aux autres",  icon: '🤝', activationText: "Ouvre ton cœur — ton énergie du 2 s'éclaire pour t\'unir aux autres." },
+  3: { domain: 'Créativité',  secondary: 'Relations',    lesson: 'Expression',      bannerTitle: "Aujourd'hui, exprime ta créativité", icon: '🎨', activationText: "Le 3 s'active dans ta journée — libère ta voix créative, l'expression coule." },
+  4: { domain: 'Affaires',    secondary: 'Vitalité',     lesson: 'Discipline',      bannerTitle: "Aujourd'hui, structure et construis", icon: '🏗️', activationText: "Bâtis avec confiance — ton énergie du 4 te donne une base solide." },
+  5: { domain: 'Relations',   secondary: 'Décision',     lesson: 'Liberté',         bannerTitle: "Aujourd'hui, accueille l'imprévu",   icon: '🌊', activationText: "Le 5 s'active dans ta journée — accueille l'imprévu avec légèreté." },
+  6: { domain: 'Amour',       secondary: 'Vitalité',     lesson: 'Responsabilité',  bannerTitle: "Aujourd'hui, cultive l'harmonie",    icon: '💚', activationText: "Cultive l'harmonie — ton énergie du 6 trouve son point d'équilibre." },
+  7: { domain: 'Introspection', secondary: 'Décision',   lesson: 'Foi',             bannerTitle: "Aujourd'hui, écoute ton intuition",  icon: '🔮', activationText: "Écoute ton intuition — ton énergie du 7 illumine ta pleine conscience." },
+  8: { domain: 'Affaires',    secondary: 'Décision',     lesson: 'Abondance',       bannerTitle: "Aujourd'hui, saisis les opportunités", icon: '🌟', activationText: "Le 8 s'active dans ta journée — saisis les opportunités qui se présentent." },
+  9: { domain: 'Introspection', secondary: 'Relations',  lesson: 'Sagesse',         bannerTitle: "Aujourd'hui, ouvre-toi au monde",    icon: '🌍', activationText: "Fais preuve de compassion — ton énergie du 9 t\'ouvre grand au monde." },
 };
 
 export interface InclusionDisplay {

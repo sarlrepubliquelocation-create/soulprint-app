@@ -191,15 +191,15 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     effect: 'Période de révélation émotionnelle intense. Ce qui était caché remonte à la surface — accueillez les prises de conscience sans résister.',
     intensity: 'forte' },
   { date: '2025-03-29', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
-    description: 'La Lune cache partiellement le Soleil — disruption momentanée de l\'énergie solaire.',
-    effect: 'Fenêtre de reset identitaire. Questionnements sur ta direction — ne prends pas de décision majeure pendant 48h, observez.',
+    description: 'La Lune cache partiellement le Soleil — perturbation momentanée de l\'énergie solaire.',
+    effect: 'Fenêtre de renouveau identitaire. Questionnements sur ta direction — ne prends pas de décision majeure pendant 48h, observe.',
     intensity: 'modérée' },
   { date: '2025-09-07', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Seconde Lune de Sang de l\'année — la Lune entre dans l\'ombre complète de la Terre.',
     effect: 'Clôture émotionnelle puissante. Un cycle qui traîne depuis 6 mois se termine — laisse-le partir.',
     intensity: 'forte' },
   { date: '2025-09-21', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
-    description: 'La Lune cache partiellement le Soleil — disruption momentanée de l\'énergie solaire.',
+    description: 'La Lune cache partiellement le Soleil — perturbation momentanée de l\'énergie solaire.',
     effect: 'Invitation à réévaluer tes objectifs de l\'année. Ce qui semblait clair peut nécessiter un ajustement.',
     intensity: 'modérée' },
   { date: '2025-11-05', type: 'supermoon', name: 'Super Lune', icon: '🌕✨',
@@ -222,11 +222,11 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2026-08-12', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — le Soleil disparaît complètement pendant quelques minutes. Phénomène rare et puissant.',
-    effect: 'Reset total. Les éclipses solaires totales marquent des tournants de vie. Observe ce qui se termine et ce qui commence dans les 2 semaines qui suivent.',
+    effect: 'Remise à zéro profonde. Les éclipses solaires totales marquent des tournants de vie. Observe ce qui se termine et ce qui commence dans les 2 semaines qui suivent.',
     intensity: 'forte' },
   { date: '2026-08-28', type: 'eclipse_lunar', name: 'Éclipse lunaire partielle', icon: '🌒🟤',
     description: 'L\'ombre de la Terre couvre partiellement la Lune.',
-    effect: 'Ajustement émotionnel après le reset solaire du 12 août. Intégration en douceur des changements.',
+    effect: 'Ajustement émotionnel après le renouveau solaire du 12 août. Intégration en douceur des changements.',
     intensity: 'modérée' },
 
   // ═══ 2027 ═══
@@ -262,7 +262,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'modérée' },
   { date: '2028-07-22', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — occultation complète du Soleil. Phénomène rare visible en Australie et Nouvelle-Zélande.',
-    effect: 'Reset majeur. Les éclipses totales catalysent des tournants de vie. Observe les portes qui se ferment et celles qui s\'ouvrent.',
+    effect: 'Remise à zéro majeure. Les éclipses totales catalysent des tournants de vie. Observe les portes qui se ferment et celles qui s\'ouvrent.',
     intensity: 'forte' },
   { date: '2028-12-31', type: 'eclipse_lunar', name: 'Éclipse lunaire totale', icon: '🌒🔴',
     description: 'Lune de Sang pour clôturer l\'année — la Lune entre dans l\'ombre complète de la Terre le soir du Nouvel An.',
@@ -271,7 +271,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
 
   // ═══ 2029 (NASA/EclipseWise) ═══
   { date: '2029-01-14', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
-    description: 'La Lune cache partiellement le Soleil — disruption légère de l\'énergie solaire.',
+    description: 'La Lune cache partiellement le Soleil — perturbation légère de l\'énergie solaire.',
     effect: 'Début d\'année en douceur. Une invitation à réévaluer tes priorités avant de te lancer dans de nouveaux projets.',
     intensity: 'modérée' },
   { date: '2029-06-12', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
@@ -284,7 +284,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2029-07-11', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'Seconde éclipse solaire partielle en un mois — configuration rare.',
-    effect: 'Double signal de reset. L\'univers insiste : ce qui ne fonctionne plus doit être abandonné.',
+    effect: 'Double signal de renouveau. L\'univers insiste : ce qui ne fonctionne plus doit être abandonné.',
     intensity: 'modérée' },
   { date: '2029-12-05', type: 'eclipse_solar', name: 'Éclipse solaire partielle', icon: '🌑☀️',
     description: 'Éclipse solaire partielle de fin d\'année.',
@@ -302,7 +302,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2030-06-15', type: 'eclipse_lunar', name: 'Éclipse lunaire partielle', icon: '🌒🟤',
     description: 'L\'ombre de la Terre couvre partiellement la Lune, deux semaines après l\'annulaire solaire.',
-    effect: 'Intégration émotionnelle du reset solaire. Les ajustements faits début juin commencent à porter leurs fruits.',
+    effect: 'Intégration émotionnelle du renouveau solaire. Les ajustements faits début juin commencent à porter leurs fruits.',
     intensity: 'modérée' },
   { date: '2030-11-25', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Australie, Afrique du Sud et océan Indien.',
@@ -324,7 +324,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2031-11-14', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Amérique du Nord et Pacifique.',
-    effect: 'Reset majeur de fin d\'année. Un chapitre se ferme définitivement — fais confiance au renouveau qui suit.',
+    effect: 'Grand renouveau de fin d\'année. Un chapitre se ferme définitivement — fais confiance à ce qui émerge.',
     intensity: 'forte' },
 
   // ═══ 2032 (NASA) ═══
@@ -376,7 +376,7 @@ const LUNAR_EVENTS_HARDCODED: LunarEvent[] = [
     intensity: 'forte' },
   { date: '2035-09-02', type: 'eclipse_solar', name: 'Éclipse solaire totale', icon: '🌑🖤',
     description: 'Éclipse solaire totale — visible en Asie orientale.',
-    effect: 'Reset de rentrée. Les habitudes de l\'été cèdent la place à une nouvelle dynamique — accueillez le changement.',
+    effect: 'Renouveau de rentrée. Les habitudes de l\'été cèdent la place à une nouvelle dynamique — accueille le changement.',
     intensity: 'forte' },
 ];
 
@@ -1137,7 +1137,7 @@ const MOON_SIGNS: Record<string, NatalMoon> = {
     security: 'Le contrôle et la loyauté absolue. Tu donnes tout — et attends la même chose en retour.',
     qualities: 'Profondeur émotionnelle rare, résilience, capacité de transformation. Tu renaissais de tes cendres.',
     vigilance: 'La rancune et la méfiance. Pardonner n\'est pas oublier — mais c\'est te libérer.',
-    hack: 'Ta Lune Scorpion excelle en due diligence — fie-toi à ton instinct quand quelque chose « sent mauvais » dans un deal, même si les chiffres sont bons.',
+    hack: 'Ta Lune Scorpion excelle en vérification approfondie — fie-toi à ton instinct quand quelque chose « sent mauvais » dans un accord, même si les chiffres sont bons.',
     darkGift: 'Ta méfiance est un système immunitaire social : tu repères les manipulateurs et les opportunistes avant tout le monde.'
   },
   Sagittarius: {
@@ -1145,7 +1145,7 @@ const MOON_SIGNS: Record<string, NatalMoon> = {
     needs: 'Tu as besoin de sens, d\'aventure et de liberté. L\'horizon doit toujours rester ouvert.',
     instinct: 'Face au stress, tu cherches l\'évasion — voyage, philosophie, humour. Tu refuses de rester dans la lourdeur.',
     security: 'La confiance en l\'avenir et la liberté de mouvement. L\'optimisme est ton armure.',
-    qualities: 'Optimisme contagieux, vision large, capacité à transformer les épreuves en apprentissages.',
+    qualities: 'Optimisme contagieux, vision large, capacité à transformer les défis en apprentissages.',
     vigilance: 'La fuite émotionnelle déguisée en philosophie. Parfois, il faut rester et ressentir au lieu de relativiser.',
     hack: 'Fixe-toi un « horizon motivant » chaque trimestre — ta Lune Sagittaire s\'éteint sans objectif ambitieux. Un voyage, un lancement, une conférence : il te faut un cap.',
     darkGift: 'Ta tendance à fuir est en réalité un instinct d\'exploration : tu trouves des solutions dans des domaines que personne n\'a pensé à regarder.'
@@ -1175,7 +1175,7 @@ const MOON_SIGNS: Record<string, NatalMoon> = {
     needs: 'Tu as besoin de connexion spirituelle, de beauté et d\'un espace pour rêver.',
     instinct: 'Face au stress, tu absorbes les émotions comme une éponge. Distinguer tes émotions de celles des autres est ton défi.',
     security: 'L\'amour inconditionnel et la possibilité de se retirer dans un monde intérieur riche.',
-    qualities: 'Compassion infinie, créativité émotionnelle, capacité à comprendre la souffrance des autres sans jugement.',
+    qualities: 'Compassion infinie, créativité émotionnelle, capacité à comprendre les épreuves des autres sans jugement.',
     vigilance: 'La fuite dans l\'imaginaire et la difficulté à poser des limites. Tu n\'es pas responsable des émotions de tout le monde.',
     hack: 'Ta Lune Poissons capte l\'ambiance d\'une pièce en 30 secondes — utilise cette antenne avant chaque réunion : si l\'énergie est « off », reporte les sujets sensibles.',
     darkGift: 'Ta porosité émotionnelle est une intelligence sociale de haut niveau : tu comprends les non-dits et les motivations cachées mieux que n\'importe quel test psychométrique.'
@@ -1253,7 +1253,7 @@ const NODE_NORTH_INTERPRETATIONS: Record<string, NodeInterpretation> = {
     mission: 'Apprendre l\'autonomie, l\'initiative et le courage d\'agir seul.',
     past: 'Tu viens d\'un passé (Nœud Sud Balance) de compromis excessif, de dépendance aux autres, d\'évitement du conflit.',
     challenge: 'Oser prendre des décisions sans chercher l\'approbation — même si ça crée du désaccord.',
-    gift: 'Leadership naturel et capacité à ouvrir des voies nouvelles.',
+    gift: 'Autorité naturelle et capacité à ouvrir des voies nouvelles.',
     career: 'Entrepreneuriat, postes de direction, rôles pionniers.',
   },
   'Taureau': {
@@ -1282,7 +1282,7 @@ const NODE_NORTH_INTERPRETATIONS: Record<string, NodeInterpretation> = {
     past: 'Tu viens d\'un passé (Nœud Sud Verseau) de retrait dans le groupe, de détachement émotionnel, de refus de se singulariser.',
     challenge: 'Accepter d\'être au centre sans culpabiliser. Ta lumière n\'enlève rien aux autres.',
     gift: 'Charisme naturel et capacité à inspirer par l\'exemple.',
-    career: 'Création, leadership visible, spectacle, direction artistique.',
+    career: 'Création, rayonnement, spectacle, direction artistique.',
   },
   'Vierge': {
     mission: 'Développer la précision, le service concret et l\'humilité productive.',
@@ -1436,7 +1436,7 @@ export function getLunarNodeTransit(birthDate: string, today: string): LunarNode
     alignmentDesc = '🔄 Inversion des Nœuds — tension entre passé et futur. Ce qui te retient (Nœud Sud) réclame ton attention avant d\'avancer.';
   } else if (Math.abs(angle - 90) < 15 || Math.abs(angle - 270) < 15) {
     alignment = 'carré';
-    alignmentDesc = '⚔️ Carré nodal — crise de croissance. Tu es poussé à choisir entre confort et évolution. L\'inconfort est le signe que tu avances.';
+    alignmentDesc = '⚔️ Tension sur ta direction de vie — crise de croissance. Tu es poussé à choisir entre confort et évolution. L\'inconfort est le signe que tu avances.';
   } else if (Math.abs(angle - 120) < 15 || Math.abs(angle - 240) < 15) {
     alignment = 'trigone';
     alignmentDesc = '🌊 Trigone nodal — flux favorable. Ta mission de vie avance naturellement, les synchronicités se multiplient.';
@@ -1714,7 +1714,7 @@ const ECLIPSE_NATAL_AMP: Record<string, Record<string, number>> = {
 // ── Narratives (type × point) ──
 const ECLIPSE_NATAL_NARR: Record<string, Record<string, string>> = {
   eclipse_solar: {
-    sun:  'Éclipse solaire sur ton Soleil natal : reset identitaire majeur — nouveau chapitre.',
+    sun:  'Éclipse solaire sur ton Soleil natal : renouveau identitaire majeur — nouveau chapitre.',
     moon: 'Éclipse solaire sur ta Lune natale : réinitialisation émotionnelle profonde.',
     asc:  'Éclipse solaire sur ton Ascendant : transformation de ta présence dans le monde.',
     mc:   'Éclipse solaire sur ton MC : fenêtre de redéfinition professionnelle ou publique.',

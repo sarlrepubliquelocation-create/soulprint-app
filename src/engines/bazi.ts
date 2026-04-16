@@ -91,7 +91,7 @@ export const HEAVENLY_STEMS: HeavenlyStem[] = [
     index: 0, chinese: '甲', pinyin: 'Jia',
     element: 'Bois', yinYang: 'Yang',
     archetype: 'Le Chêne Impérial',
-    strength: 'Leadership visible, capacité à grandir rapidement et à dominer son environnement.',
+    strength: 'Autorité visible, capacité à grandir rapidement et à dominer son environnement.',
     risk: 'Rigidité, refus du changement.',
     businessAdvice: 'Utilise ta force naturelle pour créer des structures durables, mais reste ouvert aux nouvelles racines.'
   },
@@ -274,8 +274,8 @@ export const DAY_MASTER_INTERACTIONS: Record<string, { dynamique: string; consei
     conseil: 'Reste souple — force moins, adapte plus.'
   },
   'destroyed_by_positive': {
-    dynamique: 'L\'énergie du jour teste et affine ton identité profonde.',
-    conseil: 'Accepte le test — il te rend plus résilient.'
+    dynamique: 'L\'énergie du jour stimule et affine ton identité profonde.',
+    conseil: 'Laisse cette dynamique te recentrer sur ce qui compte vraiment.'
   },
   'destroyed_by_negative': {
     dynamique: 'L\'énergie du jour met une pression forte sur ton identité profonde.',
@@ -291,7 +291,7 @@ export const DAY_MASTER_INTERACTIONS: Record<string, { dynamique: string; consei
 export const SHICHEN_DESC: Record<number, { conseil: string; tacheIdeale: string; aEviter: string }> = {
   0:  { // Zi — Rat — 23h-01h
     conseil: 'L\'énergie est idéale pour la planification stratégique et la génération d\'idées nouvelles.',
-    tacheIdeale: 'Brainstorming, stratégie long terme, écriture de plans.',
+    tacheIdeale: 'Réflexion créative, stratégie long terme, écriture de plans.',
     aEviter: 'Décisions impulsives, négociations importantes.'
   },
   1:  { // Chou — Bœuf — 01h-03h
@@ -336,8 +336,8 @@ export const SHICHEN_DESC: Record<number, { conseil: string; tacheIdeale: string
   },
   9:  { // You — Coq — 17h-19h
     conseil: 'L\'énergie est précise et propice à la communication.',
-    tacheIdeale: 'Revue de chiffres, communication externe, closing.',
-    aEviter: 'Créativité libre, brainstorming.'
+    tacheIdeale: 'Revue de chiffres, communication externe, finalisation.',
+    aEviter: 'Créativité libre, réflexion exploratoire.'
   },
   10: { // Xu — Chien — 19h-21h
     conseil: 'L\'énergie est loyale et protectrice.',
@@ -900,7 +900,7 @@ export const HARMS: [number, number][] = [
 
 // ═════════════════════════════════════════════════════
 // V4.0 — PUNISHMENTS (刑 Xíng) — Tensions structurelles
-// 3 types : auto-punition, mutuelle (2 groupes), civile
+// 3 types : tension interne, tension croisée (2 groupes), tension relationnelle
 // ═════════════════════════════════════════════════════
 
 export interface Punishment {
@@ -911,24 +911,24 @@ export interface Punishment {
 }
 
 export const PUNISHMENTS: Punishment[] = [
-  // Auto-punitions (自刑 zì xíng)
-  { branches: [0, 0],   type: 'self', label: 'Rat auto-punition — anxiété intérieure', severity: 1 },
-  { branches: [6, 6],   type: 'self', label: 'Cheval auto-punition — impulsivité', severity: 1 },
-  { branches: [9, 9],   type: 'self', label: 'Coq auto-punition — perfectionnisme', severity: 1 },
-  { branches: [4, 4],   type: 'self', label: 'Dragon auto-punition — orgueil', severity: 1 },
+  // Tensions internes (自刑 zì xíng)
+  { branches: [0, 0],   type: 'self', label: 'Rat — tendance à l\'inquiétude intérieure', severity: 1 },
+  { branches: [6, 6],   type: 'self', label: 'Cheval — élan parfois trop rapide', severity: 1 },
+  { branches: [9, 9],   type: 'self', label: 'Coq — exigence envers soi-même', severity: 1 },
+  { branches: [4, 4],   type: 'self', label: 'Dragon — fierté à canaliser', severity: 1 },
 
-  // Punitions mutuelles — Bully (恃势之刑 shì shì zhī xíng)
-  { branches: [2, 5],   type: 'bully', label: 'Tigre↔Serpent — pouvoir vs stratégie', severity: 2 },
-  { branches: [5, 8],   type: 'bully', label: 'Serpent↔Singe — manipulation mutuelle', severity: 2 },
-  { branches: [2, 8],   type: 'bully', label: 'Tigre↔Singe — conflit direct', severity: 3 },
+  // Tensions croisées — Rapport de force (恃势之刑 shì shì zhī xíng)
+  { branches: [2, 5],   type: 'bully', label: 'Tigre↔Serpent — rapport de force silencieux', severity: 2 },
+  { branches: [5, 8],   type: 'bully', label: 'Serpent↔Singe — jeux de pouvoir subtils', severity: 2 },
+  { branches: [2, 8],   type: 'bully', label: 'Tigre↔Singe — confrontation directe', severity: 3 },
 
-  // Punitions mutuelles — Ungrateful (无恩之刑 wú ēn zhī xíng)
-  { branches: [1, 10],  type: 'ungrateful', label: 'Bœuf↔Chien — cycle d\'ingratitude', severity: 2 },
-  { branches: [10, 7],  type: 'ungrateful', label: 'Chien↔Chèvre — trahison ressentie', severity: 2 },
-  { branches: [7, 1],   type: 'ungrateful', label: 'Chèvre↔Bœuf — cycle d\'amertume', severity: 2 },
+  // Tensions croisées — Désillusion (无恩之刑 wú ēn zhī xíng)
+  { branches: [1, 10],  type: 'ungrateful', label: 'Bœuf↔Chien — attentes non reconnues', severity: 2 },
+  { branches: [10, 7],  type: 'ungrateful', label: 'Chien↔Chèvre — sentiment d\'incompréhension', severity: 2 },
+  { branches: [7, 1],   type: 'ungrateful', label: 'Chèvre↔Bœuf — frustration sourde', severity: 2 },
 
-  // Punition civile (无礼之刑 wú lǐ zhī xíng)
-  { branches: [3, 0],   type: 'civil', label: 'Lapin↔Rat — manque de respect', severity: 1 },
+  // Tension relationnelle (无礼之刑 wú lǐ zhī xíng)
+  { branches: [3, 0],   type: 'civil', label: 'Lapin↔Rat — décalage de rythme', severity: 1 },
 ];
 
 /**
@@ -1341,7 +1341,7 @@ const LUCK_PILLAR_THEMES: Record<ElementRelation, string> = {
   produces:     'Période de création et d\'expression — tes idées portent des fruits, investis dans tes projets.',
   produced_by:  'Période de soutien et de ressources — les opportunités viennent à toi, accepte l\'aide.',
   destroys:     'Période de conquête et de richesse — tu domines ton environnement, prends des risques calculés.',
-  destroyed_by: 'Période de pression et de transformation — chaque épreuve te renforce et t\'affine.',
+  destroyed_by: 'Période de pression et de transformation — chaque défi te renforce et t\'affine.',
 };
 
 // ── Narratifs pour la lecture Passé/Présent/Futur ──
@@ -1351,18 +1351,18 @@ export function getLuckPillarNarrative(
   temporality: 'past' | 'present' | 'future',
   yearsLeft?: number
 ): string {
-  const stemName = `${pillar.stem.pinyin} (${pillar.stem.chinese})`;
-  const branchName = `${pillar.branch.pinyin} (${pillar.branch.animal})`;
   const elementStr = `${pillar.stem.element} ${pillar.stem.yinYang}`;
+  const animalStr = pillar.branch.animal;
+  const chineseRef = `(${pillar.stem.chinese}${pillar.branch.chinese})`;
   const periodStr = `${pillar.startYear}-${pillar.endYear}`;
 
   switch (temporality) {
     case 'past':
-      return `De ${pillar.startAge} à ${pillar.endAge} ans (${periodStr}), tu étais dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
+      return `De ${pillar.startAge} à ${pillar.endAge} ans (${periodStr}), tu étais en cycle ${elementStr} — ${animalStr} ${chineseRef}. ${pillar.theme}`;
     case 'present':
-      return `Tu es dans le Pilier ${stemName}-${branchName} (${elementStr}) depuis ${pillar.startYear}. ${pillar.theme} Il te reste ${yearsLeft ?? '?'} ans dans ce pilier.`;
+      return `${pillar.theme} Il te reste ${yearsLeft ?? '?'} ans dans ce cycle.`;
     case 'future':
-      return `En ${pillar.startYear}, tu entres dans le Pilier ${stemName}-${branchName} (${elementStr}). ${pillar.theme}`;
+      return `En ${pillar.startYear}, tu entres en cycle ${elementStr} — ${animalStr} ${chineseRef}. ${pillar.theme}`;
   }
 }
 
@@ -1565,7 +1565,7 @@ const NAYIN_DATA: NaYinEntry[] = [
   /*  2 */ { element: 'Bois',  name_cn: '大林木', name_fr: 'Bois de la Grande Forêt',     description: 'Croissance majestueuse, enracinement',      category: 'stable' },
   /*  3 */ { element: 'Terre', name_cn: '路旁土', name_fr: 'Terre du Bord du Chemin',     description: 'Terre accessible, générosité naturelle',    category: 'fluide' },
   /*  4 */ { element: 'Métal', name_cn: '劍鋒金', name_fr: 'Or de la Lame',               description: 'Métal tranchant, décision nette',           category: 'puissant' },
-  /*  5 */ { element: 'Feu',   name_cn: '山頭火', name_fr: 'Feu du Sommet',               description: 'Feu visible de loin, leadership',           category: 'puissant' },
+  /*  5 */ { element: 'Feu',   name_cn: '山頭火', name_fr: 'Feu du Sommet',               description: 'Feu visible de loin, autorité rayonnante',   category: 'puissant' },
   /*  6 */ { element: 'Eau',   name_cn: '澗下水', name_fr: 'Eau du Torrent',              description: 'Eau vive cachée, ressource profonde',       category: 'subtil' },
   /*  7 */ { element: 'Terre', name_cn: '城頭土', name_fr: 'Terre des Remparts',          description: 'Terre fortifiée, protection solide',        category: 'stable' },
   /*  8 */ { element: 'Métal', name_cn: '白蠟金', name_fr: 'Or de la Cire Blanche',       description: 'Métal pur, raffinement discret',            category: 'subtil' },
@@ -1665,22 +1665,22 @@ export const SHEN_SHA_INFO: Record<ShenShaName, ShenShaInfo> = {
   HuaGai:   { name: 'HuaGai',   chinese: '華蓋',     label_fr: 'Inspiration Solitaire — créativité profonde',    global:  0, business:  0, amour:  0, creativite: +3, vitalite:  0, introspection: +2 },
   HongLuan: { name: 'HongLuan', chinese: '紅鸞',     label_fr: 'Magnétisme Social — charisme relationnel',         global: +1, business:  0, amour: +3, creativite:  0, vitalite:  0, introspection:  0 },
   // V8.9 Gemini Q2 : Shen Sha additionnels (San Ming Tong Hui / théorie standard)
-  TaiSui:   { name: 'TaiSui',   chinese: '太歲',     label_fr: 'Tai Sui — Offense au Grand Duc',         global: -5, business: -5, amour: -2, creativite:  0, vitalite: -3, introspection:  0 },
-  SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Sui Po — Opposition briseur d\'année',    global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
-  WenChang: { name: 'WenChang', chinese: '文昌',     label_fr: 'Wen Chang — Étoile académique',          global: +2, business:  0, amour:  0, creativite: +4, vitalite:  0, introspection: +2 },
-  LuShen:   { name: 'LuShen',   chinese: '祿神',     label_fr: 'Lu Shen — Étoile de prospérité',         global: +3, business: +5, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  TaiSui:   { name: 'TaiSui',   chinese: '太歲',     label_fr: 'Tension Annuelle — prudence renforcée',  global: -5, business: -5, amour: -2, creativite:  0, vitalite: -3, introspection:  0 },
+  SuiPo:    { name: 'SuiPo',    chinese: '歲破',     label_fr: 'Opposition Annuelle — résistances accrues', global: -4, business: -4, amour: -1, creativite:  0, vitalite: -2, introspection:  0 },
+  WenChang: { name: 'WenChang', chinese: '文昌',     label_fr: 'Étoile Académique — clarté intellectuelle', global: +2, business:  0, amour:  0, creativite: +4, vitalite:  0, introspection: +2 },
+  LuShen:   { name: 'LuShen',   chinese: '祿神',     label_fr: 'Étoile de Prospérité — élan matériel',    global: +3, business: +5, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
   // Sprint AJ — 10 nouveaux Shen Sha (Chantier 5, consensus 3/3 IAs)
   // Sources : San Ming Tong Hui, Di Tian Sui, tradition Zi Ping standard
-  YangRen:  { name: 'YangRen',  chinese: '羊刃',     label_fr: 'Yang Ren — Lame du bélier',              global: -2, business: +1, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
-  KongWang: { name: 'KongWang', chinese: '空亡',     label_fr: 'Kong Wang — Vide et Néant',               global: -2, business: -2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
-  TaoHua:   { name: 'TaoHua',   chinese: '桃花',     label_fr: 'Tao Hua — Fleur de pêcher',              global:  0, business:  0, amour: +1, creativite:  0, vitalite:  0, introspection:  0 },
-  TianXi:   { name: 'TianXi',   chinese: '天喜',     label_fr: 'Tian Xi — Joie céleste',                 global:  0, business:  0, amour: +2, creativite:  0, vitalite:  0, introspection:  0 },
-  JieSha:   { name: 'JieSha',   chinese: '劫煞',     label_fr: 'Jie Sha — Étoile de vol',                global: -1, business:  0, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
-  ZaiSha:   { name: 'ZaiSha',   chinese: '災煞',     label_fr: 'Zai Sha — Étoile de calamité',           global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
-  GuChen:   { name: 'GuChen',   chinese: '孤辰',     label_fr: 'Gu Chen — Solitude masculine',            global:  0, business:  0, amour:  0, creativite:  0, vitalite:  0, introspection: +1 },
-  GuaSu:    { name: 'GuaSu',    chinese: '寡宿',     label_fr: 'Gua Su — Solitude féminine',              global:  0, business:  0, amour: -2, creativite:  0, vitalite:  0, introspection: +1 },
-  XueRen:   { name: 'XueRen',   chinese: '血刃',     label_fr: 'Xue Ren — Lame de sang',                 global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
-  FuXing:   { name: 'FuXing',   chinese: '福星貴人', label_fr: 'Fu Xing — Étoile du bonheur',             global: +2, business:  0, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
+  YangRen:  { name: 'YangRen',  chinese: '羊刃',     label_fr: 'Lame Tranchante — énergie brute',        global: -2, business: +1, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
+  KongWang: { name: 'KongWang', chinese: '空亡',     label_fr: 'Étoile du Vide — énergie moins fluide',   global: -2, business: -2, amour:  0, creativite:  0, vitalite:  0, introspection:  0 },
+  TaoHua:   { name: 'TaoHua',   chinese: '桃花',     label_fr: 'Fleur de Charme — magnétisme naturel',    global:  0, business:  0, amour: +1, creativite:  0, vitalite:  0, introspection:  0 },
+  TianXi:   { name: 'TianXi',   chinese: '天喜',     label_fr: 'Joie Céleste — enthousiasme spontané',    global:  0, business:  0, amour: +2, creativite:  0, vitalite:  0, introspection:  0 },
+  JieSha:   { name: 'JieSha',   chinese: '劫煞',     label_fr: 'Étoile de Perte — vigilance requise',     global: -1, business:  0, amour:  0, creativite:  0, vitalite: -1, introspection:  0 },
+  ZaiSha:   { name: 'ZaiSha',   chinese: '災煞',     label_fr: 'Étoile d\'Obstacle — friction inattendue', global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
+  GuChen:   { name: 'GuChen',   chinese: '孤辰',     label_fr: 'Solitude Active — besoin d\'autonomie',    global:  0, business:  0, amour:  0, creativite:  0, vitalite:  0, introspection: +1 },
+  GuaSu:    { name: 'GuaSu',    chinese: '寡宿',     label_fr: 'Solitude Contemplative — retrait intérieur', global:  0, business:  0, amour: -2, creativite:  0, vitalite:  0, introspection: +1 },
+  XueRen:   { name: 'XueRen',   chinese: '血刃',     label_fr: 'Lame Vive — impulsivité à canaliser',     global: -1, business:  0, amour:  0, creativite:  0, vitalite: -2, introspection:  0 },
+  FuXing:   { name: 'FuXing',   chinese: '福星貴人', label_fr: 'Étoile du Bonheur — chance douce',         global: +2, business:  0, amour:  0, creativite:  0, vitalite: +1, introspection:  0 },
 };
 
 // ── Tian Yi 天乙貴人 ── basé sur Day Stem natal → branches cibles

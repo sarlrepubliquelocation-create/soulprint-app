@@ -94,7 +94,7 @@ export async function generateAnnualCard(
     ctx.font = 'bold 22px Georgia,serif'; ctx.fillStyle = GOLD;
     ctx.fillText('✦  KAIRONAUTE  ✦', W / 2, 46);
     ctx.font = '12px Georgia,serif'; ctx.fillStyle = DIM;
-    ctx.fillText('Guide de Timing Personnel', W / 2, 66);
+    ctx.fillText('Guide de Synchronicité Personnelle', W / 2, 66);
 
     ctx.strokeStyle = GOLD + '38'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(40, 82); ctx.lineTo(W - 40, 82); ctx.stroke();

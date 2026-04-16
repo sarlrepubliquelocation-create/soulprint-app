@@ -157,32 +157,32 @@ function scoreSolarReturn(
 
   // R2 : Saturne SR conjonction planète personnelle natale ±3°
   const personalNatal: Array<{ long: number | null; label: string }> = [
-    { long: natalSunLong,     label: 'Soleil natal'  },
-    { long: natalMoonLong,    label: 'Lune natale'   },
-    { long: natalVenusLong,   label: 'Vénus natal'   },
-    { long: natalMarsLong,    label: 'Mars natal'    },
-    { long: natalAscLong,     label: 'ASC natal'     },
+    { long: natalSunLong,     label: 'ton Soleil'      },
+    { long: natalMoonLong,    label: 'ta Lune'        },
+    { long: natalVenusLong,   label: 'ta Vénus'       },
+    { long: natalMarsLong,    label: 'ton Mars'       },
+    { long: natalAscLong,     label: 'ton Ascendant'  },
   ];
 
   for (const p of personalNatal) {
     if (p.long !== null && inOrb(srSaturnLong, p.long, 3)) {
       score -= 3;
-      breakdown.push(`SR R2 -3 : Saturne SR conj ${p.label} — restriction structurelle`);
+      breakdown.push(`Saturne touche ${p.label} — une année qui demande de la rigueur et de la patience`);
       break; // un seul malus R2 max
     }
   }
 
   // R3 : Jupiter SR conjonction Soleil/Lune/MC natal ±3°
   const keyNatal: Array<{ long: number | null; label: string }> = [
-    { long: natalSunLong,  label: 'Soleil natal' },
-    { long: natalMoonLong, label: 'Lune natale'  },
-    { long: natalMCLong,   label: 'MC natal'     },
+    { long: natalSunLong,  label: 'ton Soleil'             },
+    { long: natalMoonLong, label: 'ta Lune'               },
+    { long: natalMCLong,   label: 'ton Milieu du Ciel'    },
   ];
 
   for (const p of keyNatal) {
     if (p.long !== null && inOrb(srJupiterLong, p.long, 3)) {
       score += 3;
-      breakdown.push(`SR R3 +3 : Jupiter SR conj ${p.label} — expansion annuelle`);
+      breakdown.push(`Jupiter touche ${p.label} — une année d'ouverture et d'opportunités`);
       break; // un seul bonus R3 max
     }
   }
@@ -192,13 +192,13 @@ function scoreSolarReturn(
   const stelliumCount = srPlanets.filter(l => signIndex(l) === natalSunSign).length;
   if (stelliumCount >= 3) {
     score += 2;
-    breakdown.push(`SR R5 +2 : Stellium SR (${stelliumCount} planètes) dans ${SIGNS[natalSunSign]} — concentration d'énergie`);
+    breakdown.push(`${stelliumCount} planètes concentrées en ${SIGN_FR[SIGNS[natalSunSign]] || SIGNS[natalSunSign]} — forte polarisation d'énergie cette année`);
   }
 
   // Cap ±6
   const capped = Math.max(-6, Math.min(6, score));
   if (capped !== score) {
-    breakdown.push(`SR cap ±6 appliqué : ${score} → ${capped}`);
+    // Note technique : cap ±6 appliqué — non affiché à l'utilisateur
   }
 
   console.assert(Math.abs(capped) <= 6.1, '[SolarReturn] Cap ±6 percé:', capped);
@@ -246,7 +246,7 @@ export function calcSolarReturn(
     const natalMCLong  = astro.mcSign  ? planetPosToLong(astro.mcSign, astro.mcDeg ?? 0) : null;
 
     if (natalSunLong === null) {
-      return { srDate: null, totalScore: 0, breakdown: ['SR: Soleil natal introuvable'], hasActiveSR: false, srAsc: null };
+      return { srDate: null, totalScore: 0, breakdown: ['Données insuffisantes pour calculer ton année solaire'], hasActiveSR: false, srAsc: null };
     }
 
     // 2. Trouver la SR la plus proche (année courante ou suivante)
@@ -261,7 +261,7 @@ export function calcSolarReturn(
     }
 
     if (!srDate) {
-      return { srDate: null, totalScore: 0, breakdown: ['SR: binary search échoué'], hasActiveSR: false, srAsc: null };
+      return { srDate: null, totalScore: 0, breakdown: ['Calcul de l\'année solaire temporairement indisponible'], hasActiveSR: false, srAsc: null };
     }
 
     // 3. Vérifier si la SR est dans la fenêtre active ±6 mois
@@ -321,14 +321,14 @@ export function calcSolarReturn(
         };
 
         // Ajouter au breakdown narratif
-        breakdown.push(`SR ASC : ${SIGN_FR[srAscSign] || srAscSign} ${srAscDeg}° → Maison natale ${natalHouse} (${theme})`);
+        breakdown.push(`Ascendant de l'année : ${SIGN_FR[srAscSign] || srAscSign} ${srAscDeg}° → Maison natale ${natalHouse} (${theme})`);
 
         // ── R1 : ASC SR dans même signe que ASC natal (+3) ──
         // Ronde #3 unanimité 3/3 — remplace l'ancienne tautologie (Soleil SR = signe natal Soleil)
         // Doctrine : Abu Ma'shar, Volguine — ASC RS dans signe ASC natal = année charnière
         if (astro.b3?.asc && srAscSign === astro.b3.asc) {
           score = Math.max(-6, Math.min(6, score + 3));
-          breakdown.push(`SR R1 +3 : ASC SR dans ${SIGN_FR[srAscSign] || srAscSign} (signe ASC natal) — année charnière`);
+          breakdown.push(`Ton Ascendant de l'année est en ${SIGN_FR[srAscSign] || srAscSign}, comme ton Ascendant natal — année charnière`);
         }
       }
     }

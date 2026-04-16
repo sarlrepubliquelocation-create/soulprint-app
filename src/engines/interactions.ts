@@ -304,7 +304,7 @@ const RULES: Rule[] = [
 
   {
     id: 17,
-    label: 'PD 1 + DiWang + Hex 1 → Leadership total',
+    label: 'PD 1 + DiWang + Hex 1 → Autorité naturelle',
     bonus: 4,
     domains: ['BUSINESS'],
     tradition: 'Numérologie × BaZi × I Ching',

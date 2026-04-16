@@ -90,7 +90,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
     theme: 'Saut dans l\'inconnu',
     light: 'Spontanéité, liberté, commencements purs',
     shadow: 'Imprudence, fuite des responsabilités',
-    narrative: 'Tu te lances dans l\'inconnu avec une légèreté audacieuse. La question n\'est pas si tu es prêt, mais si tu oses commencer.',
+    narrative: 'Tu te lances dans l\'inconnu avec une légèreté audacieuse. La question n\'est pas de savoir si c\'est le bon moment, mais si tu oses commencer.',
   },
   {
     num: 1, name_fr: 'Le Bateleur', name_en: 'The Magician',
@@ -120,7 +120,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
     num: 4, name_fr: 'L\'Empereur', name_en: 'The Emperor',
     planet: 'Bélier', astroType: 'sign', astroValue: 'Bélier', element: 'feu',
     theme: 'Autorité et structure',
-    light: 'Leadership, stabilité, fondations solides',
+    light: 'Autorité, stabilité, fondations solides',
     shadow: 'Rigidité, contrôle excessif, tyrannie',
     narrative: 'Tu possèdes une autorité intérieure que tu sous-estimes. La question n\'est pas de contrôler les autres, mais de gouverner ta propre voie.',
   },
@@ -154,7 +154,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
     theme: 'Équilibre et vérité',
     light: 'Équité, clarté, responsabilité assumée',
     shadow: 'Jugement sévère, rigidité morale, rancune',
-    narrative: 'Tu récoltes ce que tu as semé, ni plus, ni moins. La question n\'est pas d\'être jugé, mais de rétablir ta propre équilibre.',
+    narrative: 'Tu récoltes ce que tu as semé, ni plus, ni moins. La question n\'est pas d\'être juge, mais de rétablir ton propre équilibre.',
   },
   {
     num: 9, name_fr: 'L\'Ermite', name_en: 'The Hermit',
@@ -207,8 +207,8 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
   {
     num: 15, name_fr: 'Le Diable', name_en: 'The Devil',
     planet: 'Capricorne', astroType: 'sign', astroValue: 'Capricorne', element: 'terre',
-    theme: 'Face aux chaînes intérieures',
-    light: 'Prise de conscience, énergie brute libérée, désirs assumés',
+    theme: 'Face aux attachements intérieurs',
+    light: 'Prise de conscience, force intérieure libérée, désirs clarifiés',
     shadow: 'Attachement, addiction, illusion de contrainte',
     narrative: 'Tu fais face à ce qui te fascine et te lie. La question n\'est pas la peur, mais la part de liberté que tu choisis de reprendre.',
   },
@@ -217,7 +217,7 @@ export const MARSEILLE_MAJOR_ARCANA: MajorArcana[] = [
     planet: 'Mars', astroType: 'planet', astroValue: 'Mars', element: 'feu',
     theme: 'Effondrement libérateur',
     light: 'Révélation soudaine, rupture nécessaire, vérité qui libère',
-    shadow: 'Chaos subi, destruction inconsciente, choc non intégré',
+    shadow: 'Chaos subi, bouleversement inconscient, choc non intégré',
     narrative: 'Tu traverses un bouleversement nécessaire. La question n\'est pas ce qui s\'effondre, mais ce que tu peux enfin construire sur du vrai.',
   },
   {
@@ -280,7 +280,7 @@ export const DASHA_ARCANA_MAP: Record<string, number> = {
 // ─────────────────────────────────────────────
 // Texte d'onboarding (framing anti-charlatan)
 // ─────────────────────────────────────────────
-export const TAROT_ONBOARDING = `Dans Kaironaute, le Tarot n\'est pas un oracle : c\'est un miroir archétypal au sens jungien du terme. Chaque Arcane représente une configuration psychologique universelle — non pas ce qui va t\'arriver, mais ce que tu savais déjà. La synchronicité fait le reste : le bon symbole, au bon moment, révèle ce que tu savais déjà.`;
+export const TAROT_ONBOARDING = `Dans Kaironaute, le Tarot n\'est pas un oracle : c\'est un miroir archétypal au sens jungien du terme. Chaque Arcane représente une configuration psychologique universelle — non pas ce qui va t\'arriver, mais ce qui est déjà présent en toi. La synchronicité fait le reste : le bon symbole, au bon moment, révèle ce que tu savais déjà.`;
 
 // ─────────────────────────────────────────────
 // Algorithmes de calcul
@@ -403,9 +403,13 @@ export function calcTarotDayNumber(dateStr: string): number {
 
 /**
  * Carte du Jour Personnelle — Méthode Mary K. Greer "Personal Day Card"
- * Ronde #3 2026-04-01 — Vote 2/3 (GPT + Gemini)
- * Formule : birthDay + birthMonth + currentYear + currentMonth + currentDay
+ * Ronde #30 + #30-bis 2026-04-06 — Vote 3/3 unanime (GPT + Grok + Gemini)
+ * Formule cascadée (Greer authentique, "Tarot for Your Self" ch. 2) :
+ *   PY = reduce(birthDay + birthMonth + currentYear)   [Année Personnelle]
+ *   PM = reduce(PY + currentMonth)                      [Mois Personnel]
+ *   PD = reduce(PM + currentDay)                        [Jour Personnel]
  * Note : n'utilise PAS l'année de naissance (par design Greer)
+ * Couverture vérifiée : 22/22 arcanes sur 365 jours, 5 profils testés
  * @param bd  Date de naissance YYYY-MM-DD
  * @param day Date du jour YYYY-MM-DD
  * @returns num ∈ [0–21]
@@ -413,8 +417,11 @@ export function calcTarotDayNumber(dateStr: string): number {
 export function calcPersonalDayCard(bd: string, day: string): number {
   const [, bm, bday] = parseDateComponents(bd);
   const [dy, dm, dd] = parseDateComponents(day);
-  const sum = bday + bm + dy + dm + dd;
-  return arcanaNumFrom1to22(reduceTo1to22(sum));
+  // Greer : 22 = Le Mat = 0 à CHAQUE étape intermédiaire (pas seulement à la fin)
+  const PY = arcanaNumFrom1to22(reduceTo1to22(bday + bm + dy));   // Année Personnelle
+  const PM = arcanaNumFrom1to22(reduceTo1to22(PY + dm));           // Mois Personnel
+  const PD = arcanaNumFrom1to22(reduceTo1to22(PM + dd));           // Jour Personnel
+  return PD;
 }
 
 /**
@@ -470,7 +477,7 @@ export function drawConsciousTarot(question: string): TarotDraw {
 
 export const TAROT_3CARD_POSITIONS = [
   { key: 'situation', label: 'Ce qui se joue', icon: '◉' },
-  { key: 'challenge', label: 'Ce qui te challenge', icon: '⚡' },
+  { key: 'challenge', label: 'Ce qui te met à l\'épreuve', icon: '⚡' },
   { key: 'conseil',   label: 'Le conseil du moment', icon: '✦' },
 ] as const;
 

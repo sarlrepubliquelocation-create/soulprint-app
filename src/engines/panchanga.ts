@@ -296,6 +296,19 @@ const TARABALA_NAME: Record<number, string> = {
   5: 'Sadhaka', 6: 'Vadha', 7: 'Mitra', 8: 'Ati-Mitra',
 };
 
+// Labels français pour affichage utilisateur (remplace les noms sanscrits en surface)
+const TARABALA_LABEL_FR: Record<number, string> = {
+  0: 'Lune en friction natale',       // Janma  (-1) : friction légère
+  1: 'Lune en harmonie profonde',     // Sampat (+2) : prospérité
+  2: 'Lune en tension cyclique',      // Vipat  (-2) : obstacles
+  3: 'Lune en soutien stable',        // Kshema (+2) : protection
+  4: 'Lune en résistance douce',      // Pratyari (-1) : légère friction
+  5: 'Lune en élan accompli',         // Sadhaka (+2) : accomplissement
+  6: 'Lune en friction profonde',     // Vadha  (-3) : friction marquée
+  7: 'Lune en résonance amicale',     // Mitra  (+1) : bienveillance
+  8: 'Lune en résonance optimale',    // Ati-Mitra (+2) : grande harmonie
+};
+
 // Chandrabala : positions 1-12 → delta
 // 1,3,6,7,10,11 = +2 ; 2,5 = 0 ; 4,9,12 = -1 ; 8 (Astama) = -3
 const CHANDRABALA_DELTA: Record<number, number> = {
@@ -334,13 +347,14 @@ export function calcTarabala(
   const delta = TARABALA_DELTA[idx] ?? 0;
   const name  = TARABALA_NAME[idx] ?? 'Inconnu';
 
+  const labelFr = TARABALA_LABEL_FR[idx] ?? `Résonance lunaire`;
   let label: string;
   if (delta > 0) {
-    label = `⭐ Résonance ${name} (+${delta})`;
+    label = `⭐ ${labelFr}`;
   } else if (delta < 0) {
-    label = `⚠️ Résonance ${name} (${delta})`;
+    label = `⚠️ ${labelFr}`;
   } else {
-    label = `🌙 Résonance ${name} (neutre)`;
+    label = `🌙 ${labelFr}`;
   }
 
   return { index: idx, name, delta, label };

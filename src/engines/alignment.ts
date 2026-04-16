@@ -106,10 +106,10 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     name: 'effort_recompense',
     label: 'Effort récompensé',
     fondPolarity: '-', tendancePolarity: '+', signalPolarity: '+',
-    uxText: 'Vent porteur sur terrain exigeant.',
+    uxText: 'Malgré une grande période de vie exigeante, l\'énergie de l\'année et du jour s\'élève.',
     color: 'orange',
     colorHex: '#FFA500',
-    action: 'Agis avec résilience.',
+    action: 'Avance prudemment — la fenêtre est réelle, le fond reste exigeant.',
     icon: '🔥',
   },
   illusion_fluidite: {
@@ -126,7 +126,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     name: 'tempete_cosmique',
     label: 'Tempête cosmique',
     fondPolarity: '-', tendancePolarity: '-', signalPolarity: '-',
-    uxText: 'Friction globale — phase d\'initiation par le vide.',
+    uxText: 'Tous les cycles freinent simultanément — période de reconstruction en profondeur.',
     color: 'deep-purple',
     colorHex: '#4B0082',
     action: 'Repli stratégique, introspection.',
@@ -156,7 +156,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
     name: 'oasis_ephemere',
     label: 'Oasis éphémère',
     fondPolarity: '-', tendancePolarity: '-', signalPolarity: '+',
-    uxText: 'Brève accalmie au cœur de la tempête.',
+    uxText: 'Brève accalmie au cœur d\'une phase exigeante.',
     color: 'magenta',
     colorHex: '#FF00FF',
     action: 'Prends l\'énergie, ne signe rien à long terme.',
@@ -181,7 +181,7 @@ const ALIGNMENT_STATES: Record<AlignmentStateName, AlignmentState> = {
 const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
   {
     name: 'fenetre_dans_tempete',
-    label: 'Fenêtre dans la tempête',
+    label: 'Fenêtre dans la traversée',
     condition: { fondNegative: true, signalHigh: true },
     template: "Bien que tu sois dans une phase de [FOND_LABEL], aujourd'hui l'énergie s'élève jusqu'à [SIGNAL_LABEL]. Utilise cette ouverture avec stratégie plutôt qu'impulsion.",
     domainVariants: {
@@ -214,9 +214,9 @@ const CONTRADICTION_PATTERNS: ContradictionPattern[] = [
   },
   {
     name: 'dissociation_multiscale',
-    label: 'Dissociation multi-échelle',
+    label: 'Signaux croisés',
     condition: { allDivergent: true },
-    template: "Les dynamiques longues et courtes ne vont pas dans la même direction. Cette dissociation indique un ajustement en cours — laisse la poussière retomber avant d'agir.",
+    template: "Les dynamiques longues et courtes ne vont pas dans la même direction. Ce décalage indique un ajustement en cours — laisse la poussière retomber avant d'agir.",
     domainVariants: {
       BUSINESS: 'Période de repositionnement — ne signe rien d\'irréversible.',
       AMOUR: 'Signaux contradictoires dans la relation — attends la clarté.',
@@ -260,7 +260,7 @@ export type SignalLabel =
   | 'Convergence rare'
   | 'Élan fort'
   | 'Favorable'
-  | 'Routine'
+  | 'Consolidation'
   | 'Prudence'
   | 'Tempête';
 
@@ -269,7 +269,7 @@ export function getSignalLabel(score: number): SignalLabel {
   if (score >= COSMIC_THRESHOLD) return 'Convergence rare';
   if (score >= 80) return 'Élan fort';
   if (score >= 65) return 'Favorable';
-  if (score >= 40) return 'Routine';
+  if (score >= 40) return 'Consolidation';
   if (score >= 25) return 'Prudence';
   return 'Tempête';
 }
@@ -371,7 +371,7 @@ function modulateDisplay(state: AlignmentState, score: number): AlignmentDisplay
     return {
       label: 'Tes 3 cycles alignés',
       action: 'Avance avec confiance — le terrain est porteur, même si l\'intensité reste modérée.',
-      uxText: 'Tes 3 cycles sont alignés, mais l\'énergie du jour reste calme — journée routine sur terrain favorable.',
+      uxText: 'Tes 3 cycles sont alignés, mais l\'énergie du jour reste mesurée — bonne fenêtre sur terrain favorable.',
     };
   }
   if (state.name === 'percee_lumineuse' && isModeratePositive) {
@@ -385,7 +385,7 @@ function modulateDisplay(state: AlignmentState, score: number): AlignmentDisplay
     return {
       label: 'Résistance diffuse',
       action: 'Journée d\'observation — pas de tempête, mais un frein général à prendre en compte.',
-      uxText: 'Les cycles ne sont pas alignés en ta faveur, mais rien de violent — patience et recul.',
+      uxText: 'Les cycles ne sont pas alignés en ta faveur, mais rien d\'alarmant — patience et recul.',
     };
   }
 
@@ -530,19 +530,21 @@ export function buildSynthesisPhrase(
   // Partie Tendance
   const tendancePart = `tu traverses une période ${de(tendance.toLowerCase())}`;
 
-  // Partie Signal
-  const signalPart = `Aujourd'hui est une journée ${signal.toLowerCase()} — ${state.uxText}`;
+  // Partie Signal — "Favorable" est adjectif (pas de "de"), les autres sont des noms
+  const signalPart = signal === 'Favorable'
+    ? `Aujourd'hui est une journée favorable — ${state.uxText}`
+    : `Aujourd'hui est une journée ${de(signal.toLowerCase())} — ${state.uxText}`;
 
   // Alerte transition LP
   let transitionPart = '';
   if (options?.lpTransitionMonths !== undefined && options.lpTransitionMonths < 8) {
-    transitionPart = ` Dans ${options.lpTransitionMonths} mois, un nouveau cycle décennal commence.`;
+    transitionPart = ` Dans ${options.lpTransitionMonths} mois, une nouvelle grande période de vie commence.`;
   }
 
   // Zone de Mutation
   let mutationPart = '';
   if (options?.ciZoneMutation) {
-    mutationPart = ' L\'horizon proche entre en Zone de Mutation — tes choix actuels pèsent plus que d\'habitude.';
+    mutationPart = ' L\'horizon proche est en période charnière — tes choix actuels pèsent plus que d\'habitude.';
   }
 
   // Connecteur correctif si contradiction

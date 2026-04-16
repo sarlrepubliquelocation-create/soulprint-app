@@ -181,7 +181,7 @@ export const TZOLKIN_GLYPHS: TzolkinGlyph[] = [
   },
   {
     index: 19, name: 'Cauac',   fr: 'Tempête',        symbol: '⛈',
-    meaning: 'Catalyse par l\'épreuve, auto-génération, foudre purificatrice',
+    meaning: 'Catalyse par le défi, auto-génération, foudre purificatrice',
     baseScore: -2,
     domainAffinity: { BUSINESS: -2, AMOUR: -1, CREATIVITE: 2, VITALITE: -1 },
   },

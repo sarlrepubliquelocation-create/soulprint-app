@@ -17,6 +17,7 @@
 import { calcLifePath, calcExpression, calcSoul, isMaster } from './numerology';
 import { calcNatalIChing, type IChingReading, TRIGRAM_NAMES, HEX_NAMES } from './iching';
 import { calcBaZiCompat, type BaZiCompatResult, getPeachBlossom, calcDayMaster, LIU_HE_PAIRS, CLASHES } from './bazi';
+import { COSMIC_THRESHOLD } from './scoring-constants';
 
 // ══════════════════════════════════════
 // ═══ GAUSSIAN CDF NORMALIZATION V4.1 ═══
@@ -414,14 +415,14 @@ const ARCHETYPE_HEX_PAIRS: Partial<Record<FamilleSubType, [number, number]>> = {
 const ARCHETYPE_NAMES: Record<number, string> = {
    2: "Le Réceptif",
    3: "La Difficulté Initiale",
-  17: "Suivre",
-  18: "Le Travail sur la Corruption",
+  17: "L'Adaptation",
+  18: "La Remise en ordre",
   22: "La Grâce",
   31: "L'Influence",
-  41: "La Diminution",
+  41: "Le Lâcher-prise",
   45: "Le Rassemblement",
   50: "Le Chaudron",
-  51: "L'Éveilleur",
+  51: "L'Éveil",
   55: "L'Abondance",
   58: "Le Joyeux",
 };
@@ -672,7 +673,7 @@ const BAZI_INTERACTION_TEXT: Record<string, Record<BondMode, string>> = {
   clash: {
     amour: "Tes différences te percutent pour mieux te réveiller — cette passion électrique exige de ne jamais chercher à soumettre la nature de l'autre.",
     pro: "Le choc de tes méthodes est ton meilleur atout créatif — accepte la contradiction, c'est elle qui t'empêche de stagner.",
-    famille: "Ce lien bouscule tes certitudes générationnelles — c'est une épreuve de tolérance qui te pousse à accepter ce que tu ne comprends pas.",
+    famille: "Ce lien bouscule tes certitudes générationnelles — c'est un défi de tolérance qui te pousse à accepter ce que tu ne comprends pas.",
   },
   harm: {
     amour: "La tension entre vous ne fait pas de bruit, elle s'installe — nomme tôt les malentendus avant qu'ils ne deviennent une distance.",
@@ -1122,7 +1123,7 @@ export function calcBond(
   const strongName = DISPLAY_NAME[strongest.system] || strongest.system;
 
   let summary: string;
-  if (scoreGlobal >= 85) {
+  if (scoreGlobal >= COSMIC_THRESHOLD) {
     summary = `Ce lien repose sur ${forceText} (${strongName} à ${strongest.score}%). Ton principal défi sera de ${defiText}. Cultive cette connexion rare avec gratitude.`;
   } else if (scoreGlobal >= 65) {
     summary = `Ce lien brille par ${forceText} (${strongName} à ${strongest.score}%). Pour le renforcer, travaille à ${defiText}. L'effort conscient transformera le bon en excellent.`;

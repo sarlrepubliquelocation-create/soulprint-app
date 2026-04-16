@@ -70,7 +70,7 @@ const ARCHETYPES: Record<string, EnergyArchetype> = {
     key: 'imperial',
     label: 'Impérial',
     icon: '🏯',
-    description: 'Tu es ancré dans les piliers temporels. L\'énergie des éléments et le cycle de ton Day Master gouvernent ta vitalité.',
+    description: 'Ton ancrage vient des piliers temporels. L\'énergie des éléments et le cycle de ton Day Master gouvernent ta vitalité.',
   },
   architecte: {
     key: 'architecte',
@@ -80,9 +80,9 @@ const ARCHETYPES: Record<string, EnergyArchetype> = {
   },
   oracle: {
     key: 'oracle',
-    label: 'Oracle',
+    label: 'Réceptif',
     icon: '☯️',
-    description: 'Le Yi Jing te parle directement. Les hexagrammes captent ta réalité quotidienne avec une justesse remarquable.',
+    description: 'Le Yi King te parle directement. Les hexagrammes captent ta réalité quotidienne avec une justesse remarquable.',
   },
   marcheur: {
     key: 'marcheur',
@@ -377,7 +377,7 @@ export function getOnboardingMessage(feedbackCount: number, weights: PersonalWei
   }
 
   if (feedbackCount === 20) {
-    return `🧬 Ton profil prend forme ! Kaironaute affine ses prédictions à partir de tes retours.`;
+    return `🧬 Ton profil prend forme ! Kaironaute affine ses lectures à partir de tes retours.`;
   }
 
   if (feedbackCount === 25 && weights?.blendPercent === 100) {
@@ -406,7 +406,7 @@ export function getFlatlineAlert(feedbacks: DayFeedback[]): string | null {
   const variance = recent.reduce((a, f) => a + Math.pow(f.userScore! - mean, 2), 0) / recent.length;
 
   if (variance < MIN_VARIANCE) {
-    return `Kaironaute perçoit une énergie très stable ces derniers jours. Rappelle-toi : le 3⭐ est la norme, réserve le 5⭐ pour les journées vraiment exceptionnelles afin de garder les prédictions précises.`;
+    return `Kaironaute perçoit une énergie très stable ces derniers jours. Rappelle-toi : le 3⭐ est la norme, réserve le 5⭐ pour les journées vraiment exceptionnelles afin de garder les lectures précises.`;
   }
 
   return null;

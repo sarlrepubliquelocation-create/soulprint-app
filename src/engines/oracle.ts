@@ -33,10 +33,10 @@ export type OracleDomain = 'commerce' | 'creatif' | 'humain' | 'spirituel' | 'te
 export const ORACLE_DOMAINS: { id: OracleDomain; icon: string; label: string; exemples: string }[] = [
   { id: 'generaliste', icon: '🌐', label: 'Généraliste',               exemples: 'Score moyen tous domaines' },
   { id: 'commerce',    icon: '💰', label: 'Commerce & Finance',        exemples: 'Banque, immobilier, retail, juridique' },
-  { id: 'creatif',     icon: '🎨', label: 'Créativité & Communication', exemples: 'Art, médias, marketing, design, mode' },
-  { id: 'humain',      icon: '🤝', label: 'Humain & Bien-être',        exemples: 'Santé, thérapie, coaching, social' },
+  { id: 'creatif',     icon: '🎨', label: 'Créativité & Communication', exemples: 'Art, médias, communication, design, mode' },
+  { id: 'humain',      icon: '🤝', label: 'Humain & Bien-être',        exemples: 'Santé, thérapie, accompagnement, social' },
   { id: 'spirituel',   icon: '🔮', label: 'Spiritualité & Ésotérisme', exemples: 'Astrologie, numérologie, méditation' },
-  { id: 'tech',        icon: '💡', label: 'Tech & Innovation',         exemples: 'Startup, dev, apps, digital, IA' },
+  { id: 'tech',        icon: '💡', label: 'Tech & Innovation',         exemples: 'Entreprise innovante, dev, apps, numérique, IA' },
 ];
 
 export type OracleVerdict = 'feu_vert' | 'prudence' | 'pas_maintenant';
@@ -150,7 +150,7 @@ function calcNameNumbers(name: string): { expression: Reduced; ame: Reduced; ima
 // ══════════════════════════════════════
 // Défis de vie 13/14/16/19 : en numérologie, certains nombres (13, 14, 16, 19)
 // portent un « défi de croissance » — une qualité que la vibration invite à développer.
-// Ce n'est PAS une punition ni une fatalité : c'est un axe d'apprentissage.
+// Ce n'est PAS une fatalité : c'est un axe d'apprentissage et de croissance.
 // Détecté à l'avant-dernière étape de la réduction (Decoz, Goodwin, Bunker).
 // Ronde 23 (3/3) + R24 clarification : labels accessibles, sous-titres concrets
 type KarmicModule = 'nom' | 'bebe' | 'adresse' | 'numero' | 'date';
@@ -203,7 +203,7 @@ function getKarmicDebt(num: number, module: KarmicModule): { label: string; text
 type LessonModule = 'nom' | 'bebe';
 const KARMIC_LESSON_NARRATIVES: Record<number, Record<LessonModule, { label: string; texte: string }>> = {
   1: {
-    nom:  { label: 'Absence du 1 — Le Leadership en Creux', texte: 'L\'absence du 1 indique que ce nom ne porte pas naturellement l\'énergie d\'initiative. La marque devra construire son autorité par la constance plutôt que par l\'éclat. C\'est un chemin où la légitimité se gagne pas à pas.' },
+    nom:  { label: 'Absence du 1 — L\'Initiative en Creux', texte: 'L\'absence du 1 indique que ce nom ne porte pas naturellement l\'énergie d\'initiative. La marque devra construire son autorité par la constance plutôt que par l\'éclat. C\'est un chemin où la légitimité se gagne pas à pas.' },
     bebe: { label: 'Absence du 1 — L\'Affirmation à Conquérir', texte: 'L\'absence du 1 montre un chemin autour de la confiance en soi et de l\'initiative. L\'enfant peut avoir besoin d\'encouragements pour oser agir en premier. On l\'aidera en valorisant ses prises de décision, même petites.' },
   },
   2: {
@@ -332,7 +332,7 @@ const CHINESE_DIGIT_BONUS: Record<number, { pts: number; label: string }> = {
   9: { pts: 2,  label: 'Chiffre 9 — Longévité et durabilité (九)' },
   2: { pts: 1,  label: 'Chiffre 2 — Harmonie en paire (二)' },
   4: { pts: -6, label: 'Chiffre 4 — Énergie freinée, ralentit le flux (四)' },
-  7: { pts: 0,  label: 'Chiffre 7 — Énergie neutre (七)' },  // Ronde 9 (3/3) : 7 neutre/positif en chinois
+  7: { pts: 0,  label: 'Chiffre 7 — Énergie équilibrée (七)' },  // Ronde 9 (3/3) : 7 neutre/positif en chinois
 };
 
 // ══════════════════════════════════════
@@ -341,7 +341,7 @@ const CHINESE_DIGIT_BONUS: Record<number, { pts: number; label: string }> = {
 
 // Labels descriptifs par nombre (indépendants du domaine)
 const EXPRESSION_LABELS: Record<number, string> = {
-  1: 'Leadership — pionnier',        2: 'Diplomatie — partenariat',
+  1: 'Initiative — pionnier',        2: 'Diplomatie — partenariat',
   3: 'Expression — communication',   4: 'Structure — rigueur',
   5: 'Liberté — mouvement',          6: 'Harmonie — service',
   7: 'Introspection — sagesse',      8: 'Fortune — pouvoir',
@@ -385,7 +385,7 @@ const ADDRESS_NUMBERS: Record<number, { pts: number; label: string }> = {
 
 // Legacy : table Numéro (téléphone/SIRET) — orientée communication/énergie générale
 const NUMBER_SCORES: Record<number, { pts: number; label: string }> = {
-  1:  { pts: 8,  label: 'Leadership — numéro d\'initiative' },
+  1:  { pts: 8,  label: 'Initiative — numéro de l\'action' },
   2:  { pts: 5,  label: 'Diplomatie — numéro de partenariat' },
   3:  { pts: 8,  label: 'Communication — numéro d\'expression et de contact' },
   4:  { pts: 6,  label: 'Structure — numéro stable et fiable' },
@@ -425,7 +425,7 @@ const NUMBER_DOMAIN_SCORES: Record<number, Record<OracleDomain, number>> = {
 
 // Descriptions contextuelles par réduction × domaine (évite "peu commercial — 10/10")
 const NUMBER_DOMAIN_LABELS: Record<number, Record<OracleDomain, string>> = {
-  1:  { commerce: 'Leadership — initiative et autorité', creatif: 'Originalité — vision unique', humain: 'Individualisme — énergie solitaire', spirituel: 'Quête personnelle — chemin intérieur', tech: 'Innovation — esprit pionnier', generaliste: 'Leadership — numéro d\'initiative' },
+  1:  { commerce: 'Initiative — action et autorité', creatif: 'Originalité — vision unique', humain: 'Individualisme — énergie solitaire', spirituel: 'Quête personnelle — chemin intérieur', tech: 'Innovation — esprit pionnier', generaliste: 'Initiative — numéro de l\'action' },
   2:  { commerce: 'Diplomatie — négociation et écoute', creatif: 'Collaboration — création en duo', humain: 'Empathie — lien profond', spirituel: 'Réceptivité — ouverture spirituelle', tech: 'Partenariat — synergie technique', generaliste: 'Diplomatie — numéro de partenariat' },
   3:  { commerce: 'Communication — relation client', creatif: 'Expression — créativité débordante', humain: 'Sociabilité — contact chaleureux', spirituel: 'Joie — énergie d\'expansion', tech: 'Présentation — interface engageante', generaliste: 'Communication — numéro d\'expression' },
   4:  { commerce: 'Fiabilité — structure solide', creatif: 'Rigueur — cadre parfois limitant', humain: 'Stabilité — énergie terre-à-terre', spirituel: 'Ancrage — peu de fluidité mystique', tech: 'Précision — infrastructure robuste', generaliste: 'Structure — numéro stable et fiable' },
@@ -1206,14 +1206,14 @@ function calcOracleSujet(sujet: OracleSujet, domainScoreFromConvergence: number,
 // Axée sur l'épanouissement, le caractère, la résonance familiale
 // V4.4b — harmonies auditées par Grok (tradition pythagoricienne pour enfant)
 const BABY_NUMBERS: Record<number, { harmony: number; label: string; traits: string }> = {
-  1:  { harmony: 6, label: 'Indépendance',    traits: `Confiance en soi, leadership naturel — peut créer de l'isolement si mal accompagné` },
+  1:  { harmony: 6, label: 'Indépendance',    traits: `Confiance en soi, autorité naturelle — peut créer de l'isolement si mal accompagné` },
   2:  { harmony: 9, label: 'Harmonie',         traits: `Sensibilité, empathie, coopération — un des plus épanouissants pour un enfant` },
   3:  { harmony: 9, label: 'Expression',       traits: `Créativité, joie de vivre, communication naturelle — très épanouissant` },
   4:  { harmony: 7, label: 'Stabilité',        traits: `Méthode, persévérance, structure rassurante — peut être anxiogène sans accompagnement` },
   5:  { harmony: 8, label: 'Liberté',          traits: `Curiosité, adaptabilité, soif de découverte — très bon pour un enfant` },
   6:  { harmony: 9, label: 'Amour',            traits: `Sens de la famille, générosité, attachement profond — le plus harmonieux pour un enfant` },
   7:  { harmony: 6, label: 'Sagesse',          traits: `Intuition, intériorité, don pour la réflexion — risque de retrait émotionnel` },
-  8:  { harmony: 5, label: 'Puissance',        traits: `Volonté forte, leçons de karma précoces — le plus lourd à porter pour un enfant` },
+  8:  { harmony: 5, label: 'Puissance',        traits: `Volonté forte, leçons de vie précoces — le plus lourd à porter pour un enfant` },
   9:  { harmony: 8, label: 'Idéalisme',        traits: `Compassion, générosité, vision universelle — très beau pour un enfant` },
   11: { harmony: 8, label: 'Intuition Maître', traits: `Sensibilité extrême, don artistique — attention aux surcharges émotionnelles` },
   22: { harmony: 7, label: 'Bâtisseur Maître', traits: `Potentiel immense, mais charge lourde — peut être écrasant pour un jeune enfant` },
@@ -1448,7 +1448,7 @@ export function calcOracle(params: CalcOracleParams): OracleResult {
   if (type === 'bebe') {
     const BABY_VERDICT_MAP: Record<OracleVerdict, Omit<OracleVerdictInfo, 'verdict'>> = {
       feu_vert:       { icon: '🌟', label: 'Prénom harmonieux', color: '#4ade80', texte: `Ce prénom résonne avec fluidité avec ton énergie parentale. L'enfant portera ce nom avec aisance naturelle.` },
-      prudence:       { icon: '✨', label: 'Prénom équilibré',  color: '#f59e0b', texte: `Ce prénom apporte une énergie neutre et solide. Bon choix si tu l\'aimes — le cœur prime toujours.` },
+      prudence:       { icon: '✨', label: 'Prénom équilibré',  color: '#f59e0b', texte: `Ce prénom apporte une énergie stable et solide. Bon choix si tu l\'aimes — le cœur prime toujours.` },
       pas_maintenant: { icon: '⚡', label: 'Prénom en tension', color: '#a78bfa', texte: `Ce prénom crée une légère friction énergétique. L'enfant construira sa propre voie avec détermination.` },
     };
     verdict = { verdict: verdict.verdict, ...BABY_VERDICT_MAP[verdict.verdict] };

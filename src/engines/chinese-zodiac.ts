@@ -87,7 +87,7 @@ const PUNISHMENTS: [number, number][] = [
   [7, 10],  // Chèvre → Chien (刑 d'intimidation)
   [8, 2],   // Singe → Tigre (刑 de puissance)
   [10, 1],  // Chien → Bœuf (刑 d'intimidation)
-  // Dragon(4), Cheval(6), Coq(9), Cochon(11) = auto-punition (pas de paire à afficher)
+  // Dragon(4), Cheval(6), Coq(9), Cochon(11) = tension interne (pas de paire à afficher)
 ];
 
 // ── V3: Helper ──
