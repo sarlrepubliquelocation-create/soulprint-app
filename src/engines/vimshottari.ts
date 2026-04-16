@@ -103,7 +103,7 @@ export const DASHA_NARRATIVES: Record<string, string> = {
   Soleil:  "Temps d'affirmation. Tu es appelé à occuper ta place, clairement. Les décisions doivent refléter ton autorité intérieure.",
   Lune:    "Cycle de sensibilité accrue. Ton intuition devient un instrument stratégique. Avance en respectant tes marées intérieures.",
   Mars:    "Période d'action directe. Les décisions courageuses portent plus que les hésitations. L'initiative compte davantage que la prudence.",
-  Rahu:    "Cycle d'ambition et de disruption. Tu sors des chemins connus. Les décisions audacieuses peuvent redéfinir ta trajectoire.",
+  Rahu:    "Cycle d'ambition et de bouleversement. Tu sors des chemins connus. Les décisions audacieuses peuvent redéfinir ta trajectoire.",
   Jupiter: "Temps d'expansion structurée. Les opportunités s'ouvrent si tu penses long terme. Investis dans ce qui élargit ta vision.",
   Saturne: "Cycle de consolidation profonde. Les décisions lentes mais solides construisent l'avenir. La patience devient stratégie.",
   Mercure: "Période d'apprentissage et d'adaptation rapide. Ton intelligence stratégique est ton meilleur atout. Les décisions gagnent à être souples.",
@@ -387,10 +387,10 @@ export function calcDashaScore(
   if (dasha.maha.isTransition) {
     const sandhiKey  = `${mahaLord}${dasha.nextMaha.lord}`;
     const sandhiText = SANDHI_NARRATIVES[sandhiKey] ?? 'Période de transition de vie — décisions importantes : attendre.';
-    breakdown.push(`⚠ Dasha Sandhi : ${sandhiText}`);
+    breakdown.push(`⚠ Transition de grande période : ${sandhiText}`);
   }
   if (mahaLord === 'Rahu' && options?.transitLord === 'Rahu') {
-    breakdown.push('Rahu: double activation → malus neutralisé');
+    breakdown.push('Rahu en double activation — tension neutralisée');
   }
   if (mahaLord === 'Lune') {
     breakdown.push(`Lune ${options?.natalMoonIsWaxing === false ? 'décroissante natale' : 'croissante natale'}`);

@@ -215,10 +215,13 @@ export function calcCI(
   const value = Math.max(0, Math.min(1, raw));
   const percent = Math.round(value * 100);
 
+  // R30 fix : label basé sur percent (déjà arrondi) et non sur value brute.
+  // Élimine toute incohérence d'arrondi entre le chiffre affiché et le label
+  // (ex: value=0.7499 → percent=75% mais value < 0.75 → label 'Bonne' — visuellement contradictoire).
   const label: TemporalCI['label'] =
-    value >= thresholdHaute ? 'Haute' :
-    value >= thresholdBonne ? 'Bonne' :
-    value >= thresholdMutation ? 'Modérée' : 'Faible';
+    percent >= 75 ? 'Haute' :
+    percent >= 55 ? 'Bonne' :
+    percent >= 40 ? 'Modérée' : 'Faible';
 
   const isZoneMutation = value < thresholdMutation;
 
@@ -398,7 +401,7 @@ function getSignalLabel(score: number): { label: string; color: string } {
   if (score >= COSMIC_THRESHOLD) return { label: 'Cosmique',  color: '#E0B0FF' };
   if (score >= 80) return { label: 'Gold',      color: '#FFD700' };
   if (score >= 65) return { label: 'Favorable', color: '#4ade80' };
-  if (score >= 40) return { label: 'Routine',   color: '#60a5fa' };
+  if (score >= 40) return { label: 'Consolidation', color: '#60a5fa' };
   if (score >= 25) return { label: 'Prudence',  color: '#9890aa' };
   return                  { label: 'Tempête',   color: '#ef4444' };
 }

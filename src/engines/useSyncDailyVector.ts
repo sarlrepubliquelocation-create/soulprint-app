@@ -20,6 +20,7 @@ import { db, getCurrentUid } from '../firebase';
 import { sto } from './storage';
 import type { DailyVectorRecord, MonthlyHistoryDoc } from './convergence.types';
 import type { SoulData } from '../App';
+import { getScoreMeta as _getScoreMeta } from './scoring-constants'; // FIX CALIBOFFSET — label cohérent
 
 // ══════════════════════════════════════
 // ═══ HELPERS ═══
@@ -52,7 +53,7 @@ function markSynced(date: string): void {
 }
 
 /** Extrait les deltas bruts depuis ConvergenceResult et DailyModuleResult */
-function buildVectorRecord(data: SoulData, date: string): DailyVectorRecord | null {
+function buildVectorRecord(data: SoulData, date: string, calibOffset: number = 0): DailyVectorRecord | null {
   try {
     const conv = data.conv;
 
@@ -82,10 +83,15 @@ function buildVectorRecord(data: SoulData, date: string): DailyVectorRecord | nu
       moon_phase: getMoonPhaseIdx(date),
     };
 
+    // ═══ FIX CALIBOFFSET — Sauvegarder le displayScore (avec calibOffset) dans Firebase ═══
+    const displayScore = Math.max(0, Math.min(100, Math.round(conv.score + calibOffset)));
+    const _meta = _getScoreMeta(displayScore);
+    const displayLevel = `${_meta.icon} ${_meta.label}`;
+
     const record: DailyVectorRecord = {
       v:         1,
-      score:     conv.score,
-      label:     extractLabel(conv.level),
+      score:     displayScore,
+      label:     extractLabel(displayLevel),
       raw,
       narrative,
       // feedback : non défini en semaine 1 — ajouté en semaine 3-4
@@ -117,7 +123,7 @@ function extractLabel(level: string): string {
   if (level.includes('Convergence rare') || level.includes('Cosmique')) return 'Cosmique';
   if (level.includes('Alignement fort') || level.includes('Gold') || level.includes('Or')) return 'Or';
   if (level.includes('Bonne fen') || level.includes('Favorable')) return 'Favorable';
-  if (level.includes('Phase de Consolidation') || level.includes('Flux ordinaire') || level.includes('Routine')) return 'Routine';
+  if (level.includes('Phase de Consolidation') || level.includes('Flux ordinaire') || level.includes('Consolidation') || level.includes('Routine')) return 'Consolidation';
   if (level.includes('Mode Maintenance') || level.includes('Énergie basse') || level.includes('Prudence')) return 'Prudence';
   if (level.includes('Mode Bouclier') || level.includes('Temps de retrait') || level.includes('Tempête')) return 'Tempête';
   if (level.includes('Argent')) return 'Argent';
@@ -144,6 +150,7 @@ function getMoonPhaseIdx(date: string): number {
 export function useSyncDailyVector(
   data: SoulData | null,
   bd: string,
+  calibOffset: number = 0,
 ): void {
   // Ref pour éviter double-écriture en StrictMode React (double useEffect)
   const syncedRef = useRef<string | null>(null);
@@ -165,7 +172,7 @@ export function useSyncDailyVector(
     void (async () => {
       try {
         const uid    = getCurrentUid();
-        const record = buildVectorRecord(data, today);
+        const record = buildVectorRecord(data, today, calibOffset);
         if (!record) return;
 
         const [yyyy, mm, dd] = today.split('-');
@@ -182,7 +189,7 @@ export function useSyncDailyVector(
           { days: { [dd]: record } } satisfies Partial<MonthlyHistoryDoc>,
           { merge: true }
         );
-        console.debug(`[VectorSync] ✓ ${today} → users/${uid}/history/${yyyy}-${mm}.days.${dd}`);
+        if (import.meta.env.DEV) console.debug(`[VectorSync] ✓ ${today} → users/${uid}/history/${yyyy}-${mm}.days.${dd}`);
       } catch (err) {
         // Rollback du markSynced si l'écriture échoue — retenter au prochain refresh
         sto.remove(getSyncKey(today));
@@ -225,7 +232,7 @@ export async function submitFeedback(
       { merge: true }
     );
 
-    console.debug(`[VectorSync] Feedback ${note} → ${date}`);
+    if (import.meta.env.DEV) console.debug(`[VectorSync] Feedback ${note} → ${date}`);
   } catch (err) {
     console.warn('[VectorSync] Feedback échoué:', err);
     // Ne pas propager — l'UI ne doit pas crasher si Firestore est down

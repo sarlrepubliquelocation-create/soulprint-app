@@ -363,10 +363,10 @@ export const ARC_NARRATIVES: Record<ArcName, {
     future: {
       title: 'Nouveau paysage',
       narrative: 'L\'éclipse approche et amplifie la rupture. Un nouveau paysage émerge.',
-      insight: 'La tempête n\'est pas un échec — c\'est le précurseur d\'un renouveau.'
+      insight: 'Cette intensité n\'est pas un échec — c\'est le précurseur d\'un renouveau.'
     },
     conseil: 'Reste centré, protège l\'essentiel, ne prends pas de décisions impulsives.',
-    nuance: 'La tempête n\'est pas un échec — c\'est souvent le précurseur d\'un nouveau paysage.'
+    nuance: 'Cette turbulence n\'est pas un échec — c\'est souvent le précurseur d\'un nouveau paysage.'
   },
   'Le Portail': {
     past: {
@@ -534,10 +534,10 @@ export interface NarrativeContext {
 // ── Helper functions (réutilisables entre les 12 arcs) ──
 
 function getMomentumHook(trend: string, streak: number): string {
-  if (trend === 'volatile') return `Après ${streak} jours en dents de scie`;
+  if (trend === 'volatile') return streak === 1 ? `Après 1 jour en dents de scie` : `Après ${streak} jours en dents de scie`;
   if (trend === 'falling') return `Malgré le ralentissement des derniers jours`;
-  if (trend === 'rising') return `Porté par l'élan des ${streak} derniers jours`;
-  return `Avec la stabilité de ces ${streak} derniers jours`;
+  if (trend === 'rising') return streak === 1 ? `Porté par l'élan du dernier jour` : `Porté par l'élan des ${streak} derniers jours`;
+  return streak === 1 ? `Avec la stabilité de ce dernier jour` : `Avec la stabilité de ces ${streak} derniers jours`;
 }
 
 function getScoreAction(score: number): string {
@@ -548,7 +548,7 @@ function getScoreAction(score: number): string {
 }
 
 function getTrendAction(trendScore: number): string {
-  if (trendScore > 2) return 'Tes cycles personnels poussent à avancer avec confiance.';
+  if (trendScore > 2) return 'Tes cycles personnels soutiennent le fond — structure ce qui compte.';
   if (trendScore < -2) return 'Tes cycles demandent prudence — protège l\'existant.';
   return 'Tes cycles soutiennent une progression sobre et régulière.';
 }
@@ -560,7 +560,7 @@ function getForecastHook(goldDays: number, windows: number, bestDay: string, bes
 }
 
 function getCIHook(ciLabel: string): string {
-  if (ciLabel === 'Haute' || ciLabel === 'Bonne') return 'La lisibilité est suffisamment nette pour te projeter.';
+  if (ciLabel === 'Haute' || ciLabel === 'Bonne') return 'La fiabilité est suffisamment nette pour te projeter.';
   if (ciLabel === 'Modérée') return 'L\'horizon reste mouvant — avance par étapes.';
   return 'La visibilité est faible — reste flexible et ajuste au fil des jours.';
 }
@@ -674,7 +674,7 @@ const NARRATIVE_BUILDERS: Record<ArcName, NarrativeBuilder> = {
     },
     future: {
       title: ctx.goldDays30 >= 3 ? 'Éclaircie en approche' : 'Patience requise',
-      narrative: `Après la tempête, un nouveau paysage émerge : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
+      narrative: `Après cette phase intense, un nouveau paysage émerge : ${getForecastHook(ctx.goldDays30, ctx.actionWindows, ctx.bestDayLabel, ctx.bestDayScore)}. ${getCIHook(ctx.ciLabel)}`,
       insight: `${ctx.goldDays30} jour${ctx.goldDays30 > 1 ? 's' : ''} porteur${ctx.goldDays30 > 1 ? 's' : ''} à venir.`,
     },
   }),
@@ -1142,12 +1142,12 @@ export const WOW_MOMENTS: Record<string, {
 }> = {
   'alignement_total': {
     titre: 'Alignement Total',
-    signification: 'Triple pic biorhythmique + Oracle A-tier + Jour personnel 1 crée une rareté exceptionnelle où énergie physique, émotionnelle, intellectuelle, symbolique et numérologique sont toutes au maximum simultanément.',
+    signification: 'Triple pic biorhythmique + Yi King très favorable + Jour personnel 1 crée une rareté exceptionnelle où énergie physique, émotionnelle, intellectuelle, symbolique et numérologique sont toutes au maximum simultanément.',
     conseil: 'Utilise cette journée pour lancer ou décider ce qui compte vraiment — l\'univers est aligné avec toi.'
   },
   'portail_puissance': {
     titre: 'Portail de Puissance',
-    signification: 'Convergence rare (≥86) qui tombe le jour d\'une éclipse crée un portail où le karma et l\'énergie du jour se rencontrent.',
+    signification: 'Convergence rare (≥86) qui tombe le jour d\'une éclipse crée un portail où les cycles de vie et l\'énergie du jour convergent.',
     conseil: 'Observe ce qui se révèle — les décisions prises aujourd\'hui ont un poids de vie exceptionnel.'
   },
   'grand_depart': {
@@ -1162,7 +1162,7 @@ export const WOW_MOMENTS: Record<string, {
   },
   'createur_maitre': {
     titre: 'Le Créateur Maître',
-    signification: 'Oracle #1 (Créateur) + Jour personnel maître 11 ou 22 crée un double maître créateur extrêmement rare.',
+    signification: 'Hexagramme #1 (Le Créateur) + Jour personnel maître 11 ou 22 crée un double maître créateur extrêmement rare.',
     conseil: 'Utilise cette journée pour initier ce qui te semble trop grand — ton pouvoir créateur est amplifié.'
   },
   'appel_destin': {
@@ -1202,7 +1202,7 @@ export const NUCLEAR_INTERPRETATIONS: Record<string, { interpretation: string; c
   'C_B': { interpretation: 'Équilibre stable soutenu par une base solide.', conseil: 'Profite de cette stabilité pour consolider avant la prochaine phase.' },
   'C_C': { interpretation: 'Neutralité complète — ni gain ni perte visible.', conseil: 'Utilise ce calme pour préparer le prochain mouvement stratégique.' },
   'C_D': { interpretation: 'Situation neutre qui cache des tensions latentes.', conseil: 'Reste vigilant — les problèmes ne sont pas visibles mais ils existent.' },
-  'C_E': { interpretation: 'Neutralité fragile qui masque une crise sous-jacente.', conseil: 'Anticipe — la surface calme cache souvent la tempête.' },
+  'C_E': { interpretation: 'Neutralité fragile qui masque des tensions sous-jacentes.', conseil: 'Anticipe — la surface calme cache parfois des ajustements à venir.' },
   'D_A': { interpretation: 'Blocage visible qui cache un potentiel exceptionnel.', conseil: 'Regarde au-delà du blocage — la vraie opportunité est derrière.' },
   'D_B': { interpretation: 'Frein externe mais stabilité interne forte.', conseil: 'Utilise ta solidité intérieure pour surmonter le frein extérieur.' },
   'D_C': { interpretation: 'Blocage cohérent avec le contexte actuel.', conseil: 'Accepte le ralentissement — il est justifié par la situation.' },
@@ -1816,7 +1816,7 @@ export function generateTemporalNarrative(
       const signalLabel = signalScore >= COSMIC_THRESHOLD ? 'Convergence rare'
         : signalScore >= 80 ? 'Élan fort'
         : signalScore >= 65 ? 'Favorable'
-        : signalScore >= 40 ? 'Routine'
+        : signalScore >= 40 ? 'Consolidation'
         : signalScore >= 25 ? 'Prudence'
         : 'Tempête';
 
@@ -1985,9 +1985,8 @@ export function getForecastNarrativeKey(forecast: ForecastResult): string {
   if (forecast.next7.avg > 65 && forecast.next7.goldDays >= 2) return 'radieux';
   if (forecast.next7.avg < 45) return 'difficile';
   if (forecast.next30.cosmiqueDays > 0) return 'mixte';
-  if (stdDev(
-    Array.from({ length: 7 }, (_, i) => forecast.next7.avg) // placeholder
-  ) < 5) return 'accalmie';
+  // Accalmie = faible amplitude sur 7 jours (range best-worst ≤ 25 pts)
+  if ((forecast.next7.best.score - forecast.next7.worst.score) <= 25) return 'accalmie';
   return 'mixte';
 }
 

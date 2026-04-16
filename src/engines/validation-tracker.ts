@@ -49,17 +49,22 @@ export interface ValidationStats {
 
 const STORAGE_KEY = 'sp_validation_feedback';
 
-function loadFeedbacks(): DayFeedback[] {
+/** Clé scopée par profil : évite que le feedback de Carmen s'applique à Jérôme */
+function feedbackKey(profileKey?: string): string {
+  return profileKey ? `${STORAGE_KEY}_${profileKey.replace(/[^0-9a-zA-Z]/g, '')}` : STORAGE_KEY;
+}
+
+function loadFeedbacks(profileKey?: string): DayFeedback[] {
   try {
-    return sto.get<DayFeedback[]>(STORAGE_KEY) || [];
+    return sto.get<DayFeedback[]>(feedbackKey(profileKey)) || [];
   } catch { return []; }
 }
 
-function saveFeedbacks(feedbacks: DayFeedback[]): void {
+function saveFeedbacks(feedbacks: DayFeedback[], profileKey?: string): void {
   try {
     // Garder max 365 jours de feedback
     const trimmed = feedbacks.slice(-365);
-    sto.set(STORAGE_KEY, trimmed);
+    sto.set(feedbackKey(profileKey), trimmed);
   } catch { /* storage full or disabled */ }
 }
 
@@ -271,9 +276,10 @@ export function saveDayFeedback(
   luneDelta?: number,          // AD — luneGroupDelta brut
   ephemDelta?: number,         // AD — ephemGroupDelta brut
   baziDelta?: number,          // AD — baziGroupDelta brut
-  scoreBrut?: number           // AD — cv.score pré-calibOffset
+  scoreBrut?: number,          // AD — cv.score pré-calibOffset
+  profileKey?: string          // Scope par profil (bd compact) pour éviter contamination inter-profils
 ): void {
-  const feedbacks = loadFeedbacks();
+  const feedbacks = loadFeedbacks(profileKey);
 
   // Pas de doublon pour la même date
   const existing = feedbacks.findIndex(f => f.date === date);
@@ -291,13 +297,13 @@ export function saveDayFeedback(
     feedbacks.push(entry);
   }
 
-  saveFeedbacks(feedbacks);
+  saveFeedbacks(feedbacks, profileKey);
 }
 
 // ── Core: Obtenir le feedback pour une date ──
 
-export function getDayFeedback(date: string): DayFeedback | null {
-  const feedbacks = loadFeedbacks();
+export function getDayFeedback(date: string, profileKey?: string): DayFeedback | null {
+  const feedbacks = loadFeedbacks(profileKey);
   return feedbacks.find(f => f.date === date) || null;
 }
 
@@ -321,8 +327,8 @@ function isConcordant(predictedScore: number, userRating: 'good' | 'neutral' | '
 
 // ── Statistiques complètes ──
 
-export function getValidationStats(): ValidationStats {
-  const feedbacks = loadFeedbacks();
+export function getValidationStats(profileKey?: string): ValidationStats {
+  const feedbacks = loadFeedbacks(profileKey);
   const total = feedbacks.length;
 
   if (total === 0) {
@@ -413,7 +419,7 @@ export function getValidationStats(): ValidationStats {
   // Pattern : scores hauts mal vécus
   const highScoreBad = feedbacks.filter(f => f.predictedScore >= 70 && f.userRating === 'bad');
   if (highScoreBad.length >= 3) {
-    insights.push(`${highScoreBad.length} jours bien cotés mais mal vécus — ton vécu diverge des prédictions en zone haute.`);
+    insights.push(`${highScoreBad.length} jours bien cotés mais mal vécus — ton vécu diverge des lectures en zone haute.`);
   }
 
   // Pattern : scores bas bien vécus
@@ -454,7 +460,7 @@ export function getValidationStats(): ValidationStats {
   }
 
   if (insights.length === 0) {
-    insights.push(`Continue à noter tes journées — chaque feedback affine le portrait.`);
+    insights.push(`Continue à noter tes journées — chaque retour affine le portrait.`);
   }
 
   return {
@@ -487,18 +493,20 @@ const BREAKDOWN_KEY = 'sp_validation_breakdowns';
 
 export function saveBreakdownForDate(
   date: string,
-  breakdown: Array<{ system: string; points: number }>
+  breakdown: Array<{ system: string; points: number }>,
+  profileKey?: string
 ): void {
   try {
+    const key = profileKey ? `${BREAKDOWN_KEY}_${profileKey}` : BREAKDOWN_KEY;
     const all: Record<string, Array<{ system: string; points: number }>> =
-      sto.get<Record<string, Array<{ system: string; points: number }>>>(BREAKDOWN_KEY) || {};
+      sto.get<Record<string, Array<{ system: string; points: number }>>>(key) || {};
     all[date] = breakdown;
     // Garder seulement les 90 derniers jours pour éviter la croissance infinie
     const keys = Object.keys(all).sort().reverse();
     if (keys.length > 90) {
       keys.slice(90).forEach(k => delete all[k]);
     }
-    sto.set(BREAKDOWN_KEY, all);
+    sto.set(key, all);
   } catch { /* fail silently */ }
 }
 
@@ -517,6 +525,10 @@ function getBreakdownForDate(
 // Permet de récupérer les deltas d'hier au moment du blind check-in
 
 const DAILY_DELTAS_KEY = 'kairo_deltas_v1';
+/** Clé scopée par profil pour les deltas (même logique que feedbackKey) */
+function deltasKey(profileKey?: string): string {
+  return profileKey ? `${DAILY_DELTAS_KEY}_${profileKey.replace(/[^0-9a-zA-Z]/g, '')}` : DAILY_DELTAS_KEY;
+}
 
 interface DailyDeltasEntry {
   luneDelta: number;
@@ -530,21 +542,23 @@ export function storeTodayDeltas(
   luneDelta: number,
   ephemDelta: number,
   baziDelta: number,
-  scoreBrut: number
+  scoreBrut: number,
+  profileKey?: string  // Scope par profil pour éviter contamination inter-profils
 ): void {
   try {
-    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(DAILY_DELTAS_KEY) || {};
+    const key = deltasKey(profileKey);
+    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(key) || {};
     all[date] = { luneDelta, ephemDelta, baziDelta, scoreBrut };
     // Garder seulement les 90 derniers jours
     const keys = Object.keys(all).sort().reverse();
     if (keys.length > 90) keys.slice(90).forEach(k => delete all[k]);
-    sto.set(DAILY_DELTAS_KEY, all);
+    sto.set(key, all);
   } catch { /* fail silently */ }
 }
 
-export function loadDeltas(date: string): DailyDeltasEntry | null {
+export function loadDeltas(date: string, profileKey?: string): DailyDeltasEntry | null {
   try {
-    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(DAILY_DELTAS_KEY) || {};
+    const all: Record<string, DailyDeltasEntry> = sto.get<Record<string, DailyDeltasEntry>>(deltasKey(profileKey)) || {};
     return all[date] ?? null;
   } catch { return null; }
 }
