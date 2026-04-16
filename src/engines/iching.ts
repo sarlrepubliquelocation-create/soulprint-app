@@ -16,6 +16,17 @@ export const TRIGRAMS = [[1,1,1],[1,1,0],[1,0,1],[1,0,0],[0,1,1],[0,1,0],[0,0,1]
 export const TRIGRAM_NAMES = ['Ciel','Lac','Feu','Tonnerre','Vent','Eau','Montagne','Terre'];
 // Sens synthétique de chaque trigramme (même ordre que TRIGRAM_NAMES)
 export const TRIGRAM_SENSE = ['puissance','fluidité','clarté','mouvement','douceur','profondeur','stabilité','réceptivité'];
+// Descriptions humanisées pour l'UI (même ordre)
+export const TRIGRAM_HUMAN: string[] = [
+  'force créatrice, capacité à initier',       // Ciel
+  'ouverture aux échanges, souplesse',          // Lac
+  'lucidité, vision claire',                     // Feu
+  'élan, mise en mouvement',                     // Tonnerre
+  'adaptation, influence douce',                 // Vent
+  'intuition, traversée des défis',               // Eau
+  'ancrage, patience constructive',              // Montagne
+  'accueil, capacité à recevoir',                // Terre
+];
 
 // King Wen sequence: KW[lower][upper] = hexagram number (1-64)
 const KW = [
@@ -29,20 +40,20 @@ const KW = [
 
 // ── Hexagram names (French) ──
 export const HEX_NAMES: Record<number, string> = {
-  1:'Créateur',2:'Réceptif',3:'Difficulté initiale',4:'Folie juvénile',
-  5:'Attente',6:'Conflit',7:'Armée',8:'Union',9:'Petit Apprivoisement',
-  10:'Marche',11:'Paix',12:'Stagnation',13:'Communauté',14:'Grand Avoir',
-  15:'Humilité',16:'Enthousiasme',17:'Suite',18:'Correction',19:'Approche',
-  20:'Contemplation',21:'Mordre au travers',22:'Grâce',23:'Éclatement',
+  1:'Créateur',2:'Réceptif',3:'Difficulté initiale',4:'Apprentissage',
+  5:'Attente',6:'Clarification',7:'Armée',8:'Union',9:'Petit Apprivoisement',
+  10:'Marche',11:'Paix',12:'Pause nécessaire',13:'Communauté',14:'Grand Avoir',
+  15:'Humilité',16:'Enthousiasme',17:'Adaptation',18:'Correction',19:'Approche',
+  20:'Contemplation',21:'Décision tranchée',22:'Grâce',23:'Renouvellement',
   24:'Retour',25:'Innocence',26:'Grand Apprivoisement',27:'Nourriture',
-  28:'Grand Excès',29:'Insondable',30:'Feu',31:'Influence',32:'Durée',
-  33:'Retraite',34:'Grande Force',35:'Progrès',36:'Obscurcissement',
-  37:'Famille',38:'Opposition',39:'Obstacle',40:'Libération',
-  41:'Diminution',42:'Augmentation',43:'Percée',44:'Rencontre',
-  45:'Rassemblement',46:'Poussée vers le haut',47:'Accablement',48:'Puits',
-  49:'Révolution',50:'Chaudron',51:'Ébranlement',52:'Immobilisation',
-  53:'Développement',54:'Épousée',55:'Abondance',56:'Voyageur',
-  57:'Le Doux',58:'Sérénité',59:'Dissolution',60:'Limitation',
+  28:'Grande Traversée',29:'Profondeur',30:'Feu',31:'Influence',32:'Durée',
+  33:'Retraite',34:'Grande Force',35:'Progrès',36:'Lumière voilée',
+  37:'Famille',38:'Opposition',39:'Dépassement',40:'Libération',
+  41:'Lâcher-prise',42:'Augmentation',43:'Percée',44:'Rencontre',
+  45:'Rassemblement',46:'Poussée vers le haut',47:'Endurance',48:'Puits',
+  49:'Transformation',50:'Chaudron',51:'Éveil',52:'Ancrage',
+  53:'Développement',54:'Alliance',55:'Abondance',56:'Voyageur',
+  57:'Le Doux',58:'Sérénité',59:'Dispersion',60:'Cadrage',
   61:'Vérité intérieure',62:'Petite Traversée',63:'Après Accomplissement',
   64:'Avant Accomplissement'
 };
@@ -69,32 +80,65 @@ const HEX_DESC: Record<number, string> = {
   1: "La force créatrice est à son apogée. Agis avec détermination et confiance.",
   2: "L'accueil et la réceptivité ouvrent les portes. Laisse venir à toi.",
   3: "Le commencement est difficile mais porteur. Persévère sans forcer.",
+  4: "Tu ne sais pas encore tout — et c'est normal. Reste humble, pose des questions, apprends.",
   5: "L'attente active porte ses fruits. La patience est ta force aujourd'hui.",
   6: "Le conflit demande diplomatie. Négocie plutôt que confronter.",
+  7: "L'organisation et la discipline font la différence. Structure tes forces.",
   8: "L'union fait la force. Cherche des alliances sincères.",
+  9: "Les petits ajustements font la différence. Affine ton plan avec patience.",
+  10: "Avance avec prudence et discernement. Chaque pas compte.",
   11: "Le Ciel et la Terre s'harmonisent. Période de paix et prospérité.",
-  12: "Stagnation temporaire. La patience sera récompensée.",
+  12: "Le mouvement est en pause. La patience sera récompensée.",
   13: "L'union avec d'autres crée la force. Cherche la communauté.",
   14: "L'abondance est là. Partage avec générosité pour la maintenir.",
+  15: "L'humilité ouvre les portes que la force ne peut franchir. Reste modeste.",
+  16: "L'enthousiasme est contagieux. Inspire les autres par ton élan.",
+  17: "Suis le mouvement naturel des choses. L'adaptation est ta force.",
+  18: "Le moment est venu de corriger ce qui s'est accumulé. Remets de l'ordre avec méthode.",
+  19: "Le moment favorable approche. Prépare-toi à saisir l'élan.",
   20: "Prends de la hauteur. L'observation attentive révèle la voie.",
+  21: "Tranche dans le vif — une décision claire débloquera la situation.",
+  22: "La forme compte autant que le fond. Soigne la présentation.",
+  23: "Ce qui est fragile s'effrite. Accepte la fin pour préparer le renouveau.",
   24: "Un nouveau cycle commence. Accueille le retour de l'énergie.",
   25: "L'innocence et la spontanéité sont tes alliées aujourd'hui.",
+  26: "Consolide tes acquis et ta sagesse. Le moment de déployer viendra.",
+  27: "Prends soin de ce qui te nourrit — corps, esprit, relations.",
+  28: "La pression est forte mais l'audace paye. Ose le geste décisif.",
   29: "L'eau profonde — un passage délicat qui forge la sagesse.",
   30: "Le feu intérieur illumine. Laisse briller ta lumière.",
   31: "L'influence mutuelle crée des liens profonds. Ouvre ton cœur.",
+  32: "La constance est ta force. Ce qui dure est bâti avec patience.",
   33: "Le retrait stratégique n'est pas une faiblesse. Reculer pour mieux avancer.",
   34: "La grande force est disponible. Canalise-la avec sagesse.",
+  35: "Le progrès est en marche. Avance à découvert avec confiance.",
   36: "Protège ta lumière dans l'adversité. La discrétion est stratégique.",
-  39: "L'obstacle invite au détour créatif. Contourne plutôt que force.",
+  37: "L'harmonie commence chez soi. Renforce les liens de confiance autour de toi.",
+  38: "Les oppositions apparentes cachent une complémentarité. Cherche le terrain d'entente.",
+  39: "Le dépassement passe par le détour créatif. Contourne plutôt que force.",
   40: "La libération arrive. Lâche ce qui te retient.",
+  41: "Accepte de réduire pour mieux concentrer ton énergie. Moins peut être plus.",
   42: "L'augmentation favorable. Ce que tu donnes te revient multiplié.",
-  47: "L'accablement est temporaire. La pression crée le diamant.",
-  49: "Le temps de la révolution. Ose le changement nécessaire.",
+  43: "Le moment de la percée. Affirme ta position avec clarté.",
+  44: "Une rencontre inattendue peut tout changer. Reste attentif aux signaux.",
+  45: "Le rassemblement crée la puissance. Fédère autour d'un objectif commun.",
+  46: "La croissance est régulière et sûre. Monte étape par étape.",
+  47: "La pression est temporaire. Tiens bon — elle crée le diamant.",
+  48: "Puise dans tes ressources profondes. La source intérieure ne tarit pas.",
+  49: "Le temps de la transformation. Ose le changement nécessaire.",
   50: "Le chaudron transforme le brut en or. Cultive tes talents.",
+  51: "Le tonnerre secoue — l'imprévu est un allié s'il te trouve prêt.",
   52: "La montagne immobile. Méditation et centrage sont tes clés.",
+  53: "Le développement se fait progressivement. Respecte le rythme naturel.",
+  54: "Les engagements demandent lucidité. Clarifie les termes avant d'avancer.",
   55: "L'abondance est à son zénith. Profite de ce moment rare.",
+  56: "Tu es en mouvement. Voyage léger, reste adaptable.",
+  57: "L'influence douce pénètre plus profondément que la force. Agis avec subtilité.",
   58: "La sérénité et la joie. Partage ta lumière avec les autres.",
+  59: "Les barrières se dispersent. Laisse circuler ce qui était bloqué.",
+  60: "Fixe tes limites avec sagesse. La discipline libère plus qu'elle ne contraint.",
   61: "La vérité intérieure guide tes pas. Fais confiance à ton intuition.",
+  62: "Reste modeste dans tes ambitions aujourd'hui. Les petits pas sont les plus sûrs.",
   63: "Tout est accompli mais reste vigilant. Ne relâche pas l'attention.",
   64: "Avant l'accomplissement — tout est prêt, un dernier effort.",
 };
@@ -113,65 +157,65 @@ export interface HexProfile {
 const HEX_PROFILES: Record<number, HexProfile> = {
   1:  { archetype: 'Le Pionnier',        judgment: 'La force créatrice est à l\'apogée — tout commence par toi.', image: 'Le ciel en mouvement — avance sans hésiter.', risk: 'Sur-confiance, agir seul sans écouter.', opportunity: 'Lancer un projet majeur, prendre l\'initiative.', action: 'Lance ce que tu repousses depuis trop longtemps.', wisdom: 'Le Créateur agit sans relâche. Comme le ciel dont le mouvement est infatigable, l\'homme de valeur travaille sans cesse à se perfectionner.' },
   2:  { archetype: 'Le Stratège Patient', judgment: 'L\'accueil et l\'écoute ouvrent les portes invisibles.', image: 'La terre porte tout — sois le socle sur lequel d\'autres construisent.', risk: 'Passivité excessive, attendre sans agir.', opportunity: 'Alliances, partenariats, délégation.', action: 'Écoute avant de parler. Le pouvoir est dans la réceptivité.', wisdom: 'La Terre dans sa dévotion porte toutes choses. Celui qui s\'ouvre au monde avec douceur reçoit plus que celui qui prend par la force.' },
-  3:  { archetype: 'Le Bâtisseur',        judgment: 'Le commencement est chaotique mais porteur.', image: 'L\'orage féconde la terre — le chaos nourrit la croissance.', risk: 'Abandonner trop tôt face aux obstacles.', opportunity: 'Poser les fondations d\'un projet durable.', action: 'Persévère malgré la confusion. Les débuts sont toujours difficiles.', wisdom: 'Nuages et tonnerre : la difficulté initiale. Toute naissance est un arrachement. Ce qui naît dans la douleur grandit avec puissance.' },
+  3:  { archetype: 'Le Bâtisseur',        judgment: 'Le commencement est chaotique mais porteur.', image: 'L\'orage féconde la terre — le chaos nourrit la croissance.', risk: 'Abandonner trop tôt face aux obstacles.', opportunity: 'Poser les fondations d\'un projet durable.', action: 'Persévère malgré la confusion. Les débuts sont toujours difficiles.', wisdom: 'Nuages et tonnerre : la difficulté initiale. Toute naissance est un passage. Ce qui naît dans l\'effort grandit avec puissance.' },
   4:  { archetype: 'L\'Apprenti',          judgment: 'L\'ignorance consciente est le début de la sagesse.', image: 'La source au pied de la montagne — cherche le mentor.', risk: 'Arrogance, croire tout savoir déjà.', opportunity: 'Formation, apprentissage, humilité stratégique.', action: 'Demande conseil à quelqu\'un de plus expérimenté.', wisdom: 'La source jaillit au pied de la montagne. Ce n\'est pas le maître qui cherche l\'élève, c\'est l\'élève qui doit chercher le maître.' },
   5:  { archetype: 'Le Patient',           judgment: 'L\'attente active n\'est pas de l\'inaction — c\'est de la stratégie.', image: 'Les nuages montent — la pluie viendra sans la forcer.', risk: 'Impatience, forcer le moment.', opportunity: 'Préparer le terrain pour le moment optimal.', action: 'Prépare-toi. Le moment viendra — sois prêt quand il arrive.', wisdom: 'Les nuages montent dans le ciel : il faut attendre. Nourris-toi de ta propre force en attendant que le temps soit mûr.' },
   6:  { archetype: 'Le Diplomate',         judgment: 'Le conflit non résolu consume l\'énergie créatrice.', image: 'Le ciel et l\'eau divergent — cherche l\'arbitrage.', risk: 'Escalade, obstination, procès inutile.', opportunity: 'Médiation, compromis intelligent, clarification.', action: 'Négocie plutôt que de combattre. Un bon accord vaut mieux qu\'une victoire.', wisdom: 'Le ciel et l\'eau vont en sens contraire : le conflit. Dans toute querelle, celui qui sait s\'arrêter le premier est le plus sage.' },
-  7:  { archetype: 'Le Commandant',        judgment: 'La discipline transforme le chaos en puissance organisée.', image: 'L\'eau dans la terre — mobilise tes ressources cachées.', risk: 'Autoritarisme, micro-management.', opportunity: 'Organisation d\'équipe, structuration, scaling.', action: 'Structure ton équipe et délègue avec clarté.', wisdom: 'L\'eau contenue dans la terre : l\'armée. La force du peuple réside dans sa discipline, et la discipline dans la justesse du chef.' },
+  7:  { archetype: 'Le Commandant',        judgment: 'La discipline transforme le chaos en puissance organisée.', image: 'L\'eau dans la terre — mobilise tes ressources cachées.', risk: 'Autoritarisme, contrôle excessif.', opportunity: 'Organisation d\'équipe, structuration, passage à l\'échelle.', action: 'Structure ton équipe et délègue avec clarté.', wisdom: 'L\'eau contenue dans la terre : l\'armée. La force du peuple réside dans sa discipline, et la discipline dans la justesse du chef.' },
   8:  { archetype: 'L\'Allié',             judgment: 'L\'union sincère multiplie les forces.', image: 'L\'eau sur la terre — les rivières convergent vers la mer.', risk: 'Alliances de façade, dépendance.', opportunity: 'Partenariat stratégique, fusion, co-fondation.', action: 'Rapproche-toi de tes alliés naturels. Ensemble, tu es plus fort.', wisdom: 'L\'eau sur la terre s\'écoule et se rassemble. Cherche à t\'unir, mais examine d\'abord si tu possèdes en toi la grandeur nécessaire.' },
-  9:  { archetype: 'Le Préparateur',       judgment: 'Les petits ajustements précèdent les grands changements.', image: 'Le vent dans le ciel — l\'influence douce mais constante.', risk: 'Se perdre dans les détails, perfectionnisme.', opportunity: 'Optimisation, ajustements fin, préparation.', action: 'Affine ton plan. Les détails font la différence.', wisdom: 'Le vent parcourt le ciel : le petit apprivoisement. Quand on ne peut pas encore agir en grand, on raffine ce qui est à portée de main.' },
+  9:  { archetype: 'Le Préparateur',       judgment: 'Les petits ajustements précèdent les grands changements.', image: 'Le vent dans le ciel — l\'influence douce mais constante.', risk: 'Se perdre dans les détails, perfectionnisme.', opportunity: 'Optimisation, ajustements fins, préparation.', action: 'Affine ton plan. Les détails font la différence.', wisdom: 'Le vent parcourt le ciel : le petit apprivoisement. Quand on ne peut pas encore agir en grand, on raffine ce qui est à portée de main.' },
   10: { archetype: 'L\'Audacieux',         judgment: 'Marcher sur la queue du tigre avec grâce — l\'audace mesurée.', image: 'Le ciel au-dessus du lac — la clarté guide les pas.', risk: 'Imprudence, sous-estimer le danger.', opportunity: 'Prise de risque calculée, premier pas décisif.', action: 'Avance malgré la peur. Le courage n\'est pas l\'absence de peur.', wisdom: 'Le lac sous le ciel : la marche. Celui qui marche sur la queue du tigre avec simplicité de cœur ne sera pas mordu.' },
   11: { archetype: 'L\'Harmonisateur',     judgment: 'Ciel et terre en paix — l\'harmonie attire la prospérité.', image: 'La terre au-dessus du ciel — les contraires s\'unissent.', risk: 'Complaisance, relâchement.', opportunity: 'Croissance harmonieuse, expansion naturelle.', action: 'Profite de cette fenêtre d\'harmonie pour avancer sur tous les fronts.', wisdom: 'Ciel et terre s\'unissent : la paix. Le souverain accomplit la voie du ciel et de la terre et aide le peuple à trouver sa juste place.' },
-  12: { archetype: 'Le Veilleur',          judgment: 'La stagnation est temporaire — reste vigilant.', image: 'Le ciel s\'éloigne de la terre — patience requise.', risk: 'Forcer le passage, nier la réalité.', opportunity: 'Introspection, restructuration, planification.', action: 'N\'investis pas aujourd\'hui. Observe et prépare la prochaine vague.', wisdom: 'Ciel et terre ne communiquent plus : la stagnation. L\'homme de valeur se retire et cultive sa vertu pour traverser les temps difficiles.' },
-  13: { archetype: 'Le Fédérateur',        judgment: 'La communauté naît d\'une vision partagée.', image: 'Le feu sous le ciel — la lumière qui rassemble.', risk: 'Favoritisme, exclusion, clan fermé.', opportunity: 'Team building, réseau, communauté.', action: 'Rassemble ton équipe autour d\'une vision claire et fédératrice.', wisdom: 'Le feu au ciel : la communauté. C\'est par la clarté et la force de la vision que les hommes se rassemblent véritablement.' },
+  12: { archetype: 'Le Veilleur',          judgment: 'Cette pause est temporaire — reste vigilant.', image: 'Le ciel s\'éloigne de la terre — patience requise.', risk: 'Forcer le passage, nier la réalité.', opportunity: 'Introspection, restructuration, planification.', action: 'N\'investis pas aujourd\'hui. Observe et prépare la prochaine vague.', wisdom: 'Ciel et terre ne communiquent plus : le temps est à la pause. L\'homme de valeur se retire et cultive sa vertu pour traverser les temps difficiles.' },
+  13: { archetype: 'Le Fédérateur',        judgment: 'La communauté naît d\'une vision partagée.', image: 'Le feu sous le ciel — la lumière qui rassemble.', risk: 'Favoritisme, exclusion, clan fermé.', opportunity: 'Travail d\'équipe, réseau, communauté.', action: 'Rassemble ton équipe autour d\'une vision claire et fédératrice.', wisdom: 'Le feu au ciel : la communauté. C\'est par la clarté et la force de la vision que les hommes se rassemblent véritablement.' },
   14: { archetype: 'Le Prospère',          judgment: 'Grande possession — le succès demande humilité.', image: 'Le feu au-dessus du ciel — la lumière rayonne partout.', risk: 'Arrogance, dépenses excessives.', opportunity: 'Investissement, expansion, générosité stratégique.', action: 'Investis depuis une position de force. Partage pour multiplier.', wisdom: 'Le feu haut dans le ciel : le grand avoir. Celui qui possède beaucoup doit soumettre le mal et promouvoir le bien pour obéir à la volonté céleste.' },
   15: { archetype: 'Le Sage',              judgment: 'L\'humilité est la plus haute forme d\'intelligence.', image: 'La montagne dans la terre — la grandeur cachée.', risk: 'Fausse modestie, auto-sabotage.', opportunity: 'Crédibilité, respect, influence durable.', action: 'Sois humble dans ta communication. La substance prime sur le show.', wisdom: 'La montagne au sein de la terre : l\'humilité. La voie du ciel est de vider ce qui est plein et de remplir ce qui est humble.' },
-  16: { archetype: 'L\'Inspirateur',       judgment: 'L\'enthousiasme sincère est contagieux et mobilisateur.', image: 'Le tonnerre sort de la terre — l\'énergie jaillit.', risk: 'Excès d\'optimisme, promesses non tenues.', opportunity: 'Lancement, pitch, mobilisation d\'équipe.', action: 'Inspire ton équipe. Ton énergie est communicative aujourd\'hui.', wisdom: 'Le tonnerre sort de la terre : l\'enthousiasme. Les anciens rois faisaient de la musique pour honorer la vertu et l\'offrir au Ciel.' },
-  17: { archetype: 'Le Suiveur',           judgment: 'Suivre le bon courant n\'est pas de la faiblesse.', image: 'Le tonnerre dans le lac — l\'adaptation au mouvement.', risk: 'Suivisme, perte d\'identité.', opportunity: 'Écoute du marché, pivot intelligent.', action: 'Suis le flux du marché plutôt que de le combattre.', wisdom: 'Le tonnerre au milieu du lac : la suite. Quand vient le soir, le sage rentre et se restaure. Il y a un temps pour agir et un temps pour se reposer.' },
+  16: { archetype: 'L\'Inspirateur',       judgment: 'L\'enthousiasme sincère est contagieux et mobilisateur.', image: 'Le tonnerre sort de la terre — l\'énergie jaillit.', risk: 'Excès d\'optimisme, promesses non tenues.', opportunity: 'Lancement, présentation, mobilisation d\'équipe.', action: 'Inspire ton équipe. Ton énergie est communicative aujourd\'hui.', wisdom: 'Le tonnerre sort de la terre : l\'enthousiasme. Les anciens rois faisaient de la musique pour honorer la vertu et l\'offrir au Ciel.' },
+  17: { archetype: 'Le Navigateur',        judgment: 'S\'adapter au courant, c\'est choisir intelligemment son cap.', image: 'Le tonnerre dans le lac — l\'adaptation au mouvement.', risk: 'Suivisme, perte d\'identité.', opportunity: 'Écoute du marché, pivot intelligent.', action: 'Navigue avec le flux plutôt que de le combattre.', wisdom: 'Le tonnerre au milieu du lac : l\'adaptation. Quand vient le soir, le sage rentre et se restaure. Il y a un temps pour agir et un temps pour se reposer.' },
   18: { archetype: 'Le Réformateur',       judgment: 'Corriger les erreurs héritées demande courage.', image: 'Le vent au pied de la montagne — nettoyer les fondations.', risk: 'Critiquer sans proposer, rupture brutale.', opportunity: 'Restructuration, remise en ordre, clarification.', action: 'Identifie ce qui ne fonctionne plus et remets de l\'ordre avec méthode. C\'est le bon moment pour assainir ce qui s\'est accumulé.', wisdom: 'Le vent souffle au bas de la montagne : la correction. Ce qui a été gâté par la faute du père, le fils doit le réparer avec diligence.' },
   19: { archetype: 'Le Conquérant',        judgment: 'L\'approche est favorable — avance avec confiance.', image: 'La terre au-dessus du lac — l\'influence bienveillante.', risk: 'Précipitation, forcer l\'entrée.', opportunity: 'Expansion, nouveau marché, nouvelle relation.', action: 'Approche ton objectif avec confiance et bienveillance.', wisdom: 'La terre au-dessus du lac : l\'approche. Le sage est inépuisable dans sa volonté d\'enseigner et infatigable dans sa tolérance envers le peuple.' },
   20: { archetype: 'L\'Observateur',       judgment: 'Observer avant d\'agir est la clé de la précision.', image: 'Le vent sur la terre — tout voir sans être vu.', risk: 'Paralysie par l\'analyse, indécision.', opportunity: 'Analyse de marché, veille, stratégie.', action: 'Observe attentivement. Les insights d\'aujourd\'hui guideront tes actions.', wisdom: 'Le vent parcourt la terre : la contemplation. Les anciens rois visitaient les régions du monde pour contempler le peuple et dispenser leur enseignement.' },
   21: { archetype: 'Le Décideur',          judgment: 'Le moment de trancher est venu — mordre au travers.', image: 'Le feu et le tonnerre — la justice claire et directe.', risk: 'Jugement hâtif, dureté excessive.', opportunity: 'Décision ferme, résolution de conflit.', action: 'Tranche maintenant. L\'hésitation coûte plus cher que l\'erreur.', wisdom: 'Le tonnerre et l\'éclair : mordre au travers. Les anciens rois rendaient les peines claires et appliquaient les lois avec fermeté.' },
-  22: { archetype: 'L\'Esthète',           judgment: 'La beauté de la forme sert la profondeur du fond.', image: 'Le feu au pied de la montagne — la lumière qui orne.', risk: 'Superficialité, image sans substance.', opportunity: 'Branding, design, présentation soignée.', action: 'Soigne ta présentation. La forme compte autant que le fond.', wisdom: 'Le feu au pied de la montagne : la grâce. La clarté intérieure doit se manifester dans la forme. Mais la grâce ne doit pas primer sur le fond.' },
-  23: { archetype: 'Le Lâcheur',           judgment: 'Lâcher prise est parfois le plus grand acte de force.', image: 'La montagne sur la terre — l\'érosion naturelle.', risk: 'Résister au changement, s\'accrocher.', opportunity: 'Simplification, élagage, recentrage.', action: 'Abandonne ce qui ne sert plus. Fais de la place pour le nouveau.', wisdom: 'La montagne repose sur la terre : l\'éclatement. Quand le fruit est mûr, il tombe. Ce qui s\'achève prépare un nouveau commencement.' },
+  22: { archetype: 'L\'Esthète',           judgment: 'La beauté de la forme sert la profondeur du fond.', image: 'Le feu au pied de la montagne — la lumière qui orne.', risk: 'Superficialité, image sans substance.', opportunity: 'Image de marque, esthétique, présentation soignée.', action: 'Soigne ta présentation. La forme compte autant que le fond.', wisdom: 'Le feu au pied de la montagne : la grâce. La clarté intérieure doit se manifester dans la forme. Mais la grâce ne doit pas primer sur le fond.' },
+  23: { archetype: 'Le Libérateur',        judgment: 'Lâcher prise est parfois le plus grand acte de force.', image: 'La montagne sur la terre — l\'érosion naturelle.', risk: 'Résister au changement, s\'accrocher.', opportunity: 'Simplification, élagage, recentrage.', action: 'Abandonne ce qui ne sert plus. Fais de la place pour le nouveau.', wisdom: 'La montagne repose sur la terre : l\'éclatement. Quand le fruit est mûr, il tombe. Ce qui s\'achève prépare un nouveau commencement.' },
   24: { archetype: 'Le Renaissant',        judgment: 'Le retour est le mouvement de la nature — un nouveau cycle.', image: 'Le tonnerre dans la terre — l\'énergie qui renaît.', risk: 'Nostalgie, refaire les mêmes erreurs.', opportunity: 'Relance, comeback, second souffle.', action: 'Recommence avec la sagesse acquise. Ce nouveau cycle est le bon.', wisdom: 'Le tonnerre dans la terre : le retour. Au solstice d\'hiver, la lumière revient. Ce qui semblait perdu se retrouve dans le mouvement naturel des cycles.' },
   25: { archetype: 'L\'Authentique',       judgment: 'L\'innocence stratégique — agir sans calcul excessif.', image: 'Le tonnerre sous le ciel — la spontanéité naturelle.', risk: 'Naïveté, manque de préparation.', opportunity: 'Authenticité, confiance, alignement.', action: 'Sois authentique dans tes échanges. La sincérité désarme.', wisdom: 'Le tonnerre roule sous le ciel : l\'innocence. Sous le ciel passe le tonnerre, et toutes choses atteignent leur vraie nature. La droiture est le fondement.' },
   26: { archetype: 'L\'Accumulateur',      judgment: 'Accumule tes forces avant le grand mouvement.', image: 'Le ciel dans la montagne — la puissance contenue.', risk: 'Rétention excessive, ne jamais passer à l\'action.', opportunity: 'Consolidation, épargne, renforcement.', action: 'Consolide tes acquis. Le moment de déployer viendra bientôt.', wisdom: 'Le ciel au cœur de la montagne : le grand apprivoisement. Chaque jour, le sage étudie les paroles et les actes des anciens pour accumuler sa vertu.' },
   27: { archetype: 'Le Nourricier',        judgment: 'Ce que tu nourris grandit — choisis bien.', image: 'Le tonnerre au pied de la montagne — la nourriture juste.', risk: 'Nourrir les mauvais projets ou relations.', opportunity: 'Investissement dans les fondamentaux.', action: 'Nourris ce qui compte : ta santé, tes relations clés, tes compétences.', wisdom: 'Le tonnerre au pied de la montagne : la nourriture. Le sage observe ce que l\'homme nourrit et par quoi il cherche à se nourrir lui-même.' },
-  28: { archetype: 'Le Risqueur',          judgment: 'La poutre faîtière plie — le moment est critique.', image: 'Le lac submerge les arbres — la pression est maximale.', risk: 'Effondrement par surcharge, burnout.', opportunity: 'Action décisive en situation de crise.', action: 'La situation est tendue — agis vite et avec précision, ou recule.', wisdom: 'Le lac passe par-dessus les arbres : le grand excès. Le sage se tient seul sans crainte et se retire du monde sans mélancolie.' },
-  29: { archetype: 'Le Plongeur',          judgment: 'L\'eau profonde forge la sagesse — traverse sans détour.', image: 'L\'eau sur l\'eau — le danger double demande du courage.', risk: 'Panique, fuite, déni du danger.', opportunity: 'Traversée de crise, résilience, courage.', action: 'Affronte la difficulté de face. Tu en sortiras plus fort.', wisdom: 'L\'eau coule sans interruption et atteint son but : l\'insondable. Comme l\'eau, le sage enseigne par la constance de sa vertu et la pratique des affaires.' },
-  30: { archetype: 'L\'Illuminateur',      judgment: 'Le feu qui éclaire a besoin d\'un support — trouve le tien.', image: 'Le feu doublé — la clarté qui se propage.', risk: 'Burnout, s\'épuiser en éclairant les autres.', opportunity: 'Communication, visibilité, inspiration.', action: 'Partage ta vision avec clarté. Ta lumière attire les bons partenaires.', wisdom: 'La clarté s\'élève deux fois : le feu. Le grand homme perpétue la clarté et illumine les quatre régions du monde par sa lumière.' },
-  31: { archetype: 'Le Connecteur',        judgment: 'L\'influence mutuelle crée des liens qui durent.', image: 'Le lac sur la montagne — l\'attraction naturelle.', risk: 'Manipulation, séduction superficielle.', opportunity: 'Networking, partenariat, connexion authentique.', action: 'Connecte-toi authentiquement. Les relations d\'aujourd\'hui porteront des fruits.', wisdom: 'Le lac sur la montagne : l\'influence. Le sage accueille les hommes en se rendant vide. L\'humilité attire ce que l\'orgueil repousse.' },
+  28: { archetype: 'L\'Audacieux',          judgment: 'La poutre faîtière plie — le moment est décisif.', image: 'Le lac submerge les arbres — la pression est maximale.', risk: 'Surcharge, besoin de recentrage.', opportunity: 'Action décisive en situation de crise.', action: 'La situation est tendue — agis vite et avec précision, ou recule.', wisdom: 'Le lac passe par-dessus les arbres : la grande traversée. Le sage se tient seul sans crainte et se retire du monde sans regret.' },
+  29: { archetype: 'Le Plongeur',          judgment: 'L\'eau profonde forge la sagesse — traverse sans détour.', image: 'L\'eau sur l\'eau — le danger double demande du courage.', risk: 'Panique, fuite, déni du danger.', opportunity: 'Traversée de crise, résilience, courage.', action: 'Affronte la difficulté de face. Tu en sortiras plus fort.', wisdom: 'L\'eau coule sans interruption et atteint son but : la profondeur. Comme l\'eau, le sage enseigne par la constance de sa vertu et la pratique des affaires.' },
+  30: { archetype: 'L\'Illuminateur',      judgment: 'Le feu qui éclaire a besoin d\'un support — trouve le tien.', image: 'Le feu doublé — la clarté qui se propage.', risk: 'Épuisement, s\'user en éclairant les autres.', opportunity: 'Communication, visibilité, inspiration.', action: 'Partage ta vision avec clarté. Ta lumière attire les bons partenaires.', wisdom: 'La clarté s\'élève deux fois : le feu. Le grand homme perpétue la clarté et illumine les quatre régions du monde par sa lumière.' },
+  31: { archetype: 'Le Connecteur',        judgment: 'L\'influence mutuelle crée des liens qui durent.', image: 'Le lac sur la montagne — l\'attraction naturelle.', risk: 'Manipulation, séduction superficielle.', opportunity: 'Mise en réseau, partenariat, connexion authentique.', action: 'Connecte-toi authentiquement. Les relations d\'aujourd\'hui porteront des fruits.', wisdom: 'Le lac sur la montagne : l\'influence. Le sage accueille les hommes en se rendant vide. L\'humilité attire ce que l\'orgueil repousse.' },
   32: { archetype: 'Le Persistant',        judgment: 'La durée est la clé — la constance bat le talent.', image: 'Le tonnerre et le vent — la persévérance dans le mouvement.', risk: 'Obstination aveugle, refus de pivoter.', opportunity: 'Long terme, fidélité, engagement durable.', action: 'Continue ce que tu as commencé. La constance est ton arme secrète.', wisdom: 'Tonnerre et vent : la durée. Le sage reste ferme dans sa direction sans changer de voie. Ce qui dure est ce qui sait se renouveler.' },
   33: { archetype: 'Le Stratège',          judgment: 'Le retrait stratégique prépare la victoire suivante.', image: 'Le ciel sur la montagne — la retraite n\'est pas la défaite.', risk: 'Fuir au lieu de reculer, perdre pied.', opportunity: 'Préservation des ressources, repositionnement.', action: 'Recule tactiquement. Préserve ton énergie pour le prochain round.', wisdom: 'La montagne sous le ciel : la retraite. Le sage tient l\'homme inférieur à distance, non par la colère mais par la réserve de sa dignité.' },
-  34: { archetype: 'Le Puissant',          judgment: 'La grande force sans sagesse est destructrice.', image: 'Le tonnerre au-dessus du ciel — la puissance en action.', risk: 'Forcer le passage, écraser les autres.', opportunity: 'Action puissante, leadership affirmé.', action: 'Tu as la force — utilise-la avec discernement et générosité.', wisdom: 'Le tonnerre au-dessus du ciel : la grande force. Le sage ne marche pas sur des chemins qui ne sont pas conformes à l\'ordre.' },
+  34: { archetype: 'Le Puissant',          judgment: 'La grande force sans sagesse se retourne contre soi.', image: 'Le tonnerre au-dessus du ciel — la puissance en action.', risk: 'Forcer le passage sans écouter les signaux.', opportunity: 'Action puissante, autorité affirmée.', action: 'Tu as la force — utilise-la avec discernement et générosité.', wisdom: 'Le tonnerre au-dessus du ciel : la grande force. Le sage ne marche pas sur des chemins qui ne sont pas conformes à l\'ordre.' },
   35: { archetype: 'L\'Ascendant',         judgment: 'Le progrès est rapide — ne le gaspille pas.', image: 'Le feu au-dessus de la terre — la lumière qui monte.', risk: 'Orgueil lié au succès, avancer trop vite.', opportunity: 'Promotion, reconnaissance, expansion rapide.', action: 'Capitalise sur l\'élan positif. Monte d\'un cran aujourd\'hui.', wisdom: 'La clarté s\'élève au-dessus de la terre : le progrès. Le soleil montant éclaire la terre entière. Plus tu montes, plus tu dois éclairer les autres.' },
   36: { archetype: 'Le Protecteur',        judgment: 'Protège ta lumière dans l\'adversité — la discrétion est force.', image: 'La terre au-dessus du feu — la lumière cachée.', risk: 'Se victimiser, perdre espoir.', opportunity: 'Discrétion stratégique, protection des acquis.', action: 'Reste discret aujourd\'hui. Protège tes idées et tes projets.', wisdom: 'La lumière est entrée dans la terre : l\'obscurcissement. Le sage voile sa lumière pour pouvoir briller quand le moment sera venu.' },
   37: { archetype: 'Le Fondateur',         judgment: 'La famille — biologique ou choisie — est le socle.', image: 'Le vent naît du feu — la chaleur qui rayonne au foyer.', risk: 'Négliger les proches, isolement professionnel.', opportunity: 'Renforcer les liens, culture d\'entreprise.', action: 'Renforce ta base. Appelle un proche ou soude ton équipe.', wisdom: 'Le vent naît du feu : la famille. Le sage parle avec substance et agit avec constance. L\'ordre du foyer est le fondement de l\'ordre du monde.' },
   38: { archetype: 'Le Médiateur',         judgment: 'L\'opposition révèle la complémentarité cachée.', image: 'Le feu et le lac — les contraires qui s\'éclairent.', risk: 'Polarisation, conflit stérile.', opportunity: 'Perspective nouvelle, synthèse créative.', action: 'Écoute le point de vue opposé. Il contient ce qui te manque.', wisdom: 'Le feu au-dessus et le lac en dessous : l\'opposition. Dans la communauté, le sage préserve l\'individualité. L\'unité naît de la diversité assumée.' },
-  39: { archetype: 'Le Contourneur',       judgment: 'L\'obstacle invite au détour créatif.', image: 'L\'eau sur la montagne — l\'eau contourne toujours la roche.', risk: 'Confrontation frontale, épuisement.', opportunity: 'Innovation par contrainte, pivot créatif.', action: 'Contourne l\'obstacle plutôt que de le forcer. Il y a un autre chemin.', wisdom: 'L\'eau sur la montagne : l\'obstacle. Le sage tourne son regard vers lui-même et cultive sa vertu. L\'obstacle extérieur appelle une réponse intérieure.' },
+  39: { archetype: 'Le Contourneur',       judgment: 'Le chemin invite au détour créatif.', image: 'L\'eau sur la montagne — l\'eau contourne toujours la roche.', risk: 'Confrontation frontale, épuisement.', opportunity: 'Innovation par contrainte, pivot créatif.', action: 'Contourne la difficulté plutôt que de la forcer. Il y a un autre chemin.', wisdom: 'L\'eau sur la montagne : le dépassement. Le sage tourne son regard vers lui-même et cultive sa vertu. La difficulté extérieure appelle une réponse intérieure.' },
   40: { archetype: 'Le Libérateur',        judgment: 'La libération vient — lâche les poids morts.', image: 'Le tonnerre et la pluie — la tension qui se relâche.', risk: 'Récidive, retomber dans les vieilles habitudes.', opportunity: 'Simplification, résolution, nouveau départ.', action: 'Libère-toi de ce qui te retient. Résilie, annule, simplifie.', wisdom: 'Le tonnerre et la pluie se mettent en mouvement : la libération. Quand l\'orage purifie l\'air, le sage pardonne les fautes et remet les péchés.' },
-  41: { archetype: 'Le Sacrificateur',     judgment: 'Diminuer ici pour augmenter là — le sacrifice stratégique.', image: 'La montagne sur le lac — donner pour recevoir.', risk: 'Se sacrifier sans retour, martyre.', opportunity: 'Investissement, renoncement calculé.', action: 'Sacrifie le superflu pour renforcer l\'essentiel.', wisdom: 'La montagne au-dessus du lac : la diminution. Le sage maîtrise sa colère et refrène ses désirs. Diminuer ce qui est en bas pour augmenter ce qui est en haut.' },
+  41: { archetype: 'Le Sacrificateur',     judgment: 'Lâcher ici pour gagner là — le sacrifice stratégique.', image: 'La montagne sur le lac — donner pour recevoir.', risk: 'Se sacrifier sans retour, martyre.', opportunity: 'Investissement, renoncement calculé.', action: 'Sacrifie le superflu pour renforcer l\'essentiel.', wisdom: 'La montagne au-dessus du lac : le lâcher-prise. Le sage maîtrise sa colère et refrène ses désirs. Alléger ce qui est en bas pour nourrir ce qui est en haut.' },
   42: { archetype: 'Le Récepteur',         judgment: 'L\'augmentation vient — sois prêt à recevoir.', image: 'Le vent et le tonnerre — la croissance naturelle.', risk: 'Gaspiller l\'abondance reçue.', opportunity: 'Croissance, investissement, expansion.', action: 'Reçois ce qui vient avec gratitude et investis-le sagement.', wisdom: 'Vent et tonnerre : l\'augmentation. Le sage, quand il voit le bien, l\'imite ; quand il a des défauts, il s\'en corrige.' },
-  43: { archetype: 'Le Trancheur',         judgment: 'La percée décisive — le moment de trancher est maintenant.', image: 'Le lac s\'élève au-dessus du ciel — le moment de vérité.', risk: 'Dureté, couper trop de ponts.', opportunity: 'Décision finale, breakthrough, annonce majeure.', action: 'Décide maintenant. Signe, annonce, tranche — l\'hésitation te coûtera.', wisdom: 'Le lac monte jusqu\'au ciel : la percée. Le sage distribue les richesses vers le bas et craint de se reposer sur sa vertu.' },
+  43: { archetype: 'Le Trancheur',         judgment: 'La percée décisive — le moment de trancher est maintenant.', image: 'Le lac s\'élève au-dessus du ciel — le moment de vérité.', risk: 'Dureté, couper trop de ponts.', opportunity: 'Décision finale, percée majeure, annonce décisive.', action: 'Décide maintenant. Signe, annonce, tranche — l\'hésitation te coûtera.', wisdom: 'Le lac monte jusqu\'au ciel : la percée. Le sage distribue les richesses vers le bas et craint de se reposer sur sa vertu.' },
   44: { archetype: 'L\'Ouvert',            judgment: 'La rencontre inattendue porte un message important.', image: 'Le vent sous le ciel — ce qui vient à toi.', risk: 'Se laisser séduire par la facilité.', opportunity: 'Opportunité imprévue, rencontre clé.', action: 'Reste ouvert aux rencontres inattendues. Le hasard n\'existe pas.', wisdom: 'Le vent sous le ciel : la rencontre. Le prince proclame ses ordres aux quatre directions. Ce qui vient à toi n\'est jamais un hasard.' },
   45: { archetype: 'Le Fédérateur',        judgment: 'Le rassemblement crée une force irrésistible.', image: 'Le lac sur la terre — les eaux convergent.', risk: 'Foule sans direction, dispersion.', opportunity: 'Événement, lancement, mobilisation collective.', action: 'Rassemble les gens autour de ton projet. C\'est le moment du collectif.', wisdom: 'Le lac sur la terre : le rassemblement. Le sage renouvelle ses armes pour faire face à l\'imprévu. Ce qui se rassemble doit être protégé.' },
-  46: { archetype: 'Le Grimpeur',          judgment: 'La poussée vers le haut — monte étape par étape.', image: 'Le bois pousse dans la terre — la croissance organique.', risk: 'Sauter des étapes, brûler les étapes.', opportunity: 'Progression méthodique, scaling organique.', action: 'Monte d\'un cran. Pas de raccourci — la progression solide est la clé.', wisdom: 'Le bois pousse dans la terre : la montée. Le sage, par l\'accumulation de petites choses, atteint la grandeur. Un pas après l\'autre, sans relâche.' },
-  47: { archetype: 'L\'Endurant',          judgment: 'L\'accablement est temporaire — la pression crée le diamant.', image: 'Le lac sans eau — l\'épuisement qui précède le renouveau.', risk: 'Désespoir, abandon, burnout.', opportunity: 'Résilience, transformation par la pression.', action: 'Endure. Cette période difficile te forge. Ne lâche pas maintenant.', wisdom: 'Le lac est vidé de son eau : l\'accablement. Le sage risque sa vie pour accomplir sa volonté. Quand les mots ne portent plus, seuls les actes parlent.' },
+  46: { archetype: 'Le Grimpeur',          judgment: 'La poussée vers le haut — monte étape par étape.', image: 'Le bois pousse dans la terre — la croissance organique.', risk: 'Sauter des étapes, brûler les étapes.', opportunity: 'Progression méthodique, croissance organique.', action: 'Monte d\'un cran. Pas de raccourci — la progression solide est la clé.', wisdom: 'Le bois pousse dans la terre : la montée. Le sage, par l\'accumulation de petites choses, atteint la grandeur. Un pas après l\'autre, sans relâche.' },
+  47: { archetype: 'L\'Endurant',          judgment: 'La pression est temporaire — elle crée le diamant.', image: 'Le lac sans eau — le passage qui précède le renouveau.', risk: 'Découragement, tentation d\'abandonner.', opportunity: 'Résilience, transformation par la pression.', action: 'Endure. Cette période difficile te forge. Ne lâche pas maintenant.', wisdom: 'Le lac est vidé de son eau : l\'endurance est requise. Le sage risque sa vie pour accomplir sa volonté. Quand les mots ne portent plus, seuls les actes parlent.' },
   48: { archetype: 'Le Sourcier',          judgment: 'Le puits — va chercher la source profonde.', image: 'L\'eau sous le bois — la ressource inépuisable.', risk: 'Puiser sans renouveler, épuiser ses ressources.', opportunity: 'Ressourcement, formation, fondamentaux.', action: 'Retourne aux fondamentaux. La source de ta force est toujours là.', wisdom: 'L\'eau sur le bois : le puits. On peut changer de ville mais pas de puits. Le puits nourrit sans jamais s\'épuiser quand il est bien entretenu.' },
-  49: { archetype: 'Le Transformateur',    judgment: 'La révolution est mûre — le changement est inévitable.', image: 'Le feu dans le lac — la transformation radicale.', risk: 'Changement pour le changement, instabilité.', opportunity: 'Pivot majeur, transformation, disruption.', action: 'Transforme ce qui doit l\'être. Le statu quo n\'est plus une option.', wisdom: 'Le feu au cœur du lac : la révolution. Le sage règle le calendrier et clarifie les saisons. La révolution juste vient quand le temps est mûr.' },
+  49: { archetype: 'Le Transformateur',    judgment: 'La transformation est mûre — le changement est inévitable.', image: 'Le feu dans le lac — la transformation radicale.', risk: 'Changement pour le changement, instabilité.', opportunity: 'Pivot majeur, transformation, renouveau radical.', action: 'Transforme ce qui doit l\'être. Le statu quo n\'est plus une option.', wisdom: 'Le feu au cœur du lac : la transformation. Le sage règle le calendrier et clarifie les saisons. La transformation juste vient quand le temps est mûr.' },
   50: { archetype: 'L\'Alchimiste',        judgment: 'Le chaudron transforme le brut en précieux.', image: 'Le feu sous le bois — la cuisson lente qui perfectionne.', risk: 'Précipiter le processus, impatience.', opportunity: 'Raffinement, valeur ajoutée, montée en gamme.', action: 'Cultive et raffine. La qualité premium prend du temps.', wisdom: 'Le feu sur le bois : le chaudron. Le sage consolide son destin en maintenant droite sa position. Le chaudron transforme le cru en accompli.' },
-  51: { archetype: 'L\'Éveillé',           judgment: 'Le choc éveille — la peur initiale cède à la clarté.', image: 'Le tonnerre doublé — l\'éveil soudain.', risk: 'Panique, réaction excessive.', opportunity: 'Prise de conscience, pivot rapide, éveil.', action: 'Le choc du moment est un cadeau. Qu\'est-ce qu\'il t\'apprend ?', wisdom: 'Le tonnerre répété : l\'ébranlement. Le sage examine sa vie dans la crainte et met de l\'ordre en lui-même. La frayeur mène à la bénédiction.' },
-  52: { archetype: 'Le Méditant',          judgment: 'L\'immobilité n\'est pas inaction — c\'est concentration.', image: 'La montagne doublée — le calme absolu.', risk: 'Paralysie, isolement excessif.', opportunity: 'Centrage, clarté mentale, méditation.', action: 'Arrête-toi. La clarté vient dans le silence, pas dans l\'agitation.', wisdom: 'Les montagnes se dressent immobiles : l\'immobilisation. Le sage ne va pas au-delà de sa situation. Quand le cœur s\'arrête, le monde entier se calme.' },
+  51: { archetype: 'L\'Éveillé',           judgment: 'Le choc éveille — la peur initiale cède à la clarté.', image: 'Le tonnerre doublé — l\'éveil soudain.', risk: 'Panique, réaction excessive.', opportunity: 'Prise de conscience, pivot rapide, éveil.', action: 'Le choc du moment est un cadeau. Qu\'est-ce qu\'il t\'apprend ?', wisdom: 'Le tonnerre répété : l\'éveil. Le sage examine sa vie et met de l\'ordre en lui-même. La prise de conscience mène à la bénédiction.' },
+  52: { archetype: 'Le Méditant',          judgment: 'S\'ancrer n\'est pas s\'immobiliser — c\'est se concentrer.', image: 'La montagne doublée — le calme absolu.', risk: 'Paralysie, isolement excessif.', opportunity: 'Centrage, clarté mentale, méditation.', action: 'Arrête-toi. La clarté vient dans le silence, pas dans l\'agitation.', wisdom: 'Les montagnes se dressent immobiles : l\'ancrage. Le sage ne va pas au-delà de sa situation. Quand le cœur se pose, le monde entier se calme.' },
   53: { archetype: 'Le Développeur',       judgment: 'Le développement graduel — chaque étape compte.', image: 'Le bois sur la montagne — la croissance lente mais sûre.', risk: 'Impatience, vouloir tout tout de suite.', opportunity: 'Croissance progressive, développement durable.', action: 'Avance pas à pas. La croissance organique est la plus solide.', wisdom: 'Le bois sur la montagne : le développement graduel. L\'arbre sur la montagne croît lentement mais ses racines sont profondes et nul vent ne l\'abat.' },
-  54: { archetype: 'L\'Adaptateur',        judgment: 'S\'adapter sans se perdre — la flexibilité stratégique.', image: 'Le tonnerre au-dessus du lac — l\'adaptation au contexte.', risk: 'Perdre son identité, trop de compromis.', opportunity: 'Adaptation au marché, flexibilité, compromis intelligent.', action: 'Adapte-toi au contexte sans perdre ta vision.', wisdom: 'Le tonnerre au-dessus du lac : l\'épousée. Le sage reconnaît la fin dans le commencement et le transitoire dans le permanent.' },
-  55: { archetype: 'Le Rayonnant',         judgment: 'L\'abondance est à son zénith — agis maintenant.', image: 'Le tonnerre et le feu — la puissance à son apogée.', risk: 'Croire que ça durera toujours, arrogance.', opportunity: 'Fenêtre rare d\'expansion maximale.', action: 'C\'est ton moment. Capitalise à fond — cette fenêtre est rare.', wisdom: 'Tonnerre et éclair ensemble : l\'abondance. Le sage tranche les procès et exécute les châtiments. Comme le soleil à midi, il faut rayonner sans attendre.' },
+  54: { archetype: 'L\'Adaptateur',        judgment: 'S\'adapter sans se perdre — la flexibilité stratégique.', image: 'Le tonnerre au-dessus du lac — l\'adaptation au contexte.', risk: 'Perdre son identité, trop de compromis.', opportunity: 'Adaptation au marché, flexibilité, compromis intelligent.', action: 'Adapte-toi au contexte sans perdre ta vision.', wisdom: 'Le tonnerre au-dessus du lac : l\'alliance. Le sage reconnaît la fin dans le commencement et le transitoire dans le permanent.' },
+  55: { archetype: 'Le Rayonnant',         judgment: 'L\'abondance est à son zénith — agis maintenant.', image: 'Le tonnerre et le feu — la puissance à son apogée.', risk: 'Croire que ça durera toujours, arrogance.', opportunity: 'Fenêtre rare d\'expansion maximale.', action: 'C\'est ton moment. Capitalise à fond — cette fenêtre est rare.', wisdom: 'Tonnerre et éclair ensemble : l\'abondance. Le sage tranche les décisions et rétablit l\'ordre. Comme le soleil à midi, il faut rayonner sans attendre.' },
   56: { archetype: 'L\'Explorateur',       judgment: 'Le voyageur avance léger — la mobilité est force.', image: 'Le feu sur la montagne — la flamme du voyage.', risk: 'Instabilité, manque de racines.', opportunity: 'Exploration, nouveau territoire, agilité.', action: 'Explore un nouveau terrain. Voyage léger, décide vite.', wisdom: 'Le feu sur la montagne : le voyageur. Le sage applique les peines avec prudence et ne laisse pas traîner les procès. Celui qui voyage doit rester juste.' },
   57: { archetype: 'L\'Infiltrateur',      judgment: 'La douceur pénètre là où la force échoue.', image: 'Le vent doublé — l\'influence subtile et persistante.', risk: 'Manipulation, manque de franchise.', opportunity: 'Influence douce, persuasion, pénétration de marché.', action: 'Utilise la douceur et la persévérance plutôt que la force.', wisdom: 'Les vents qui se suivent : le doux pénétrant. Le sage répète ses ordres pour accomplir les affaires. La persévérance douce triomphe de toute résistance.' },
-  58: { archetype: 'Le Joyeux',            judgment: 'La joie authentique attire le succès.', image: 'Le lac doublé — la sérénité communicative.', risk: 'Superficialité, plaisir sans substance.', opportunity: 'Communication positive, charisme, vente.', action: 'Communique avec joie et enthousiasme. Ton bonne énergie est contagieuse.', wisdom: 'Les lacs se touchent : la sérénité. Le sage se joint à ses amis pour discuter et pratiquer. La joie partagée dans la vérité est inépuisable.' },
-  59: { archetype: 'Le Dissolveur',        judgment: 'Dissoudre les barrières libère l\'énergie bloquée.', image: 'Le vent sur l\'eau — la dispersion qui renouvelle.', risk: 'Tout dissoudre, y compris ce qui fonctionne.', opportunity: 'Briser les silos, fluidifier, ouvrir.', action: 'Dissous les blocages. Ouvre les vannes — laisse circuler l\'énergie.', wisdom: 'Le vent souffle sur l\'eau : la dissolution. Les anciens rois faisaient des offrandes au Seigneur. Ce qui est durci par l\'égoïsme doit être dissous par le sacré.' },
-  60: { archetype: 'Le Structureur',       judgment: 'La limitation juste crée l\'excellence.', image: 'L\'eau sur le lac — les limites qui contiennent.', risk: 'Rigidité excessive, frustration.', opportunity: 'Cadrage, budgétisation, focus.', action: 'Pose des limites claires. Le cadre libère la créativité.', wisdom: 'L\'eau au-dessus du lac : la limitation. Le sage fixe le nombre et la mesure, et examine la nature de la vertu et de la conduite.' },
-  61: { archetype: 'L\'Intuitif',          judgment: 'La vérité intérieure transcende la logique.', image: 'Le vent sur le lac — la confiance qui traverse.', risk: 'Ignorer les faits, délire mystique.', opportunity: 'Intuition guidée, confiance, authenticité.', action: 'Fais confiance à ton instinct. Il voit ce que ton logique ignore.', wisdom: 'Le vent sur le lac : la vérité intérieure. Le sage délibère des affaires pénales pour retarder la mort. La vérité touche même ce qui est sans conscience.' },
+  58: { archetype: 'Le Joyeux',            judgment: 'La joie authentique attire le succès.', image: 'Le lac doublé — la sérénité communicative.', risk: 'Superficialité, plaisir sans substance.', opportunity: 'Communication positive, charisme, vente.', action: 'Communique avec joie et enthousiasme. Ta bonne énergie est contagieuse.', wisdom: 'Les lacs se touchent : la sérénité. Le sage se joint à ses amis pour discuter et pratiquer. La joie partagée dans la vérité est inépuisable.' },
+  59: { archetype: 'Le Libérateur de flux', judgment: 'Disperser les blocages libère l\'énergie.', image: 'Le vent sur l\'eau — la dispersion qui renouvelle.', risk: 'Tout disperser, y compris ce qui fonctionne.', opportunity: 'Briser les silos, fluidifier, ouvrir.', action: 'Disperse les blocages. Ouvre les vannes — laisse circuler l\'énergie.', wisdom: 'Le vent souffle sur l\'eau : la dispersion. Les anciens rois faisaient des offrandes au Seigneur. Ce qui est durci par l\'égoïsme doit être libéré par le sacré.' },
+  60: { archetype: 'Le Structureur',       judgment: 'Le cadrage juste crée l\'excellence.', image: 'L\'eau sur le lac — les limites qui contiennent.', risk: 'Rigidité excessive, frustration.', opportunity: 'Cadrage, budgétisation, concentration.', action: 'Pose des limites claires. Le cadre libère la créativité.', wisdom: 'L\'eau au-dessus du lac : le cadrage. Le sage fixe le nombre et la mesure, et examine la nature de la vertu et de la conduite.' },
+  61: { archetype: 'L\'Intuitif',          judgment: 'La vérité intérieure transcende la logique.', image: 'Le vent sur le lac — la confiance qui traverse.', risk: 'Ignorer les faits, délire mystique.', opportunity: 'Intuition guidée, confiance, authenticité.', action: 'Fais confiance à ton instinct. Il voit ce que ta logique ignore.', wisdom: 'Le vent sur le lac : la vérité intérieure. Le sage délibère des affaires pénales pour retarder la mort. La vérité touche même ce qui est sans conscience.' },
   62: { archetype: 'Le Prudent',           judgment: 'Les petites choses comptent — la prudence dans le détail.', image: 'Le tonnerre sur la montagne — le petit qui surpasse le grand.', risk: 'Excès de prudence, paralysie.', opportunity: 'Attention aux détails, petits gains cumulés.', action: 'Concentre-toi sur les petites victoires. Elles s\'accumulent.', wisdom: 'Le tonnerre sur la montagne : la petite traversée. Le sage, dans sa conduite, donne la prépondérance au respect ; dans le deuil, à la douleur ; dans la dépense, à l\'économie.' },
   63: { archetype: 'Le Vigilant',          judgment: 'Tout est accompli — mais le relâchement menace.', image: 'L\'eau sur le feu — l\'équilibre parfait mais fragile.', risk: 'Complaisance post-succès, relâchement.', opportunity: 'Maintenance, optimisation, protection des acquis.', action: 'Ne relâche pas l\'attention. Protège ce que tu as construit.', wisdom: 'L\'eau au-dessus du feu : après l\'accomplissement. Le sage réfléchit aux malheurs à venir et s\'en prémunit. L\'ordre parfait porte en lui le germe du désordre.' },
   64: { archetype: 'Le Finisseur',         judgment: 'Avant l\'accomplissement — un dernier effort décisif.', image: 'Le feu sur l\'eau — la transformation imminente.', risk: 'Abandonner si près du but.', opportunity: 'Sprint final, dernier effort, completion.', action: 'Tu y es presque. Un dernier effort et c\'est bouclé.', wisdom: 'Le feu au-dessus de l\'eau : avant l\'accomplissement. Le sage distingue soigneusement la nature des choses pour que chacune trouve sa place.' },
@@ -241,7 +285,7 @@ export function calcIChing(bd: string, today: string): IChingReading {
     hexNum, lower, upper, lines, changing,
     name: HEX_NAMES[hexNum] || `Hexagramme ${hexNum}`,
     keyword: HEX_KEYWORDS[hexNum] || 'Observe',
-    desc: HEX_DESC[hexNum] || `L'hexagramme ${hexNum} t\'invite à ${(HEX_KEYWORDS[hexNum] || 'observer').toLowerCase()}.`
+    desc: HEX_DESC[hexNum] || `L'hexagramme ${hexNum} te guide : ${HEX_KEYWORDS[hexNum] || 'observe'}.`
   };
 }
 
@@ -264,7 +308,7 @@ export function calcNatalIChing(bd: string): IChingReading {
     hexNum, lower, upper, lines, changing,
     name: HEX_NAMES[hexNum] || `Hexagramme ${hexNum}`,
     keyword: HEX_KEYWORDS[hexNum] || 'Observe',
-    desc: HEX_DESC[hexNum] || `L'hexagramme ${hexNum} t\'invite à ${(HEX_KEYWORDS[hexNum] || 'observer').toLowerCase()}.`
+    desc: HEX_DESC[hexNum] || `L'hexagramme ${hexNum} te guide : ${HEX_KEYWORDS[hexNum] || 'observe'}.`
   };
 }
 
@@ -362,7 +406,7 @@ export function getHexTier(hexNum: number): HexScore {
     B: { points: 5, label: 'Favorable' },
     C: { points: 2, label: 'Neutre' },
     D: { points: -3, label: 'Tension' },
-    E: { points: -7, label: 'Épreuve' },
+    E: { points: -7, label: 'Grand défi' },
   };
   return { tier, ...scores[tier] };
 }
@@ -385,7 +429,7 @@ const LINE_POSITIONS: { name: string; meaning: string }[] = [
   { name: 'Service', meaning: 'Force intérieure active. Agis avec humilité et constance.' },
   { name: 'Transition', meaning: 'Point de bascule critique. Attention aux faux pas.' },
   { name: 'Prudence', meaning: 'Proche du pouvoir. Avance avec diplomatie.' },
-  { name: 'Maîtrise', meaning: 'Ligne du souverain. Leadership et décision au sommet.' },
+  { name: 'Maîtrise', meaning: 'Ligne du souverain. Autorité et décision au sommet.' },
   { name: 'Culmination', meaning: 'Apogée atteinte. Sache lâcher prise avant l\'excès.' },
 ];
 
@@ -409,7 +453,7 @@ const MUTANT_LINE_1: Record<number, string> = {
   31: 'L\'influence commence par le ressenti. Avant de convaincre, ressens profondément ce que tu veux transmettre.',
   32: 'La durée se construit sur des fondations solides. Ne cherche pas la rapidité, cherche la persévérance.',
   46: 'La poussée commence par un effort humble. Avance pas à pas, avec constance — la montagne se gravit ainsi.',
-  49: 'La révolution commence par le changement intérieur. Avant de transformer l\'extérieur, transforme-toi toi-même.',
+  49: 'La transformation commence par le changement intérieur. Avant de transformer l\'extérieur, transforme-toi toi-même.',
   61: 'La vérité intérieure est ton ancre. Quand tu parles depuis cette vérité, ton influence est irrésistible.',
 };
 
@@ -661,7 +705,7 @@ const MUTANT_LINE_3: Record<number, string> = {
   // B-tier
   2:  'Le dragon caché possède la lumière. Garde ta puissance secrète jusqu\'au moment décisif.',
   7:  'L\'armée porte les morts. Les pertes font partie de la stratégie — intègre-les sans perdre la direction.',
-  49: 'La révolution au troisième jour. Le changement est mûr — hésite encore et le moment passe.',
+  49: 'La transformation au troisième jour. Le changement est mûr — hésite encore et le moment passe.',
   63: 'Après l\'achèvement, commence l\'érosion. La vigilance au milieu du succès est ta meilleure assurance.',
 };
 
@@ -803,4 +847,76 @@ export function calcConsciousIChing(question: string): ConsciousIChing {
   }
 
   return { question, timestamp, throws, reading, movingLines, transformed };
+}
+
+// ── Accord féminin des 64 archétypes d'hexagrammes ──
+// Source unique : utilisée par IChingTab, strategic-reading, life-timeline
+const HEX_ARCHETYPE_FEMININE: Record<string, string> = {
+  "L'Accumulateur":       "L'Accumulatrice",
+  "L'Adaptateur":         "L'Adaptatrice",
+  "L'Alchimiste":         "L'Alchimiste",
+  "L'Allié":              "L'Alliée",
+  "L'Apprenti":           "L'Apprentie",
+  "L'Ascendant":          "L'Ascendante",
+  "L'Audacieux":          "L'Audacieuse",
+  "L'Authentique":        "L'Authentique",
+  "L'Endurant":           "L'Endurante",
+  "L'Esthète":            "L'Esthète",
+  "L'Explorateur":        "L'Exploratrice",
+  "L'Harmonisateur":      "L'Harmonisatrice",
+  "L'Illuminateur":       "L'Illuminatrice",
+  "L'Infiltrateur":       "L'Infiltratrice",
+  "L'Inspirateur":        "L'Inspiratrice",
+  "L'Intuitif":           "L'Intuitive",
+  "L'Observateur":        "L'Observatrice",
+  "L'Ouvert":             "L'Ouverte",
+  "L'Éveillé":            "L'Éveillée",
+  "Le Bâtisseur":         "La Bâtisseuse",
+  "Le Commandant":        "La Commandante",
+  "Le Connecteur":        "La Connectrice",
+  "Le Conquérant":        "La Conquérante",
+  "Le Contourneur":       "La Contourneuse",
+  "Le Diplomate":         "La Diplomate",
+  "Le Décideur":          "La Décideuse",
+  "Le Développeur":       "La Développeuse",
+  "Le Finisseur":         "La Finisseuse",
+  "Le Fondateur":         "La Fondatrice",
+  "Le Fédérateur":        "La Fédératrice",
+  "Le Grimpeur":          "La Grimpeuse",
+  "Le Joyeux":            "La Joyeuse",
+  "Le Libérateur":        "La Libératrice",
+  "Le Libérateur de flux":"La Libératrice de flux",
+  "Le Médiateur":         "La Médiatrice",
+  "Le Méditant":          "La Méditante",
+  "Le Navigateur":        "La Navigatrice",
+  "Le Nourricier":        "La Nourricière",
+  "Le Patient":           "La Patiente",
+  "Le Persistant":        "La Persistante",
+  "Le Pionnier":          "La Pionnière",
+  "Le Plongeur":          "La Plongeuse",
+  "Le Prospère":          "La Prospère",
+  "Le Protecteur":        "La Protectrice",
+  "Le Prudent":           "La Prudente",
+  "Le Préparateur":       "La Préparatrice",
+  "Le Puissant":          "La Puissante",
+  "Le Rayonnant":         "La Rayonnante",
+  "Le Renaissant":        "La Renaissante",
+  "Le Récepteur":         "La Réceptrice",
+  "Le Réformateur":       "La Réformatrice",
+  "Le Sacrificateur":     "La Sacrificatrice",
+  "Le Sage":              "La Sage",
+  "Le Sourcier":          "La Sourcière",
+  "Le Stratège":          "La Stratège",
+  "Le Stratège Patient":  "La Stratège Patiente",
+  "Le Structureur":       "La Structureure",
+  "Le Trancheur":         "La Trancheuse",
+  "Le Transformateur":    "La Transformatrice",
+  "Le Veilleur":          "La Veilleuse",
+  "Le Vigilant":          "La Vigilante",
+};
+
+/** Retourne l'archétype d'hexagramme accordé au genre. */
+export function getHexArchetypeGendered(archetype: string, gender: 'M' | 'F' | string = 'M'): string {
+  if (gender !== 'F') return archetype;
+  return HEX_ARCHETYPE_FEMININE[archetype] ?? archetype;
 }

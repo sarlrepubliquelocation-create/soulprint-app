@@ -49,19 +49,19 @@ export const YAO_VALUES: number[][] = [
   [ JI,  WU_JIU, XIONG, WU_JIU,  JI,  WU_JIU ],  // [3]  Zhun 屯 — Difficultés initiales
   [WU_JIU, JI,  WU_JIU,  LIN,  WU_JIU,  LIN  ],  // [4]  Meng 蒙 — Jeunesse inexpérimentée
   [ JI,  WU_JIU,  JI,   XIONG, DA_JI, WU_JIU ],  // [5]  Xu 需 — Attente / L'Attente
-  [LIN,  WU_JIU, XIONG,  LIN,  WU_JIU,  JI   ],  // [6]  Song 讼 — Conflit
+  [LIN,  WU_JIU, XIONG,  LIN,  WU_JIU,  JI   ],  // [6]  Song 讼 — Clarification
   [WU_JIU, XIONG, LIN,  WU_JIU,  JI,   XIONG ],  // [7]  Shi 师 — L'Armée
   [ JI,  WU_JIU,  JI,   LIN,   JI,   WU_JIU  ],  // [8]  Bi 比 — Solidarité / Union
   [ JI,   JI,  WU_JIU,  LIN,   JI,   WU_JIU  ],  // [9]  Xiao Xu 小畜 — Pouvoir dompteur du petit
   [ JI,  WU_JIU,  LIN,  WU_JIU, DA_JI,  JI   ],  // [10] Lü 履 — La Marche / Conduite
   [ JI,  DA_JI,  JI,   WU_JIU, WU_JIU,  LIN  ],  // [11] Tai 泰 — La Paix
-  [XIONG, LIN,  WU_JIU, DA_JI, DA_JI, XIONG  ],   // [12] Pi 否 — Stagnation / Obstruction
+  [XIONG, LIN,  WU_JIU, DA_JI, DA_JI, XIONG  ],   // [12] Pi 否 — Stagnation / Pause nécessaire
   [ JI,  WU_JIU, LIN,   JI,   DA_JI,  LIN   ],   // [13] Tong Ren 同人 — Fraternité universelle
   [XIONG, JI,   JI,    JI,    JI,   DA_JI   ],   // [14] Da You 大有 — Grande possession
   [WU_JIU, JI,  DA_JI,  LIN,   JI,   WU_JIU  ],  // [15] Qian 謙 — Humilité
   [WU_JIU, JI,  WU_JIU,  JI,  DA_JI,  LIN   ],   // [16] Yu 豫 — Enthousiasme
   [ JI,  WU_JIU, XIONG, LIN,  WU_JIU,  LIN   ],  // [17] Sui 隨 — Suivre / La Suite
-  [LIN,  WU_JIU,  JI,   LIN,   JI,   WU_JIU  ],  // [18] Gu 蠱 — Travailler sur ce qui est corrompu
+  [LIN,  WU_JIU,  JI,   LIN,   JI,   WU_JIU  ],  // [18] Gu 蠱 — Correction / Remise en ordre
   [ JI,  DA_JI,  LIN,  WU_JIU,  JI,   WU_JIU ],  // [19] Lin 臨 — Approche
   [WU_JIU, JI,  WU_JIU, DA_JI, WU_JIU,  LIN  ],  // [20] Guan 觀 — Contemplation
   [LIN,  WU_JIU,  JI,   JI,   DA_JI,  WU_JIU ],  // [21] Shi He 噬嗑 — Morsure (Jugement)
@@ -72,25 +72,25 @@ export const YAO_VALUES: number[][] = [
   [ JI,   JI,  DA_JI,  LIN,   JI,   WU_JIU  ],   // [26] Da Xu 大畜 — Pouvoir dompteur du grand
   [WU_JIU, JI,  WU_JIU, DA_JI,  LIN,  WU_JIU ],  // [27] Yi 頤 — Les Commissures / Nourrir
   [XIONG, JI,   JI,   WU_JIU,  JI,   XIONG  ],   // [28] Da Guo 大過 — Grande prépondérance
-  [XIONG, LIN,  WU_JIU, XIONG,  JI,   LIN   ],   // [29] Kan 坎 — L'Insondable (l'Eau)
+  [XIONG, LIN,  WU_JIU, XIONG,  JI,   LIN   ],   // [29] Kan 坎 — Profondeur (l'Eau)
   [WU_JIU, DA_JI, JI,   WU_JIU, DA_JI,  LIN  ],  // [30] Li 離 — Ce qui adhère (le Feu)
   [WU_JIU, JI,   LIN,   JI,    JI,   WU_JIU  ],  // [31] Xian 咸 — Influence / Attraction
   [ JI,  WU_JIU, DA_JI,  LIN,   JI,   LIN   ],   // [32] Heng 恆 — Durée / Permanence
   [LIN,  XIONG,  JI,   WU_JIU, DA_JI,  LIN   ],  // [33] Dun 遯 — Retraite
   [ JI,  WU_JIU,  JI,  XIONG,  JI,   DA_JI  ],   // [34] Da Zhuang 大壯 — La Puissance du grand
   [LIN,   JI,   JI,   WU_JIU, DA_JI, WU_JIU  ],  // [35] Jin 晉 — Progrès
-  [WU_JIU, JI,   LIN,  WU_JIU,  JI,   XIONG  ],  // [36] Ming Yi 明夷 — L'Obscurcissement de la lumière
+  [WU_JIU, JI,   LIN,  WU_JIU,  JI,   XIONG  ],  // [36] Ming Yi 明夷 — Lumière voilée
   [WU_JIU, LIN,  WU_JIU,  JI,  DA_JI,  LIN   ],  // [37] Jia Ren 家人 — Le Clan
   [WU_JIU, XIONG, JI,  WU_JIU,  LIN,   JI    ],  // [38] Kui 睽 — Opposition
   [LIN,   JI,  WU_JIU, DA_JI, WU_JIU,  LIN   ],  // [39] Jian 蹇 — Obstruction
   [ JI,  WU_JIU,  LIN,  DA_JI,  JI,   WU_JIU ],  // [40] Jie 解 — Délivrance
-  [WU_JIU, JI,   JI,   LIN,   DA_JI, WU_JIU  ],  // [41] Sun 損 — Diminution
+  [WU_JIU, JI,   JI,   LIN,   DA_JI, WU_JIU  ],  // [41] Sun 損 — Lâcher-prise
   [ JI,   JI,   LIN,  WU_JIU,  JI,   DA_JI  ],   // [42] Yi 益 — Augmentation
   [ JI,   LIN,  WU_JIU,  JI,   JI,   XIONG  ],   // [43] Guai 夬 — Percée / Résolution
   [LIN,  WU_JIU, XIONG,  JI,   DA_JI,  LIN   ],  // [44] Gou 姤 — Venir à la rencontre
   [ JI,   JI,   JI,   LIN,   WU_JIU,  JI    ],   // [45] Cui 萃 — Rassemblement
   [WU_JIU, JI,  DA_JI,  LIN,   JI,   WU_JIU  ],  // [46] Sheng 升 — Pousser vers le haut
-  [LIN,  WU_JIU,  JI,  XIONG,  LIN,  WU_JIU  ],  // [47] Kun 困 — Épuisement
+  [LIN,  WU_JIU,  JI,  XIONG,  LIN,  WU_JIU  ],  // [47] Kun 困 — Endurance
   [ JI,  WU_JIU,  LIN,  DA_JI, WU_JIU,  JI   ],  // [48] Jing 井 — Le Puits
   [LIN,   JI,  WU_JIU,  LIN,   DA_JI,  JI   ],   // [49] Ge 革 — Révolution / Mue
   [WU_JIU, JI,   LIN,   JI,   DA_JI, WU_JIU  ],  // [50] Ding 鼎 — Le Chaudron
@@ -103,7 +103,7 @@ export const YAO_VALUES: number[][] = [
   [ JI,  WU_JIU,  LIN,  WU_JIU, DA_JI,  JI   ],  // [57] Xun 巽 — Le Doux / Le Vent
   [XIONG,  JI,  WU_JIU,  JI,   DA_JI,  LIN   ],  // [58] Dui 兌 — Le Joyeux / Le Lac
   [WU_JIU, JI,   LIN,   JI,   WU_JIU, XIONG  ],  // [59] Huan 渙 — Dispersion
-  [ JI,  WU_JIU, DA_JI,  JI,    LIN,  WU_JIU ],  // [60] Jie 節 — Limitation
+  [ JI,  WU_JIU, DA_JI,  JI,    LIN,  WU_JIU ],  // [60] Jie 節 — Cadrage
   [ JI,  WU_JIU,  JI,   DA_JI, WU_JIU,  LIN  ],  // [61] Zhong Fu 中孚 — Vérité intérieure
   [XIONG,  LIN,  WU_JIU,  JI,   DA_JI, WU_JIU ],  // [62] Xiao Guo 小過 — Prépondérance du petit
   [ JI,  WU_JIU,  LIN,   JI,   DA_JI, WU_JIU  ], // [63] Ji Ji 既濟 — Après l'accomplissement
@@ -185,12 +185,12 @@ export function getYaoArchetype(hexNum: number, lineIndex: number): YaoArchetype
 }
 
 export const YAO_ARCHETYPE_LABELS: Record<YaoArchetype, string> = {
-  DA_JI:    '大吉 Grand Auspice',
-  JI:       '吉 Auspice',
-  WU_JIU:  '无咎 Sans Blâme',
-  LIN:      '吝 Tension',
-  XIONG:    '凶 Malheur',
-  DA_XIONG: '大凶 Grand Malheur',
+  DA_JI:    'Très favorable',
+  JI:       'Favorable',
+  WU_JIU:  'Neutre — pas de faute',
+  LIN:      'Prudence requise',
+  XIONG:    'Défi',
+  DA_XIONG: 'Grand défi',
 };
 
 // ── V4.9 : Nuclear Hexagram (互卦 Hu Gua) ──
