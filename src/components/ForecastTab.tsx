@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { type MonthForecast, type LifeDomain, COSMIC_THRESHOLD, DOMAIN_META, getDomainLabel, getDomainIcon } from '../engines/convergence';
+import { type MonthForecast, type LifeDomain, type DayPreview, COSMIC_THRESHOLD, DOMAIN_META, getDomainLabel, getDomainIcon } from '../engines/convergence';
 import { calcTemporalLayers, calcCI } from '../engines/temporal-layers';
-import { getCalibOffset } from '../engines/calibration'; // V4.5 — GAP=0 liveScore pour forecast
 import { getAllHistoricalScores } from '../engines/score-history';
 import { type SoulData } from '../App';
 import { Cd, P, a11yClick } from './ui';
 import { useForecastWorker } from '../hooks/useForecastWorker';
+import { useTimeline } from '../contexts/TimelineContext'; // Ronde #35 S2 — source unique displayScore
 
 // ══════════════════════════════════════════════════════════════════
 // ═══ HORIZON 36 MOIS — V4.5 MOMENTUM ═══
@@ -115,6 +115,29 @@ function phaseText(tier: MomentumTier): string {
   }
 }
 
+// ── Ronde #31-bis — Détection contradiction Tier (relatif) vs Progressions astro (absolu) ──
+// Retourne true si les deux signaux pointent dans des directions opposées.
+// Seuil : |monthProgScore| >= 2 (cohérent avec la règle progNarrative de convergence.ts).
+function hasContradiction(tier: MomentumTier, monthProgScore: number): boolean {
+  const isHighTier  = tier === 'acceleration' || tier === 'elan';
+  const isLowTier   = tier === 'protection'   || tier === 'repli';
+  return (isHighTier && monthProgScore < -2) || (isLowTier && monthProgScore > 2);
+}
+
+// Textes nuancés pour les cas de contradiction (synthèse Ronde #31-bis — 3/3 unanime)
+function nuancedTierAdvice(tier: MomentumTier, monthProgScore: number): string {
+  const isHighTier = tier === 'acceleration' || tier === 'elan';
+  if (isHighTier && monthProgScore < -2) {
+    // Fenêtre d'opportunité relative dans un fond absolu en retrait
+    return 'Une fenêtre rare se détache ce mois-ci. C\'est le bon moment pour activer ce qui compte vraiment — en choisissant bien tes moments.';
+  }
+  if (!isHighTier && monthProgScore > 2) {
+    // Repli/protection mais fond astro favorable
+    return 'Ce mois invite au recul bienvenu. Les courants de fond travaillent pour toi — profite-en pour poser des bases solides sans forcer.';
+  }
+  return TIER_CONFIG[tier].advice;
+}
+
 // Zone de Mutation : dégradé opacité mois 19 → 36
 const MUTATION_START = 18;
 function mutationOpacity(idx: number): number {
@@ -127,15 +150,15 @@ function mutationOpacity(idx: number): number {
 // ═══ COMPOSANT PRINCIPAL ═══
 // ══════════════════════════════════════
 
-export default function ForecastTab({ data, bd, bt }: { data: SoulData; bd: string; bt?: string }) {
+export default function ForecastTab({ data, bd, bt, yearPreviews }: { data: SoulData; bd: string; bt?: string; yearPreviews?: DayPreview[] | null }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [hasInitSelected, setHasInitSelected] = useState(false);
 
   // Sprint AH — Web Worker pour calcul lourd (1080 calcDayPreview).
   // Fallback automatique sur main thread si Worker indisponible.
   // ═══ FIX COHÉRENCE — Même terrain que Calendrier/Pilotage ═══
-  // ═══ V4.5 GAP=0 : on passe le score LIVE arrondi pour que le forecast connaisse le score réel d'aujourd'hui ═══
-  const _liveScore = Math.max(0, Math.min(100, Math.round(data.conv.score + getCalibOffset())));
+  // ═══ Ronde #35 S2 : displayScore via TimelineProvider (source unique) ═══
+  const { displayScore: _liveScore, toDisplay: _toDisplay } = useTimeline();
   // ═══ V4.5 : scores LIVE passés pour que les fenêtres d'action du mois en cours soient cohérentes ═══
   const _histScores = useMemo(() => getAllHistoricalScores(bd), [bd]);
   const { forecast, loading: forecastLoading, durationMs, workerUsed } = useForecastWorker(
@@ -153,6 +176,17 @@ export default function ForecastTab({ data, bd, bt }: { data: SoulData; bd: stri
       });
     } catch { return null; }
   }, [data, bd]);
+
+  // ═══ Fix cohérence topDays Forecast ↔ Calendrier (Ronde #35 S3) ═══
+  // yearPreviews (buildYearPreviews) est la source des scores annuels post soft-shift.
+  // NOTE : assignAnnualLabels N'EST PAS appliqué ici (il l'est localement dans CalendarTab.yearHeatmap).
+  // Pour les topDays du mois courant/prochain, on override le score avec celui du Calendrier si disponible.
+  const _yearPreviewScores = useMemo<Record<string, number>>(() => {
+    if (!yearPreviews) return {};
+    const map: Record<string, number> = {};
+    for (const p of yearPreviews) map[p.date] = p.score;
+    return map;
+  }, [yearPreviews]);
 
   // Enrichir les scores mensuels avec les vrais scores live (localStorage)
   // Pour les mois passés et le mois en cours : moyenne hybride (live pour jours passés, preview pour jours futurs)
@@ -545,28 +579,46 @@ export default function ForecastTab({ data, bd, bt }: { data: SoulData; bd: stri
           })()}
         </div>
 
-        {/* Conseil */}
-        <div style={{ padding: '12px 14px', borderRadius: 10, background: TIER_CONFIG[selMom.tier].bg, border: `1px solid ${TIER_CONFIG[selMom.tier].border}` }}>
-          <div style={{ fontSize: 10, color: TIER_CONFIG[selMom.tier].color, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>
-            Que faire en {MONTH_FULL[selected.month]} ?
-          </div>
-          <div style={{ fontSize: 13, color: P.text, lineHeight: 1.7 }}>
-            {selMom.tier === 'acceleration'
-              ? (() => {
-                  // ═══ RONDE #23 — Narratif cyclique (plus de classement "meilleur mois") ═══
-                  const isIntrospective = selected.climateLabel === 'Intériorité' || selected.climateLabel === 'Structure';
-                  return isIntrospective
-                    ? 'Une concentration rare de signaux positifs. Même en cycle d\'intériorité, les conditions sont alignées — avance sur tes priorités profondes, mais respecte ton rythme.'
-                    : 'Une concentration rare de signaux positifs. C\'est le moment de passer à l\'action sur tes projets les plus ambitieux — profite de cette fenêtre porteuse.';
-                })()
-              : TIER_CONFIG[selMom.tier].advice}
-          </div>
-          {selected.narrative && (
-            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${P.cardBdr}` }}>
-              {selected.narrative}
-            </div>
-          )}
-        </div>
+        {/* ── Ronde #31-bis — Conseil + Courants de fond (2 blocs séparés) ── */}
+        {(() => {
+          const contradiction = hasContradiction(selMom.tier, selected.monthProgScore ?? 0);
+          // Bloc A — conseil tier (dominant) : nuancé si contradiction, inchangé sinon
+          const tierAdvice = (() => {
+            if (contradiction) return nuancedTierAdvice(selMom.tier, selected.monthProgScore ?? 0);
+            // Cas acceleration : texte spécifique si cycle d'intériorité (Ronde #23)
+            if (selMom.tier === 'acceleration') {
+              const isIntrospective = selected.climateLabel === 'Intériorité' || selected.climateLabel === 'Structure';
+              return isIntrospective
+                ? 'Une concentration rare de signaux positifs. Même en cycle d\'intériorité, les conditions sont alignées — avance sur tes priorités profondes, mais respecte ton rythme.'
+                : 'Une concentration rare de signaux positifs. C\'est le moment de passer à l\'action sur tes projets les plus ambitieux — profite de cette fenêtre porteuse.';
+            }
+            return TIER_CONFIG[selMom.tier].advice;
+          })();
+          return (
+            <>
+              {/* Bloc A — Momentum (signal principal) */}
+              <div style={{ padding: '12px 14px', borderRadius: 10, background: TIER_CONFIG[selMom.tier].bg, border: `1px solid ${TIER_CONFIG[selMom.tier].border}` }}>
+                <div style={{ fontSize: 10, color: TIER_CONFIG[selMom.tier].color, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 6 }}>
+                  Que faire en {MONTH_FULL[selected.month]} ?
+                </div>
+                <div style={{ fontSize: 13, color: P.text, lineHeight: 1.7 }}>
+                  {tierAdvice}
+                </div>
+              </div>
+              {/* Bloc B — Courants de fond (contexte secondaire) — affiché si narrative non vide */}
+              {selected.narrative && (
+                <div style={{ padding: '10px 14px', borderRadius: 10, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
+                  <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 5 }}>
+                    Courants de fond
+                  </div>
+                  <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
+                    {selected.narrative}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Fiabilité */}
         {selCI && (
@@ -608,60 +660,79 @@ export default function ForecastTab({ data, bd, bt }: { data: SoulData; bd: stri
         )}
 
         {/* ═══ V4.5 : Jours Cosmiques OU top 3 jours d'action ═══ */}
-        {selected.topDays && (() => {
-          const cosmics = selected.topDays.filter(d => d.score >= COSMIC_THRESHOLD);
-          if (cosmics.length > 0) return true;
-          return selected.topDays.filter(d => d.dayType !== 'retrait' && d.score >= 75).length > 0;
-        })() ? (
-          <div style={{ padding: '10px 12px', borderRadius: 8, background: selected.topDays.some(d => d.score >= COSMIC_THRESHOLD) ? '#E0B0FF08' : '#4ade8008', border: `1px solid ${selected.topDays.some(d => d.score >= COSMIC_THRESHOLD) ? '#E0B0FF18' : '#4ade8018'}` }}>
-            <div style={{ fontSize: 10, color: selected.topDays.some(d => d.score >= COSMIC_THRESHOLD) ? '#E0B0FF' : '#4ade80', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>
-              {selected.topDays.some(d => d.score >= COSMIC_THRESHOLD) ? '✦ Convergence rare' : '🎯 Jours porteurs d\'action'}
+        {(() => {
+          // ═══ Fix cohérence topDays Forecast ↔ Calendrier (Ronde #35 S3) ═══
+          if (!selected.topDays) return (
+            <div style={{ padding: '12px 14px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
+              <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
+                {selMom.tier === 'protection'
+                  ? 'Mois calme — conserve ton énergie, observe, prépare. Le rebond vient après.'
+                  : selMom.tier === 'repli'
+                  ? 'Bon moment pour réfléchir, planifier, et poser les bases des prochains mois porteurs.'
+                  : 'Avance régulièrement sur tes projets en cours.'}
+              </div>
             </div>
-            <div style={{ display: 'grid', gap: 5 }}>
-              {(() => {
-                const cosmics = selected.topDays.filter(d => d.score >= COSMIC_THRESHOLD);
-                return cosmics.length > 0 ? cosmics : selected.topDays.filter(d => d.dayType !== 'retrait' && d.score >= 75).slice(0, 3);
-              })().map((day, i) => {
-                const d = parseInt(day.date.split('-')[2]);
-                const isCosmic = day.score >= COSMIC_THRESHOLD;
-                const dtLabel = isCosmic
-                  ? (day.dayType === 'decision' ? 'Décision majeure' : day.dayType === 'communication' ? 'Connexion forte' : day.dayType === 'expansion' ? 'Expansion puissante' : day.dayType === 'observation' ? 'Vision claire' : 'Introspection profonde')
-                  : (day.dayType === 'decision' ? 'Décision' : day.dayType === 'communication' ? 'Communication' : day.dayType === 'expansion' ? 'Expansion' : day.dayType === 'observation' ? 'Observation' : 'Retrait');
-                const dtIcon = day.dayType === 'decision' ? '🌟' : day.dayType === 'communication' ? '💬' : day.dayType === 'expansion' ? '🚀' : day.dayType === 'observation' ? '🔭' : '🧘';
-                const sc = day.score;
-                const c = isCosmic ? '#E0B0FF' : sc >= 80 ? '#4ade80' : sc >= 70 ? P.gold : P.textMid;
-                return (
-                  <div key={i} style={{ padding: '7px 10px', borderRadius: 7, background: isCosmic ? '#E0B0FF08' : P.surface, border: `1px solid ${isCosmic ? '#E0B0FF30' : P.cardBdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: 14 }}>{isCosmic ? '✦' : dtIcon}</span>
-                      <span style={{ fontSize: 12, color: c, fontWeight: 700, marginLeft: 6 }}>
-                        {d} {MONTH_FULL[selected.month]}
-                      </span>
-                      {isCosmic && <span style={{ fontSize: 9, color: '#E0B0FF', marginLeft: 6, fontWeight: 600 }}>✦ CONVERGENCE RARE</span>}
-                      <div style={{ fontSize: 10, color: isCosmic ? '#E0B0FFaa' : P.textDim, marginTop: 1 }}>
-                        Journée {dtLabel}
+          );
+          // Override scores avec yearPreviews (post soft-shift) — assignAnnualLabels est appliqué en aval dans CalendarTab uniquement.
+          const _reconciledTopDays = selected.topDays.map(d => {
+            const ypScore = _yearPreviewScores[d.date];
+            return ypScore !== undefined ? { ...d, score: ypScore } : d;
+          });
+          const hasCosmics = _reconciledTopDays.some(d => d.score >= COSMIC_THRESHOLD);
+          const hasGoodDays = _reconciledTopDays.some(d => d.dayType !== 'retrait' && d.score >= 75);
+          if (!hasCosmics && !hasGoodDays) return (
+            <div style={{ padding: '12px 14px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
+              <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
+                {selMom.tier === 'protection'
+                  ? 'Mois calme — conserve ton énergie, observe, prépare. Le rebond vient après.'
+                  : selMom.tier === 'repli'
+                  ? 'Bon moment pour réfléchir, planifier, et poser les bases des prochains mois porteurs.'
+                  : 'Avance régulièrement sur tes projets en cours.'}
+              </div>
+            </div>
+          );
+          return (
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: hasCosmics ? '#E0B0FF08' : '#4ade8008', border: `1px solid ${hasCosmics ? '#E0B0FF18' : '#4ade8018'}` }}>
+              <div style={{ fontSize: 10, color: hasCosmics ? '#E0B0FF' : '#4ade80', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>
+                {hasCosmics ? '✦ Convergence rare' : '🎯 Jours porteurs d\'action'}
+              </div>
+              <div style={{ display: 'grid', gap: 5 }}>
+                {(() => {
+                  const cosmics = _reconciledTopDays.filter(d => d.score >= COSMIC_THRESHOLD)
+                    .sort((a, b) => a.date.localeCompare(b.date)); // tri chronologique
+                  return cosmics.length > 0 ? cosmics : _reconciledTopDays.filter(d => d.dayType !== 'retrait' && d.score >= 75).slice(0, 3);
+                })().map((day, i) => {
+                  const d = parseInt(day.date.split('-')[2]);
+                  const isCosmic = day.score >= COSMIC_THRESHOLD;
+                  const dtLabel = isCosmic
+                    ? (day.dayType === 'decision' ? 'Décision majeure' : day.dayType === 'communication' ? 'Connexion forte' : day.dayType === 'expansion' ? 'Expansion puissante' : day.dayType === 'observation' ? 'Vision claire' : 'Introspection profonde')
+                    : (day.dayType === 'decision' ? 'Décision' : day.dayType === 'communication' ? 'Communication' : day.dayType === 'expansion' ? 'Expansion' : day.dayType === 'observation' ? 'Observation' : 'Retrait');
+                  const dtIcon = day.dayType === 'decision' ? '🌟' : day.dayType === 'communication' ? '💬' : day.dayType === 'expansion' ? '🚀' : day.dayType === 'observation' ? '🔭' : '🧘';
+                  const sc = day.score;
+                  const c = isCosmic ? '#E0B0FF' : sc >= 80 ? '#4ade80' : sc >= 70 ? P.gold : P.textMid;
+                  return (
+                    <div key={i} style={{ padding: '7px 10px', borderRadius: 7, background: isCosmic ? '#E0B0FF08' : P.surface, border: `1px solid ${isCosmic ? '#E0B0FF30' : P.cardBdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontSize: 14 }}>{isCosmic ? '✦' : dtIcon}</span>
+                        <span style={{ fontSize: 12, color: c, fontWeight: 700, marginLeft: 6 }}>
+                          {d} {MONTH_FULL[selected.month]}
+                        </span>
+                        {isCosmic && <span style={{ fontSize: 9, color: '#E0B0FF', marginLeft: 6, fontWeight: 600 }}>✦ CONVERGENCE RARE</span>}
+                        <div style={{ fontSize: 10, color: isCosmic ? '#E0B0FFaa' : P.textDim, marginTop: 1 }}>
+                          Journée {dtLabel}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3px 10px', borderRadius: 6, background: c + '12', border: `1px solid ${c}30`, whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: c }}>{_toDisplay(sc)}</div>
+                        <div style={{ fontSize: 8, color: c, opacity: 0.6 }}>/100</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3px 10px', borderRadius: 6, background: c + '12', border: `1px solid ${c}30`, whiteSpace: 'nowrap' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: c }}>{sc}</div>
-                      <div style={{ fontSize: 8, color: c, opacity: 0.6 }}>/100</div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div style={{ padding: '12px 14px', borderRadius: 8, background: P.surface, border: `1px solid ${P.cardBdr}` }}>
-            <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7 }}>
-              {selMom.tier === 'protection'
-                ? 'Mois calme — conserve ton énergie, observe, prépare. Le rebond vient après.'
-                : selMom.tier === 'repli'
-                ? 'Bon moment pour réfléchir, planifier, et poser les bases des prochains mois porteurs.'
-                : 'Avance régulièrement sur tes projets en cours.'}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
 
       </div>
