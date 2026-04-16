@@ -8,16 +8,17 @@ import FeedbackWidget from './FeedbackWidget';
 import { getInteractionsSummary, type InteractionResult } from '../engines/interactions';
 import { type PSIResult } from '../engines/temporal';
 import { DASHA_NARRATIVES, PRATYANTAR_NARRATIVES } from '../engines/vimshottari'; // V5.2
-import { calcDayPreview, estimateSlowTransitBonus, COSMIC_THRESHOLD, type DayPreview } from '../engines/convergence'; // V8 J+1 + momentum + soft-shift align
+import { COSMIC_THRESHOLD, type DayPreview } from '../engines/convergence'; // V8 J+1 + momentum + soft-shift align
 // buildNatalDashaCtx plus nécessaire ici — calcMonthPreviews le construit en interne
 import { calcTemporalLayers } from '../engines/temporal-layers'; // Oracle split — temporal context
 import { calcAlignment, buildSynthesisPhrase } from '../engines/alignment'; // Oracle split — alignment badge
 import { getDayFeedback, saveDayFeedback, storeTodayDeltas, loadDeltas, getAlphaGObservability } from '../engines/validation-tracker'; // V9.0 P5 + AD
+import { getHistoricalScore } from '../engines/score-history'; // Fix Option 1+3a — blind check-in
 import { calcVectorMomentum } from '../engines/vectorEngine'; // V8 momentum EMA
 import { getCurrentPlanetaryHour, getBestHoursToday, planetFr } from '../engines/planetary-hours'; // V9 Sprint 4
 import { INCLUSION_DOMAIN_MAP } from '../engines/numerology'; // V9 Sprint 5 — badge inclusion
 import { getArcana, calcTarotDayNumber, calcPersonalDayCard, DASHA_ARCANA_MAP } from '../engines/tarot'; // V9 Sprint 6 + 8a + Ronde3
-import { getCalibOffset, getCalibState, setCalibProfile, recordCalibSkip, shouldShowCalibOverlay, PROFILE_LABELS, type CalibProfile } from '../engines/calibration'; // Sprint AC — user_calibration_offset
+import { getCalibOffset } from '../engines/calibration'; // Sprint AC — user_calibration_offset
 // Phase 3c — runWeeklyAlphaGUpdate/runWeeklyPredictiveValidation centralisés dans App.tsx
 
 // V4.0: Couleurs des 6 domaines contextuels
@@ -282,9 +283,6 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
   const isOpen = useCallback((key: string) => expanded.has(key), [expanded]);
   const [expertMode, setExpertMode] = useState(false);
   const [paradoxSlider, setParadoxSlider] = useState(50); // AB-M1 — Slider Logique↔Instinct (Sprint AC connectera au calibration offset)
-  // Sprint AC — Overlay calibration matin (Fluide / Équilibré / Exigeant)
-  const [calibMode, setCalibMode] = useState<'ask' | null>(null);
-
   // V9.0 P5 — Blind Check-in : note hier AVANT de voir les scores d'aujourd'hui
   const [blindMode, setBlindMode] = useState<'ask' | 'result' | null>(null);
   const [blindRating, setBlindRating] = useState<number>(3);
@@ -313,13 +311,6 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
     if (num.kl.includes(pdv)) return pdv;
     return null;
   })();
-
-  // Sprint AC — Overlay calibration : s'affiche après le blind check-in (ou directement si absent)
-  useEffect(() => {
-    if (blindMode === null && shouldShowCalibOverlay(todayStr)) {
-      setCalibMode('ask');
-    }
-  }, [blindMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // AD — Stocker les deltas du jour pour blind check-in de demain (anti-leakage : scoreBrut = cv.score)
   useEffect(() => {
@@ -517,31 +508,27 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
   // Pilotage utilise le même pipeline que le Calendrier pour que DEMAIN affiche le même score.
   const _yearSoftShifted = yearPreviews;
 
-  // ── Blind Check-in : score prédit d'hier (APRÈS _yearSoftShifted pour cohérence) ──
+  // ── Blind Check-in : score prédit d'hier ──
+  // ═══ FIX score-history (Option 1+3a) — afficher le blind check-in UNIQUEMENT si
+  // score-history contient une entrée pour hier (score figé au moment réel).
+  // Sans entrée = l'app n'était pas ouverte hier → pas de score fiable → pas de pop-up.
+  // Le fallback yearPreviews (recalculé avec le dashaMult du jour courant) introduisait
+  // une dérive pouvant atteindre ~35 pts.
   useEffect(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = localDateStr(yesterday);
     const existing = getDayFeedback(yStr);
     if (!existing?.userScore) {
-      setBlindYesterday(yStr);
-      setBlindMode('ask');
-      // ═══ FIX COHÉRENCE — Score prédit d'hier via _yearSoftShifted (même pipeline) ═══
-      // Fallback sur calcDayPreview brut si _yearSoftShifted pas encore dispo.
       try {
+        const histScore = getHistoricalScore(yStr, bd);
+        if (histScore === undefined) return; // pas d'historique → on n'affiche rien
+        setBlindYesterday(yStr);
+        setBlindPredicted(histScore);
         const yFromYear = _yearSoftShifted?.find(p => p.date === yStr);
-        if (yFromYear) {
-          setBlindPredicted(yFromYear.score);
-          setBlindLabel(yFromYear.dayType.type);
-        } else {
-          const tb = estimateSlowTransitBonus(data.astro ?? null);
-          const preview = calcDayPreview(bd, data.num, data.cz, yStr, tb);
-          if (preview) {
-            setBlindPredicted(preview.score);
-            setBlindLabel(preview.dayType.type);
-          }
-        }
-      } catch { /* fail silently — modal reste fonctionnel sans score */ }
+        if (yFromYear) setBlindLabel(yFromYear.dayType.type);
+        setBlindMode('ask');
+      } catch { /* fail silently */ }
     }
   }, [_yearSoftShifted]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -711,59 +698,6 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
             fontSize: 12, fontFamily: 'inherit', marginTop: 20, opacity: 0.6
           }}>
             Voir aujourd'hui →
-          </button>
-        </div>
-      )}
-
-      {/* AC-4 ═══ Overlay Calibration Matin ═══ */}
-      {/* 1 fois/jour — pause 7j si ignoré 3j consécutifs (recordCalibSkip) */}
-      {calibMode === 'ask' && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9998,
-          background: 'rgba(10,10,18,0.96)', backdropFilter: 'blur(14px)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: 24, animation: 'fadeIn 0.3s ease',
-        }}>
-          <div style={{ fontSize: 13, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8 }}>
-            ✦ Calibration du jour
-          </div>
-          <div style={{ fontSize: 21, color: '#f1f5f9', fontWeight: 700, marginBottom: 6, textAlign: 'center' }}>
-            Comment abordez-toi cette journée ?
-          </div>
-          <div style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 32, textAlign: 'center', lineHeight: 1.5 }}>
-            Ce réglage ajuste ton score en fonction de ton profil du moment
-          </div>
-          <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 360 }}>
-            {(['fluide', 'equilibre', 'exigeant'] as CalibProfile[]).map(p => {
-              const pl = PROFILE_LABELS[p];
-              return (
-                <button
-                  key={p}
-                  onClick={() => { setCalibProfile(p, todayStr); setCalibMode(null); }}
-                  style={{
-                    flex: 1, padding: '16px 8px', borderRadius: 14, cursor: 'pointer',
-                    fontFamily: 'inherit', background: `${pl.color}12`,
-                    border: `1px solid ${pl.color}40`,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                    transition: 'all 0.18s ease',
-                  }}
-                >
-                  <span style={{ fontSize: 24 }}>{pl.icon}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: pl.color }}>{pl.label}</span>
-                  <span style={{ fontSize: 10, color: '#a1a1aa', textAlign: 'center', lineHeight: 1.3 }}>{pl.desc}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => { recordCalibSkip(todayStr); setCalibMode(null); }}
-            style={{
-              marginTop: 24, background: 'none', border: 'none',
-              color: '#a1a1aa', cursor: 'pointer', fontSize: 12,
-              fontFamily: 'inherit', opacity: 0.5,
-            }}
-          >
-            Passer pour aujourd'hui
           </button>
         </div>
       )}
@@ -2525,66 +2459,6 @@ export default function ConvergenceTab({ data, psi, bd, bt, yearPreviews }: { da
             </div>
           </div>
 
-          {/* AC-3 ═══ Calibration Fluide / Équilibré / Exigeant ═══ */}
-          {(() => {
-            const profiles: CalibProfile[] = ['fluide', 'equilibre', 'exigeant'];
-            const calibState = getCalibState();
-            return (
-              <div style={{ marginTop: 16, padding: '10px 12px', background: '#ffffff06', borderRadius: 10, border: '1px solid #ffffff10' }}>
-                <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
-                  Ton niveau d'exigence
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {profiles.map(p => {
-                    const pl   = PROFILE_LABELS[p];
-                    const isSel = calibState.profile === p;
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => { setCalibProfile(p, todayStr); setCalibMode(null); }}
-                        style={{
-                          flex: 1, padding: '7px 4px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                          background: isSel ? `${pl.color}22` : 'transparent',
-                          border: `1px solid ${isSel ? pl.color + '60' : '#ffffff18'}`,
-                          color: isSel ? pl.color : P.textMid,
-                          fontSize: 10, fontWeight: isSel ? 700 : 400,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <span style={{ fontSize: 14 }}>{pl.icon}</span>
-                        <span>{pl.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Calibration Firebase — T6 — V11.1 UX : masqué si accuracy < 60 */}
-                {cv.calibration && cv.calibration.recentVotes >= 5 && cv.calibration.accuracy >= 60 && (
-                  <div style={{
-                    marginTop: 10, padding: '10px 12px',
-                    background: cv.calibration.accuracy >= 75 ? '#4ade800a' : '#D4AF370a',
-                    borderRadius: 8,
-                    border: `1px solid ${cv.calibration.accuracy >= 75 ? '#4ade8025' : '#D4AF3725'}`,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12 }}>{cv.calibration.accuracy >= 80 ? '🎯' : '📊'}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: cv.calibration.accuracy >= 75 ? '#4ade80' : '#D4AF37' }}>
-                        {cv.calibration.accuracy >= 80
-                          ? 'Calcul bien adapté à ton profil'
-                          : 'Le calcul s\'adapte à toi'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: P.textDim, lineHeight: 1.3 }}>
-                      {cv.calibration.accuracy >= 80
-                        ? 'Tes retours confirment la fiabilité des prédictions.'
-                        : 'Continue à noter tes journées pour affiner les prédictions.'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
         </Cd>
       </Sec>
     </div>
