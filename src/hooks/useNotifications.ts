@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { sto } from '../engines/storage';
+import { COSMIC_THRESHOLD } from '../engines/convergence';
 
 const PERM_KEY = 'kaironaute_notif_perm'; // 'granted' | 'denied' | 'dismissed'
 const LAST_NOTIF_KEY = 'kaironaute_last_notif_date';
@@ -98,7 +99,7 @@ export function useNotifications(): UseNotificationsResult {
     sto.set(LAST_NOTIF_KEY, today);
 
     // Construire le message
-    const emoji = score >= 86 ? '🌟' : score >= 80 ? '✨' : score >= 65 ? '👍' : '📊';
+    const emoji = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '✨' : score >= 65 ? '👍' : '📊';
     const title = `${emoji} Score du jour : ${score}/100`;
     const body = `${dayType} — ${hint}`;
 

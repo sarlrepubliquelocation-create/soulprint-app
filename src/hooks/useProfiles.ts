@@ -18,6 +18,8 @@ export interface UserProfile {
   isMain: boolean;     // true for the primary profile
   createdAt: number;
   updatedAt: number;
+  /** R34 — Toggle profil bi-actif (59+). null = défaut (label "Réalisations"). */
+  lifeMode?: 'still_active' | null;
 }
 
 /**

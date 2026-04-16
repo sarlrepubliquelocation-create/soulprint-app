@@ -15,7 +15,7 @@ import { calcSolarReturn, type SolarReturnResult } from '../engines/solar-return
 import { calcProgressions, type ProgressionsResult } from '../engines/progressions';
 import { getUpcomingLunarPhases, type UpcomingLunarPhase } from '../engines/moon';
 import { calcLunarReturn, type LunarReturnResult } from '../engines/lunar-return';
-import { getCalibOffset } from '../engines/calibration';
+import { useTimelineSafe } from '../contexts/TimelineContext'; // Ronde #35 S2
 
 export interface DashMood {
   bg: string;
@@ -88,17 +88,14 @@ export function useAstroComputed(
     return sorted[0] || null;
   }, [astro]);
 
-  // ── Score calibré ──
-  const displayScore = useMemo(() => {
-    const raw = data.conv?.score ?? 50;
-    const offset = getCalibOffset();
-    return Math.max(0, Math.min(100, Math.round(raw + offset)));
-  }, [data.conv?.score]);
+  // ── Score calibré — Ronde #35 S2 : via TimelineProvider (source unique) ──
+  const _tl = useTimelineSafe();
+  const displayScore = _tl?.displayScore ?? Math.max(0, Math.min(100, Math.round(data.conv?.score ?? 50)));
 
   // ── Mood dashboard ──
   const dashMood = useMemo<DashMood>(() => {
     if (displayScore >= 80) return { bg: 'linear-gradient(135deg, #D4AF3712, #4ade8008)', border: '#D4AF3730', icon: '🌤', label: 'Énergie favorable' };
-    if (displayScore >= 60) return { bg: 'linear-gradient(135deg, #60a5fa08, #D4AF3708)', border: '#60a5fa20', icon: '🌫', label: 'Énergie neutre' };
+    if (displayScore >= 60) return { bg: 'linear-gradient(135deg, #60a5fa08, #D4AF3708)', border: '#60a5fa20', icon: '🌫', label: 'Énergie équilibrée' };
     return { bg: 'linear-gradient(135deg, #8b5cf608, #ef444408)', border: '#8b5cf620', icon: '🌧', label: 'Énergie exigeante' };
   }, [displayScore]);
 

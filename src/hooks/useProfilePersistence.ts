@@ -11,6 +11,8 @@ export interface ProfileData {
   gn: 'M' | 'F';
   tz: number;
   updatedAt?: number;
+  /** R34 — Toggle profil bi-actif (59+). null = défaut (label "Réalisations"). */
+  lifeMode?: 'still_active' | null;
 }
 
 /**
