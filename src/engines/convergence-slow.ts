@@ -279,7 +279,7 @@ export function calcSlowModules(
 
       if (dashaTotal !== 0 || dasha.maha.isTransition) {
         const sign      = dashaTotal > 0 ? '+' : '';
-        const sandhiTag = dasha.maha.isTransition ? ' ⚠ Sandhi' : '';
+        const sandhiTag = dasha.maha.isTransition ? ' ⚠ Transition' : '';
         const dashaMult = (Math.max(0.91, Math.min(1.09, 1.0 + dashaTotal / 100))).toFixed(2);
         breakdown.push({
           system: 'Vimshottari Dasha', icon: '🕉',

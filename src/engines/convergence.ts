@@ -13,7 +13,7 @@ import { type AstroChart, calcPersonalTransits, getPlanetLongitudeForDate } from
 import { calcProgressions } from './progressions';
 import { extractNatalReturnLongs, interpolateReturnIntensity } from './returns';
 import { type ChineseZodiac } from './chinese-zodiac';
-import { type IChingReading, calcIChing, nuclearHexScore } from './iching';
+import { type IChingReading, calcIChing, nuclearHexScore, getHexTier } from './iching';
 import { getMoonPhase, getMoonTransit, getMercuryStatus, getLunarEvents, type VoidOfCourseMoon } from './moon'; // Ronde 27 : getVoidOfCourseMoon retiré (délégué à calcDailyModules)
 import { calcBaZiDaily, calc10Gods, type DayMasterDailyResult, type TenGodsResult, getPeachBlossom, checkShenSha, type ShenShaResult } from './bazi'; // Sprint AS P1 : ChangshengResult retiré (csResult mort dans calcDayPreview)
 // calcInteractions, buildInteractionContext retirés Sprint AP (interactions stubées)
@@ -46,7 +46,14 @@ import { calcSlowModules, buildNatalDashaCtx, calcDashaMultLite, calcBaseSignalL
 // Ronde 27 : imports fixed-stars, kinetic-shocks, panchanga retirés (délégués à calcDailyModules)
 import { getAdaptedAlphaG } from './alpha-calibration'; // Sprint AE — Phase 2 αG adaptatif
 import { safeParseDateLocal, safeNum } from './safe-utils'; // Sprint AG
-import { saveScoreLive } from './score-history'; // Score historique LIVE pour cohérence calendrier
+import { resolveDomainLabel, type LifeBracket, type LifeMode } from './life-stages'; // R34 — couche affichage planète×âge
+// Ronde #35 F6 — saveScoreLive unique dans orchestrator.ts (format 4 champs { raw, off, xt, v })
+
+// R34 — Contexte d'âge (couche affichage uniquement, aucun impact scoring)
+export interface LifeContext {
+  bracket: LifeBracket;
+  lifeMode: LifeMode;
+}
 
 // ══════════════════════════════════════
 // ═══ CONSTANTES INTERNES ═══
@@ -132,6 +139,9 @@ function hasNarrativeConflict(
   if (baziElement === 'Fire' && /glace|g[eè]le|froid|giv?r/.test(lower)) return true;
   // Score très bas + injection expansive
   if (scoreLevel <= 1 && /croissance|déploie|amplifie|intensité/.test(lower)) return true;
+  // Ronde #30 — Score bas (< 40) + mots d'élan/lancement → contredit le Mode Maintenance/Bouclier
+  // Ronde #31 — Blacklist étendue (consensus 3/3 GPT+Grok+Gemini)
+  if (scoreLevel <= 1 && /lance|fonce|accélère|sprinte|décoll|initie|engage|déploie|boost|démarre|conqui|investis|risque|lance-toi|amplifie/.test(lower)) return true;
   // Pleine Lune + message de récolte active + score bas/moyen → contradictoire avec le ton prudent
   if (moonPhase === 4 && scoreLevel <= 2 && /récolté|prêt à être/.test(lower)) return true;
   return false;
@@ -368,7 +378,7 @@ function scoreLevelColor(score: number): string {
 // Ronde 20 : 3 postures (AGIR / AJUSTER / RALENTIR) — le score décide, le dayType nuance
 const ACTION_DEFS: Record<ActionVerb, Omit<ActionReco, 'conseil'>> = {
   agir:     { verb: 'agir',     icon: '🚀', label: 'AGIR',     color: '#4ade80' },
-  ajuster:  { verb: 'ajuster',  icon: '🌟', label: 'AJUSTER',  color: '#f59e0b' },
+  ajuster:  { verb: 'ajuster',  icon: '⚖️', label: 'AJUSTER',  color: '#f59e0b' },
   ralentir: { verb: 'ralentir', icon: '🛡', label: 'RALENTIR', color: '#ef4444' },
 };
 
@@ -424,7 +434,7 @@ function calcActionReco(dayType: DayTypeInfo, score: number, hexKeyword: string,
       `Le calme du jour est un allié : profite-s-en pour mettre à plat ce qui t'encombre. ${hexKeyword}.`,
       `Journée de coulisses — réorganise, nettoie, simplifie. Demain tu agiras plus vite. ${hexKeyword}.`,
       `Prends du recul sur tes dernières semaines. Qu'est-ce qui avance vraiment ? Réajuste. ${hexKeyword}.`,
-      `Fais le ménage dans tes priorités : supprime, reporte, délègue. Garde seulement l'essentiel. ${hexKeyword}.`,
+      `Clarifie tes priorités : supprime, reporte, délègue. Garde seulement l'essentiel. ${hexKeyword}.`,
       `Profite de cette accalmie pour remettre tes listes à jour. La clarté d'aujourd'hui nourrira l'action de demain. ${hexKeyword}.`,
       `Rien n'urge — et c'est exactement le bon moment pour réfléchir à ce qui urgerait si tu ne t'en occupais pas maintenant. ${hexKeyword}.`,
     ] : [
@@ -499,13 +509,13 @@ function calcClimate(num: NumerologyProfile): ClimateResult {
 
 // ═══ Source de vérité unique pour les labels/icônes/couleurs des 6 domaines ═══
 // Consommé par : ForecastTab, CalendarTab, strategic-reading, convergence interne
-export const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: string }> = {
-  BUSINESS:      { label: 'Affaires',      icon: '💼', color: '#4ade80' },
-  AMOUR:         { label: 'Amour',         icon: '❤️', color: '#f472b6' },
-  RELATIONS:     { label: 'Relations',     icon: '🤝', color: '#60a5fa' },
-  CREATIVITE:    { label: 'Créativité',    icon: '✨', color: '#f59e0b' },
-  INTROSPECTION: { label: 'Introspection', icon: '🧘', color: '#c084fc' },
-  VITALITE:      { label: 'Vitalité',      icon: '🌟', color: '#fb923c' },
+export const DOMAIN_META: Record<LifeDomain, { label: string; icon: string; color: string; desc: string }> = {
+  BUSINESS:      { label: 'Affaires',      icon: '💼', color: '#4ade80', desc: 'Projets, finances, carrière' },
+  AMOUR:         { label: 'Amour',         icon: '❤️', color: '#f472b6', desc: 'Relations amoureuses, intimité' },
+  RELATIONS:     { label: 'Relations',     icon: '🤝', color: '#60a5fa', desc: 'Entourage, famille, liens sociaux' },
+  CREATIVITE:    { label: 'Créativité',    icon: '✨', color: '#f59e0b', desc: 'Expression, création, communication' },
+  INTROSPECTION: { label: 'Introspection', icon: '🧘', color: '#c084fc', desc: 'Vie intérieure, équilibre, recharge' },
+  VITALITE:      { label: 'Vitalité',      icon: '💪', color: '#fb923c', desc: 'Énergie physique, santé, vitalité' },
 };
 
 /** Retourne le label français d'un domaine (ex: 'BUSINESS' → 'Affaires') */
@@ -544,7 +554,7 @@ const DOMAIN_DIRECTIVES: Record<LifeDomain, { haut: string; bon: string; neutre:
   RELATIONS:     { haut: 'Réseaute, allie-toi, fédère — ton charisme rayonne.', bon: 'Tes échanges seront fluides — profites-en.', neutre: 'Maintiens tes relations sans forcer de nouveau contact.', bas: 'Risque de malentendu — choisis tes mots avec soin.' },
   CREATIVITE:    { haut: 'Crée, innove, écris — l\'inspiration coule.', bon: 'Bonne énergie créative — exploite-la.', neutre: 'Peaufine l\'existant plutôt que de créer du neuf.', bas: 'Pas le jour pour brainstormer — recharge.' },
   INTROSPECTION: { haut: 'Journée idéale pour méditer, planifier et voir clair.', bon: 'Ton intuition est fiable — écoute-la.', neutre: 'Garde un moment calme dans ta journée.', bas: 'L\'agitation extérieure domine — dur de se poser.' },
-  VITALITE:      { haut: 'Énergie physique au top — bouge, agis, entreprends.', bon: 'Bonne forme — gère ton rythme intelligemment.', neutre: 'Énergie stable — pas d\'excès.', bas: 'Corps en retrait — repos et récupération.' },
+  VITALITE:      { haut: 'Énergie physique au top — bouge, agis, entreprends.', bon: 'Bonne forme — gère ton rythme intelligemment.', neutre: 'Énergie en demi-teinte — dose tes efforts.', bas: 'Corps en retrait — repos et récupération.' },
 };
 
 // Ronde Pilotage P1 : Mercury-aware directives (BUSINESS, AMOUR, RELATIONS)
@@ -580,7 +590,8 @@ function calculateContextualScores(
   directBonuses?: Partial<Record<LifeDomain, number>>,
   nakshatraMods?: Record<string, number>,
   nakshatraAffinityOverride?: Record<LifeDomain, number>,  // V9.0 P3 — affinités dynamiques par Nakshatra actif
-  mercNeg: boolean = false  // FIX: Mercury négatif (pas seulement rétrograde) — cohérence narrative somatique
+  mercNeg: boolean = false,  // FIX: Mercury négatif (pas seulement rétrograde) — cohérence narrative somatique
+  lifeContext?: LifeContext,  // R34 — couche affichage : aiguillage label par tranche d'âge
 ): ContextualScores {
   const allDomains: LifeDomain[] = ['BUSINESS', 'AMOUR', 'RELATIONS', 'CREATIVITE', 'INTROSPECTION', 'VITALITE'];
   const domainRaw: Record<LifeDomain, number> = {
@@ -650,16 +661,28 @@ function calculateContextualScores(
     const anchored = domainScore * 0.65 + globalScore * 0.35;
     const spread   = anchored + (anchored - globalScore) * 0.15;
     const score    = Math.max(5, Math.min(97, Math.round(spread)));
+    const meta = DOMAIN_META[domain];
+    // R34 — résolution du label selon tranche d'âge (BUSINESS@59+ → "Réalisations" si lifeMode≠'still_active')
+    const label = lifeContext
+      ? resolveDomainLabel(domain, meta.label, lifeContext.bracket, lifeContext.lifeMode)
+      : meta.label;
     return {
       domain,
-      ...DOMAIN_META[domain],
+      icon: meta.icon,
+      color: meta.color,
+      desc: meta.desc,
+      label,
       score,
       directive: getDomainDirective(domain, score, mercNeg),
     };
   });
 
   const sorted = [...domains].sort((a, b) => b.score - a.score);
-  const fallbackDomain = { domain: 'BUSINESS' as const, icon: '💼', label: 'Affaires', score: 50, directive: '' };
+  // R34 — fallback label aussi soumis à l'aiguillage d'âge
+  const fallbackLabel = lifeContext
+    ? resolveDomainLabel('BUSINESS', 'Affaires', lifeContext.bracket, lifeContext.lifeMode)
+    : 'Affaires';
+  const fallbackDomain = { domain: 'BUSINESS' as const, icon: '💼', label: fallbackLabel, score: 50, directive: '' };
   const best = sorted[0] ?? fallbackDomain; // Sprint AG: bounds check
   const worst = sorted[sorted.length - 1] ?? fallbackDomain; // Sprint AG: bounds check
   const diff = best.score - worst.score;
@@ -815,36 +838,64 @@ function hexLabel(hexName: string, hexKeyword: string): string {
   return hexName.toLowerCase() === hexKeyword.toLowerCase() ? hexName : `${hexName} (${hexKeyword})`;
 }
 
-function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexKeyword: string): string {
+// Élision française : "de Enthousiasme" → "de l'Enthousiasme", "de La Créativité" → inchangé
+function deHex(name: string): string {
+  const firstChar = name.trimStart()[0]?.toLowerCase() ?? '';
+  const vowels = 'aeéèêëiîïoôuùûü';
+  return vowels.includes(firstChar) ? `de l'${name}` : `du ${name}`;
+}
+
+function buildConseil(dayType: DayTypeInfo, score: number, hexName: string, hexKeyword: string, hexTier?: string): string {
   const t = dayType.type;
   const hl = hexLabel(hexName, hexKeyword);
+  const isTenseHex = hexTier === 'D' || hexTier === 'E';
+  const msgDe = deHex(hexName); // "Le message de l'Enthousiasme" ou "du Chaudron"
+
+  // ═══ Ronde #30 Override 3 — Yi King tendu + Cosmique → tempérer ═══
   if (score >= COSMIC_THRESHOLD) {
-    if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hl} confirme : ce moment est rare.`;
-    if (t === 'communication') return `🌟 CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.`;
-    if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lance maintenant.`;
-    if (t === 'observation')   return `🌟 CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.`;
-    return `🌟 CONVERGENCE RARE — Énergie exceptionnelle tournée vers l'intérieur. Médite, visualise, pose une intention profonde — ce que tu ancres aujourd'hui rayonnera.`;
+    const tenseWarning = isTenseHex
+      ? ` Malgré cette dynamique exceptionnelle, ${hexName} invite à la vigilance — canalise cette puissance avec discernement.`
+      : '';
+    if (t === 'decision')      return `🌟 CONVERGENCE RARE — Prends LA décision que tu repousses. ${hexName} confirme : ce moment est rare.${tenseWarning}`;
+    if (t === 'communication') return `🌟 CONVERGENCE RARE — Pouvoir de persuasion maximal. L'hexagramme ${hexName} amplifie chaque mot.${tenseWarning}`;
+    if (t === 'expansion')     return `🌟 CONVERGENCE RARE — Convergence totale vers la croissance. Lance maintenant.${tenseWarning}`;
+    if (t === 'observation')   return `🌟 CONVERGENCE RARE — Lucidité à son apogée. Les insights d'aujourd'hui valent de l'or.${tenseWarning}`;
+    return `🌟 CONVERGENCE RARE — Énergie exceptionnelle tournée vers l'intérieur. Médite, visualise, pose une intention profonde — ce que tu ancres aujourd'hui rayonnera.${tenseWarning}`;
   }
   if (score >= 80) {
-    if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hl} : c'est le moment d'agir.`;
-    if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. ${hexName} amplifie tes échanges.`;
-    if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. ${hexName} soutient tes ambitions.`;
+    if (t === 'decision')      return `Conditions exceptionnelles pour décider. ${hexName} : c'est le moment d'agir.`;
+    if (t === 'communication') return `Journée idéale pour négocier et tisser des alliances. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
+    if (t === 'expansion')     return `Toutes les énergies convergent vers la croissance. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
     return `Journée d'intériorité dans des conditions rares. Méditation, introspection profonde — ta clarté intérieure est à son maximum.`;
   }
   if (score >= 65) {
-    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hl} t\'encourage à avancer.`;
-    if (t === 'communication') return `Énergie porteuse pour les échanges. ${hexName} favorise le dialogue.`;
-    return `Le courant est porteur. Maintiens le cap. ${hexName} soutient l'élan.`;
+    if (t === 'decision')      return `Bonne fenêtre pour décider. ${hexName} t\'encourage à avancer.`;
+    if (t === 'communication') return `Énergie porteuse pour les échanges. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
+    if (t === 'retrait')       return `Bonne énergie pour aller au fond des choses en silence. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
+    if (t === 'observation')   return `Le recul est porteur. Observe, analyse, et laisse les réponses venir à toi. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
+    return `Le courant est porteur. Maintiens le cap. Le message ${msgDe} : ${hexKeyword.toLowerCase()}.`;
   }
+  // ═══ Ronde #30 Override 1 — Score ≤64 + Décision → conseil plus prudent ═══
   if (score >= 40) {
-    if (t === 'decision')      return `Tu peux décider, mais vérifie tes données. ${hl} appelle à la prudence mesurée.`;
-    return `L'énergie est stable. ${hl} invite à se concentrer sur l'essentiel.`;
+    if (t === 'decision')      return `Évalue prudemment avant de décider. ${hexName} appelle à vérifier tes données et à ne pas te précipiter.`;
+    // ═══ Ronde #30 Override 2 — Score 40-64 + Expansion → tempérer le dayType ═══
+    if (t === 'expansion')     return `L'élan de croissance est là mais demande de la méthode. ${hexName} invite à préparer le terrain avant d'accélérer.`;
+    // ═══ Ronde #31 — Score 40-64 + Observation → encourager l'analyse sans pousser à l'action ═══
+    if (t === 'observation')   return `Journée d'observation utile — prends du recul et analyse ce qui se joue. ${hexName} invite à la patience.`;
+    return `L'énergie est stable. ${hexName} invite à se concentrer sur l'essentiel.`;
   }
   if (score >= 25) {
-    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hl} : ne décide que si c'est urgent.`;
-    return `L'énergie résiste. ${hl} recommande la prudence.`;
+    if (t === 'decision')      return `Journée de décision en conditions tendues. ${hexName} : ne décide que si c'est urgent.`;
+    // ═══ Ronde #30 Override 2b — Score <40 + Expansion → muter en préparation ═══
+    if (t === 'expansion')     return `L'énergie de croissance est en veille — prépare le terrain plutôt que de forcer. ${hexName} invite à planifier.`;
+    // ═══ Ronde #31 — Score 25-39 + Communication → mesure et écoute ═══
+    if (t === 'communication') return `Exprime-toi avec mesure — privilégie l'écoute active. ${hexName} recommande la clarté plutôt que l'impact.`;
+    return `L'énergie résiste. ${hexName} recommande la prudence.`;
   }
-  return `Repli stratégique. ${hl} signale des vents contraires — préserve ton énergie.`;
+  // Score < 25 — Mode Bouclier
+  if (t === 'expansion')       return `Repli stratégique — prépare la prochaine vague d'expansion en silence. ${hexName} recommande la patience.`;
+  if (t === 'communication')   return `Repli stratégique — limite les échanges au strict nécessaire. ${hexName} recommande le silence.`;
+  return `Repli stratégique. ${hexName} signale des vents contraires — préserve ton énergie.`;
 }
 
 // ══════════════════════════════════════
@@ -933,7 +984,7 @@ function computeCorrelatedCI(score: number, breakdown: SystemBreakdown[]): Confi
   const se = Math.sqrt(variance / n);
 
   // V8.9 GPT Q4 : calcul en delta-space pour respecter la courbure de compressL1Legacy()
-  // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse précision oracle)
+  // floorScore=5 : plage minimale de ±5 points affichés (anti-fausse-précision)
   // Sprint D1 : remplacement 1.96×1.10 → t(0.975, df=n-1) table Student exacte
   // n=4 groupes ESS → df=3 → t=3.182 (correction bootstrap 1.10 obsolète)
   // Source : Ronde 4+5 audit IA (GPT/Grok/Gemini, 2026-03-04).
@@ -1028,10 +1079,13 @@ export function calcDayPreview(
 
   // Cache 2 zones : volatile (alpha<1, ±ramp) vs permanent (alpha=1, >ramp)
   const _isPermanent = alpha >= 1;
+  // Ronde #35 F3 — natalCtx inclus dans la clé de cache (natalMoonSid discrimine le profil)
+  // Si l'utilisateur ajoute/change son heure de naissance, natalMoonSid change → cache invalidé.
+  const _nctxKey = natalCtx ? natalCtx.natalMoonSid.toFixed(2) : '';
   const _cKey = natalCtx
     ? (_isPermanent
-        ? `v15p|${bd}|${targetDate}|${transitBonus}|L2lite`          // permanent: v15=Dasha dans GW R16 λ=0.15
-        : `v15v|${bd}|${targetDate}|${transitBonus}|L2lite|${_today}`) // volatile: v15=Dasha dans GW R16 λ=0.15
+        ? `v16p|${bd}|${targetDate}|${transitBonus}|L2lite|${_nctxKey}`          // permanent: v16=R35 F3 natalCtx
+        : `v16v|${bd}|${targetDate}|${transitBonus}|L2lite|${_today}|${_nctxKey}`) // volatile: v16=R35 F3 natalCtx
     : _dayPreviewCacheKey(bd, targetDate, transitBonus, ctxMult, dashaMult, baseSignal);
 
   // TTL midnight : si le jour a changé, vider le cache volatile
@@ -1113,22 +1167,25 @@ export function calcDayPreview(
 
   // 5. Score = scoreFromGroups avec terrain L2-lite + V5/E alpha-blend
   //    J+1 FIX : alpha=0 pour demain → branche LIVE pure (terrain dans le tanh, identique au score réel)
-  let score = scoreFromGroups(
+  //    Ronde #35 F4 — retour structuré { score, xt, dm } (plus de side-channel)
+  const _sfgResult = scoreFromGroups(
     daily.luneGroupDelta, daily.ephemGroupDelta,
     daily.baziGroupDelta, daily.indivGroupDelta,
     _ctxMult, _dashaMult, _baseSignal,
     _isJ1 ? 0 : alpha,  // J+1 → LIVE (alpha=0) | J+2+ → rampe V5/E normale
   );
+  let score = _sfgResult.score;
   // Ronde #24 — Résonance Lunaire Natale post-tanh
   score = applyLunarResonance(score, daily.transitMoonSid, natalCtx?.natalMoonSid ?? null);
-  // Ronde 6 — capture side-channel xt/dm pour blend post-traitement annuel
-  const _dayXt = _sfgLastXt;
-  const _dayDm = _sfgLastDm;
+  // Ronde #35 F4 — xt/dm depuis retour structuré (ex side-channel)
+  const _dayXt = _sfgResult.xt;
+  const _dayDm = _sfgResult.dm;
 
   // 5. Construire DayPreview
   const pdv = ppd.v;
   const lCol = scoreLevelColor(score);
-  const conseil = buildConseil(daily.dayType, score, iching.name, iching.keyword);
+  const hexTier = getHexTier(iching.hexNum).tier;
+  const conseil = buildConseil(daily.dayType, score, iching.name, iching.keyword, hexTier);
 
   // Reasons : signaux + alertes issus de calcDailyModules
   const reasons = [..._signals, ..._alerts];
@@ -1160,7 +1217,11 @@ export function calcDayPreview(
 //   - Plancher : min 3 "Pic de l'année" si < 3 Cosmiques (score ≥ 85)
 //   - Zéro changement sur la formule de score
 // ══════════════════════════════════════════════════════════════════════
-export const COSMIC_THRESHOLD = 86;  // V4.4 : abaissé de 88→86 (compense k_future=0.65, 2027 top=86.3 → Cosmiques possibles)
+// Ronde #33 : seuils centralisés dans scoring-constants.ts (source unique)
+import { COSMIC_THRESHOLD as _CT, STRONG_THRESHOLD as _ST, getScoreMeta as _gSM } from './scoring-constants';
+export const COSMIC_THRESHOLD = _CT;
+export const STRONG_THRESHOLD = _ST;
+export const getScoreMeta = _gSM;
 const COSMIC_MAX_PER_YEAR = 999;  // Ronde 6 : cap désactivé — le Soft Shift régule naturellement (max ~15C en 2037)
 const ANNUAL_PEAK_MIN = 3;
 const ANNUAL_PEAK_FLOOR = 82;  // V4.1 : abaissé de 85→82 — garantit des "Pic de l'année" même en année faible (ex: 2027 Pic=84)
@@ -1309,6 +1370,10 @@ export function applySoftShiftBlend(yearPreviews: DayPreview[]): void {
   for (const p of yearPreviews) {
     if (p.xt == null || p.xt === 0 || p.dm == null) continue;
 
+    // ═══ Fix stabilité calendrier — jours avec score historique figé ═══
+    // Le xt reste dans la distribution (cs stable) mais le score affiché est intouchable.
+    if (p._frozen) continue;
+
     const d = _dayDiff(_todayStr, p.date);
 
     // Aujourd'hui + futur proche (≤ GUARD_FULL) : score brut inchangé
@@ -1374,7 +1439,8 @@ export function calcConvergence(
   cz: ChineseZodiac,
   iching: IChingReading,
   bd: string = '1977-09-23',
-  bt?: string  // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
+  bt?: string,  // V9 Sprint 1 — heure de naissance optionnelle (ex: "23:20")
+  lifeContext?: LifeContext,  // R34 — couche affichage : aiguillage label par tranche d'âge
 ): ConvergenceResult {
   const signals: string[] = [];
   const alerts: string[] = [];
@@ -1453,7 +1519,7 @@ export function calcConvergence(
   // Garde Mercure Rétro (indépendant de l'override multi-système)
   // Ronde Pilotage P1 : score ≥ 85 → maintenir AGIR avec prudence Mercure (pas de rétrogradation)
   if (actionReco.verb === 'agir' && mercPts <= -3) {
-    if (score >= 85) {
+    if (score >= COSMIC_THRESHOLD) {
       actionReco = { ...ACTION_DEFS.agir, conseil: `Convergence exceptionnelle malgré Mercure rétrograde — agis sur l\'essentiel, relis tout avant de signer. ${iching.keyword}.` };
     } else {
       actionReco = { ...ACTION_DEFS.ajuster, conseil: `Mercure rétrograde — avance avec prudence, évite les lancements. ${iching.keyword}.` };
@@ -1478,7 +1544,8 @@ export function calcConvergence(
   const contextualScores = calculateContextualScores(
     breakdown, score, num.py.v, num.pm.v,
     daily.directDomainBonuses, nakshatraMods, nakshatraAffinityOverride,
-    mercPts < 0  // FIX: Élargir à tout mercPts négatif (cohérence avec narrative somatique "gorge bloque" à mercPts < 0)
+    mercPts < 0,  // FIX: Élargir à tout mercPts négatif (cohérence avec narrative somatique "gorge bloque" à mercPts < 0)
+    lifeContext,  // R34
   );
 
   // V4.2 : Confiance temporelle
@@ -1506,7 +1573,7 @@ export function calcConvergence(
     ? `${agreeing}/${totalSystems} systèmes alignés. Les cycles longs confirment.`
     : confScore >= 55 ? `Majorité des systèmes convergent. Signaux contradictoires mineurs.`
     : confScore >= 35 ? `Signaux mixtes — le score pourrait basculer. Prudence.`
-    : `Score à contre-courant des cycles longs. Journée atypique.`;
+    : `Score à contre-courant des cycles longs — la journée est moins prévisible que d'habitude.`;
   const temporalConfidence: TemporalConfidence = { score: confScore, label: confLabel, reason: confReason, agreementRatio };
 
   const ci = computeCorrelatedCI(score, breakdown);
@@ -1522,8 +1589,8 @@ export function calcConvergence(
   const nhScore = nuclearHexScore(iching.hexNum);
   const nuclearHexResult = { ...nhScore.result, points: nhScore.points, label: nhScore.label };
 
-  // Score historique LIVE — sauvegarde pour cohérence calendrier (Option A)
-  try { saveScoreLive(todayStr, score, bd); } catch { /* localStorage indisponible */ }
+  // Ronde #35 F6 — Score historique LIVE sauvegardé dans orchestrator.ts (save unique).
+  // Format 4 champs { raw: score, off: calibOffset, xt: 0, v: ALGO_VERSION }.
 
   return {
     score, level, lCol,
@@ -1557,6 +1624,7 @@ export function calcConvergence(
     c4Shadow: _mainResult.c4,              // Sprint AY : C4 live (était shadow)
     cisCurrent: _mainResult.cis,           // CIS historique (gardé pour observabilité)
     shapley: _mainResult.shapley,          // Shapley exact 4 contributions + baseline
+    xtLive: _mainResult.xt,               // Ronde #35 F1 — X_total LIVE pour snapshot crépusculaire
     // Z2-B — observabilité groupes (Ronde Z consensus 3/3 Option B)
     baziGroupDelta:  daily.baziGroupDelta,
     luneGroupDelta:  daily.luneGroupDelta,
@@ -1617,10 +1685,15 @@ export function applyLunarResonance(
   return Math.round(Math.max(0, Math.min(100, baseScore + offset)));
 }
 
-// ═══ Ronde 6 — Side-channel Soft Shift : scoreFromGroups expose xt/dm pour passe 2 ═══
-// Lecture synchrone par calcDayPreview immédiatement après appel — thread-safe (JS single-thread)
-let _sfgLastXt = 0;   // X_total_future du dernier appel (0 = LIVE)
-let _sfgLastDm = 0;   // dashaMult du dernier appel
+// ═══ Ronde #35 F4 — scoreFromGroups retourne { score, xt, dm } (consensus 3/3) ═══
+// Suppression du side-channel _sfgLastXt/_sfgLastDm — le retour structuré est thread-safe
+// et élimine le couplage temporel entre scoreFromGroups et calcDayPreview.
+
+export interface ScoreFromGroupsResult {
+  score: number;
+  xt: number;   // X_total_future (pour applySoftShiftBlend passe 2)
+  dm: number;   // dashaMult du jour (pour recalculer terrainBonus en passe 2)
+}
 
 /** @internal — exported for unit testing only */
 export function scoreFromGroups(
@@ -1633,7 +1706,7 @@ export function scoreFromGroups(
   baseSignal: number | undefined,
   alpha: number = 0,                     // V5/E — 0=LIVE legacy, 1=future V5/E
   biasOffset: number = V5E_BIAS_OFFSET,  // V5/E — biais dynamique par profil
-): number {
+): ScoreFromGroupsResult {
   const A    = 44.0;   // Ronde 29 V3 (ex 36)
   const k    = 0.65;   // Ronde 29 V3 (ex 0.840)
   const _clampG = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -1798,12 +1871,8 @@ export function scoreFromGroups(
     X_total_future = Math.max(1.70, X_total_future_raw - _fPenalty);
   }
 
-  // ═══ Side-channel : exposer xt/dm pour passe 2 (applySoftShiftBlend) — TOUS les jours ═══
-  _sfgLastXt = X_total_future;
-  _sfgLastDm = dashaMult;
-
-  // Fast path : alpha≤0 → retour scoreLive, side-channel déjà posé pour passe 2
-  if (alpha <= 0) return Math.round(scoreLive);
+  // Fast path : alpha≤0 → retour scoreLive + xt/dm pour passe 2 (applySoftShiftBlend)
+  if (alpha <= 0) return { score: Math.round(scoreLive), xt: X_total_future, dm: dashaMult };
 
   // ═══ Score base FUTURE — Ronde 6 Soft Shift (consensus 3/3 GPT+Grok+Gemini) ═══
   // g(X) = X − c_s × tanh(X / c_s) : shift asymptotique préservant le neutre
@@ -1835,16 +1904,15 @@ export function scoreFromGroups(
   scoreFuture = Math.max(0, Math.min(100, scoreFuture));
 
   // ═══ ALPHA-BLEND Live ↔ Future (transition C⁰ continue) ═══
-  // Note : side-channel _sfgLastXt/_sfgLastDm déjà posé avant le check alpha (cf. supra)
   const blended = (1 - alpha) * scoreLive + alpha * scoreFuture;
   const finalScore = Math.max(0, Math.min(100, Math.round(blended)));
 
-  // ═══ PROBE R12b — Score final ≥ 85 : diagnostic terrain + Cosmique ═══
-  if (finalScore >= 85) {
+  // ═══ PROBE R12b — Score final ≥ COSMIC_THRESHOLD : diagnostic terrain + Cosmique ═══
+  if (import.meta.env.DEV && finalScore >= COSMIC_THRESHOLD) {
     console.log(`[COSM-R16] score=${finalScore} sBase=${scoreBase.toFixed(1)} dm=${dashaMult.toFixed(3)} Xt=${X_total_future.toFixed(3)} c4=${c4_future.toFixed(3)} alpha=${alpha.toFixed(2)}`);
   }
 
-  return finalScore;
+  return { score: finalScore, xt: X_total_future, dm: dashaMult };
 }
 
 // Ronde 18 consensus 2/3 (GPT v2 + Grok concède) — formule Elena Vasquez révisée
@@ -1995,7 +2063,7 @@ export function calcMainScore(
   ephemGroupDelta: number,
   baziGroupDelta: number,
   indivGroupDelta: number = 0,
-): { score: number; c4: number; cis: number; shapley: ShapleyContributions } {
+): { score: number; c4: number; cis: number; shapley: ShapleyContributions; xt: number } {
   try {
     const A    = 44.0;   // Ronde 29 V3 (ex 36)
     const k    = 0.65;   // Ronde 29 V3 (ex 0.840)
@@ -2086,7 +2154,8 @@ export function calcMainScore(
     // Shapley exact 16 coalitions (Ronde 17-18 consensus 3/3)
     const shapley = computeShapley4(XL, XE, XB, XI, terrain_sq, beta, baseSignal ?? 0);
 
-    return { score: mainScore, c4, cis, shapley };
+    // Ronde #35 F1 — expose X_total pour le snapshot crépusculaire (xt dans score-history)
+    return { score: mainScore, c4, cis, shapley, xt: X_total };
   } catch (e) {
     throw new Error(`[calcMainScore] échec: ${e instanceof Error ? e.message : e}`);
   }
@@ -2134,7 +2203,7 @@ function scoreMonthFromDays(dailyScores: number[], baseline: number): {
   const trimmed = sorted.slice(2, -2);
   const avg = trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
   const goodDays = dailyScores.filter(s => s >= 70).length;
-  const peakDays = dailyScores.filter(s => s >= 85).length;
+  const peakDays = dailyScores.filter(s => s >= COSMIC_THRESHOLD).length;
   const criticalDays = dailyScores.filter(s => s < 25).length;
   const goldDays = dailyScores.filter(s => s >= 80).length;
   const density = goodDays / n;
@@ -2259,7 +2328,7 @@ function detectForecastAlerts(bd: string, num: NumerologyProfile, year: number, 
   for (const ev of events) {
     if (ev.status === 'upcoming' && ev.daysUntil <= 20 && ev.daysUntil >= -10) {
       if (ev.type === 'eclipse_solar' || ev.type === 'eclipse_lunar') {
-        alerts.push({ date: `${year}-${String(month).padStart(2, '0')}-15`, type: 'eclipse', message: `${ev.icon} ${ev.name} — turbulences possibles`, icon: ev.icon });
+        alerts.push({ date: `${year}-${String(month).padStart(2, '0')}-15`, type: 'eclipse', message: `${ev.name} — turbulences possibles`, icon: ev.icon });
       }
     }
   }
@@ -2270,15 +2339,23 @@ function generateMonthNarrative(
   month: number, year: number, score: number, label: string, labelIcon: string,
   dominant: LifeDomain[], windows: ActionWindow[], alerts: ForecastAlert[],
   stats: { goodDays: number; peakDays: number; criticalDays: number },
-  trend: 'rising' | 'falling' | 'stable'
+  trend: 'rising' | 'falling' | 'stable',
+  lifeContext?: LifeContext, // R34 — couche affichage
 ): string {
   const monthName = MONTH_NAMES_FR[month];
-  const domLabel = DOMAIN_META[dominant[0]].label;
-  const domIcon = DOMAIN_META[dominant[0]].icon;
+  const meta0 = DOMAIN_META[dominant[0]];
+  const domLabel = lifeContext
+    ? resolveDomainLabel(dominant[0], meta0.label, lifeContext.bracket, lifeContext.lifeMode)
+    : meta0.label;
+  const domIcon = meta0.icon;
   let text = '';
   // Domaines dominants
   if (dominant.length > 1) {
-    text += `Double dominante ${domIcon} ${domLabel} et ${DOMAIN_META[dominant[1]].icon} ${DOMAIN_META[dominant[1]].label}. `;
+    const meta1 = DOMAIN_META[dominant[1]];
+    const dom1Label = lifeContext
+      ? resolveDomainLabel(dominant[1], meta1.label, lifeContext.bracket, lifeContext.lifeMode)
+      : meta1.label;
+    text += `Double dominante ${domIcon} ${domLabel} et ${meta1.icon} ${dom1Label}. `;
   } else {
     text += `Énergie dominante : ${domIcon} ${domLabel}. `;
   }
@@ -2309,6 +2386,7 @@ export function generateForecast36Months(
   bt?: string,  // heure naissance pour natalCtx (L2-lite)
   liveScore?: number, // ═══ V4.5 : score LIVE Pilotage pour aujourd'hui (GAP=0) ═══
   historicalScores?: Record<string, number>, // ═══ V4.5 : scores LIVE passés pour cohérence windows ═══
+  lifeContext?: LifeContext, // R34 — couche affichage labels par tranche d'âge
 ): MonthForecast[] {
   const start = startDate ?? new Date();
   const results: MonthForecast[] = [];
@@ -2435,8 +2513,8 @@ export function generateForecast36Months(
     const monthStats = scoreMonthFromDays(dailyData.map(d => d.score), baseline);
     const score = monthStats.score;
     // 'Gold' = clé interne Firebase (ne pas renommer → casse données historiques). extractLabel() normalise vers 'Or' côté UI.
-    const label = score >= COSMIC_THRESHOLD ? 'Cosmique' : score >= 80 ? 'Gold' : score >= 65 ? 'Favorable' : score >= 40 ? 'Routine' : score >= 25 ? 'Prudence' : 'Tempête';
-    const labelIcon = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '🌟' : score >= 65 ? '✦' : score >= 40 ? '🔄' : score >= 25 ? '☽' : '🛡️';
+    const label = score >= COSMIC_THRESHOLD ? 'Cosmique' : score >= 80 ? 'Gold' : score >= 65 ? 'Favorable' : score >= 40 ? 'Consolidation' : score >= 25 ? 'Prudence' : 'Tempête';
+    const labelIcon = score >= COSMIC_THRESHOLD ? '🌟' : score >= 80 ? '🔥' : score >= 65 ? '✦' : score >= 40 ? '🔄' : score >= 25 ? '☽' : '🛡️';
     const labelColor = scoreLevelColor(score);
     const dominantDomains = computeMonthDominantDomains(dailyData);
     const windows = detectActionWindows(dailyData, dominantDomains);
@@ -2445,10 +2523,17 @@ export function generateForecast36Months(
     const trend: 'rising' | 'falling' | 'stable' = score > prevScore + 3 ? 'rising' : score < prevScore - 3 ? 'falling' : 'stable';
     const narrative = generateMonthNarrative(
       mc.month, mc.year, score, label, labelIcon, dominantDomains, windows, forecastAlerts,
-      { goodDays: monthStats.goodDays, peakDays: monthStats.peakDays, criticalDays: monthStats.criticalDays }, trend
+      { goodDays: monthStats.goodDays, peakDays: monthStats.peakDays, criticalDays: monthStats.criticalDays }, trend,
+      lifeContext, // R34
     );
     const progNarrative = astro && Math.abs(mc.monthProgScore) >= 2
-      ? ` ${mc.monthProgScore > 0 ? '↗ Courants de fond favorables — le terrain est porteur.' : '↘ Courants de fond en retrait — avance prudemment.'}`
+      ? ` ${mc.monthProgScore > 0
+          ? '↗ Courants de fond favorables — le terrain est porteur.'
+          : score >= 80
+            ? '↘ Quelques courants de fond plus calmes — sans impact notable ce mois-ci.'
+            : score >= 65
+              ? '↘ Quelques courants de fond plus calmes — reste attentif aux détails.'
+              : '↘ Courants de fond plus calmes ce mois — avance à ton rythme.'}`
       : '';
     // ═══ V4.5 : Top 3 meilleurs jours du mois (tri par score desc) ═══
     const topDays = [...dailyData].sort((a, b) => b.score - a.score).slice(0, 3);
@@ -2462,6 +2547,8 @@ export function generateForecast36Months(
       dominantDomains, windows, alerts: forecastAlerts, narrative: narrative + progNarrative, baseline,
       stats: { avg: monthStats.avg, goodDays: monthStats.goodDays, peakDays: monthStats.peakDays, criticalDays: monthStats.criticalDays, goldDays: monthStats.goldDays },
       topDays, climateLabel,
+      // Ronde #31-bis : exposé pour détection contradiction Tier vs Progressions dans ForecastTab
+      monthProgScore: astro && Math.abs(mc.monthProgScore) >= 2 ? mc.monthProgScore : 0,
     });
   }
   return results;

@@ -251,16 +251,18 @@ export function calcMoonScore(targetDate: string, dayType: DayType): MoonScore {
     signals.push(`${moon.emoji} Pleine Lune + jour ${dayType} → énergie de culmination`);
   } else if (isFull && isReceptiveDay) {
     points -= 2;
-    alerts.push(`${moon.emoji} Pleine Lune + jour de retrait → émotions amplifiées`);
+    // NOTE : ne pas répéter "Pleine Lune" ici — déjà affiché positivement dans "Influences du jour".
+    // Formuler en termes de comportement (domaine émotionnel) sans contredire visuellement le message général.
+    alerts.push(`${moon.emoji} Lune intense — émotions en surface, écoute avant d'agir`);
   } else if (isWaxing && isActionDay) {
     points += 2;
-    signals.push(`${moon.emoji} Lune croissante + énergie d'action → momentum`);
+    signals.push(`${moon.emoji} Lune croissante — élan naturel, bonne fenêtre pour agir → momentum`);
   } else if (isWaning && isActionDay) {
     points -= 2;
-    alerts.push(`${moon.emoji} Lune décroissante + jour d'action → énergie en repli`);
+    alerts.push(`${moon.emoji} Lune décroissante — l'énergie se retire, agis avec discernement → repli doux`);
   } else if (isWaning && isReceptiveDay) {
     points += 2;
-    signals.push(`${moon.emoji} Lune décroissante + repos → bon cycle pour lâcher prise`);
+    signals.push(`${moon.emoji} Lune décroissante — bon moment pour lâcher prise et se recentrer → cycle favorable`);
   }
 
   let eclipseContrib = 0;
@@ -469,7 +471,7 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     if (baziDMPts > 0) {
       baziSignals.push(`Énergie du jour porteuse — ${baziResult.relation === 'produced_by' ? 'tu es soutenu' : 'bonne harmonie'}`);
     } else if (baziDMPts < 0) {
-      baziAlerts.push(`Énergie du jour sous tension — ${baziResult.relation === 'destroyed_by' ? 'reste vigilant' : 'petite friction'}`);
+      baziAlerts.push(`Attention douce — ${baziResult.relation === 'destroyed_by' ? 'recentre-toi avant d\'agir' : 'léger décalage, rien de grave'}`);
     }
 
     tenGodsResult = calc10Gods(birthDate, todayDate);
@@ -558,7 +560,9 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
     shenShaPts = Math.max(-4, Math.min(4, Math.round(rawShenSha * 10) / 10));
 
     for (const star of shenShaResult.active) {
-      const starHuman = star.label_fr.split('—')[0].trim();
+      // Ronde #34 audit — afficher le label_fr COMPLET (nom + description) pour que l'utilisateur comprenne
+      // Ex: "Lame Tranchante — énergie brute" au lieu de "Lame Tranchante" seul
+      const starHuman = star.label_fr;
       if (star.global > 0) signals.push(`${starHuman} → favorable (étoile chinoise)`);
       else if (star.global < 0) alerts.push(`${starHuman} → friction (étoile chinoise)`);
     }
@@ -568,8 +572,8 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
         value: shenShaResult.active.map(s => s.chinese).join(' '),
         points: shenShaPts,
         detail: shenShaResult.active.map(s => s.label_fr).join(' · '),
-        signals: shenShaResult.active.filter(s => s.global > 0).map(s => `${s.chinese} → ${s.label_fr.split('—')[0].trim()}`),
-        alerts: shenShaResult.active.filter(s => s.global < 0).map(s => `${s.chinese} → ${s.label_fr.split('—')[0].trim()}`),
+        signals: shenShaResult.active.filter(s => s.global > 0).map(s => `${s.chinese} → ${s.label_fr}`),
+        alerts: shenShaResult.active.filter(s => s.global < 0).map(s => `${s.chinese} → ${s.label_fr}`),
       });
     }
   } catch { /* Shen Sha fail silently */ }
@@ -580,8 +584,8 @@ function _calcBaziGroup(bd: string, todayStr: string, astro: AstroChart | null):
   const jianchuOfficer = jianChuResult.officer;
   if (jianchuOfficer) {
     const officerLabel = `${jianchuOfficer.zh} ${jianchuOfficer.fr}`;
-    if (jianchuOfficer.pts > 0) signals.push(`Timing favorable → ${jianchuOfficer.fr} (calendrier chinois)`);
-    else if (jianchuOfficer.pts < 0) alerts.push(`Timing difficile → ${jianchuOfficer.fr} (calendrier chinois)`);
+    if (jianchuOfficer.pts > 0) signals.push(`Moment favorable → ${jianchuOfficer.fr} (calendrier chinois)`);
+    else if (jianchuOfficer.pts < 0) alerts.push(`Moment difficile → ${jianchuOfficer.fr} (calendrier chinois)`);
     breakdowns.push({
       system: 'Cycle des 12 Officiers', icon: '建',
       value: officerLabel,
@@ -923,7 +927,7 @@ function _calcEphemGroup(
         if (shock.delta < 0) alerts.push(`⚡ ${shock.detail}`);
         else signals.push(`🌟 ${shock.detail}`);
         breakdowns.push({
-          system: shock.type === 'ingress' ? `Ingress ${shock.planetFR}` : `Station ${shock.planetFR}`,
+          system: shock.type === 'ingress' ? `Entrée ${shock.planetFR}` : `Station ${shock.planetFR}`,
           icon: '⚡',
           value: shock.type === 'ingress' ? 'Changement de signe' : 'Station D↔R',
           points: shock.delta,
@@ -984,7 +988,7 @@ function _calcIndivGroup(
   const ichingSignals: string[] = [];
   const ichingAlerts: string[] = [];
   if (ichRes.pts > 0) ichingSignals.push(`${ichRes.tier === 'A' ? 'Yi King puissant' : 'Yi King favorable'} : ${iching.name}`);
-  if (ichRes.pts < 0) ichingAlerts.push(`${ichRes.tier === 'E' ? 'Yi King d\'épreuve' : 'Yi King tendu'} : ${iching.name}`);
+  if (ichRes.pts < 0) ichingAlerts.push(`${ichRes.tier === 'E' ? 'Yi King de grand défi' : 'Yi King de vigilance'} : ${iching.name}`);
   signals.push(...ichingSignals);
   alerts.push(...ichingAlerts);
 
@@ -1213,7 +1217,7 @@ export function calcDailyModules(
   else if (pdv === num.expr.v) { pdPts = 5; sig('Talents amplifiés', `Jour Personnel ${pdv} = Expression`, 'Numéro', 'talents amplifiés', numSignals, richSignals, 'Le jour active ton nombre d\'expression — communique, crée.'); }
   else if (pdv === num.soul.v) { pdPts = 4; sig('Désirs profonds activés', `Jour Personnel ${pdv} = Âme`, 'Numéro', 'désirs activés', numSignals, richSignals, 'Le jour résonne avec ton nombre d\'âme — écoute ton intuition.'); }
   else if (pdv === num.pers.v) { pdPts = 3; sig('Charisme renforcé', `Jour Personnel ${pdv} = Personnalité`, 'Numéro', 'charisme', numSignals, richSignals, 'Le jour active ton nombre de personnalité — ton image rayonne.'); }
-  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); sig('Énergie spirituelle', `Jour Maître ${pdv}`, 'Numéro', 'énergie spirituelle', numSignals, richSignals, 'Nombre maître — potentiel d\'inspiration hors norme.'); }
+  if (isMaster(pdv))           { pdPts = Math.min(7, pdPts + 2); sig('Vibration Maître — potentiel amplifié', `Jour Maître ${pdv}`, 'Numéro', 'vibration maître', numSignals, richSignals, 'Nombre maître — potentiel d\'inspiration hors norme.'); }
   if (num.kl.includes(pdv))    { pdPts = Math.min(7, pdPts + 1); }
   pdPts = Math.max(-7, Math.min(7, pdPts));
 
@@ -1241,8 +1245,8 @@ export function calcDailyModules(
   // Karmic debt signals conservés (valeur narrative)
   if (num.hasKarmicDebt && num.karmicDebt) {
     const kd = num.karmicDebt;
-    const kdMsg = kd === 13 ? 'effort & discipline' : kd === 14 ? 'liberté & excès' : kd === 16 ? 'ego & humilité' : 'puissance & abus';
-    signals.push(`⚖️ Schéma à transcender ${kd} — ${kdMsg}`);
+    const kdMsg = kd === 13 ? 'persévérance & rigueur' : kd === 14 ? 'liberté & cadre' : kd === 16 ? 'confiance & humilité' : 'force & responsabilité';
+    alerts.push(`⚖️ Schéma à transcender ${kd} — ${kdMsg}`);
   }
   signals.push(...numSignals);
   alerts.push(...numAlerts);
@@ -1297,10 +1301,10 @@ export function calcDailyModules(
   const trLunSignals: string[] = [];
   const trLunAlerts: string[] = [];
 
-  if (faMoon && isActDayMain)       { trLunSignals.push(`Lune en ${moonTr.sign} → amplifie l'action`); }
-  else if (weMoon && isRefDayMain)  { trLunSignals.push(`Lune en ${moonTr.sign} → soutient l'introspection`); }
-  else if (faMoon && isRefDayMain)  { trLunAlerts.push(`Lune en ${moonTr.sign} → agitation en jour de repos`); }
-  else if (weMoon && isActDayMain)  { trLunAlerts.push(`Lune en ${moonTr.sign} → énergie ralentie`); }
+  if (faMoon && isActDayMain)       { trLunSignals.push(`La Lune dynamise l'atmosphère — bon élan pour agir`); }
+  else if (weMoon && isRefDayMain)  { trLunSignals.push(`La Lune soutient l'intériorité — bonne journée pour se recentrer`); }
+  else if (faMoon && isRefDayMain)  { trLunAlerts.push(`Lune en débit — l'énergie peut rendre agité en journée de repos`); }
+  else if (weMoon && isActDayMain)  { trLunAlerts.push(`Lune en reflux — l'élan peut sembler plus lourd que d'habitude`); }
 
   signals.push(...trLunSignals);
   alerts.push(...trLunAlerts);
@@ -1356,7 +1360,7 @@ export function calcDailyModules(
       case 'conjoint': nodeSignals.push('↻ Retour des Nœuds — mission de vie'); break;
       case 'trigone':  nodeSignals.push('🌊 Trigone nodal — flux de vie'); break;
       case 'opposé':   nodeAlerts.push('⇄ Inversion nodale — tension passé/futur'); break;
-      case 'carré':    nodeAlerts.push('⚔️ Carré nodal — crise de croissance'); break;
+      case 'carré':    nodeAlerts.push('⚔️ Tension sur ta direction de vie — crise de croissance'); break;
     }
     if (nodeTransit.isNodeReturn) { nodeSignals.push('🌟 Retour des Nœuds actif'); }
     signals.push(...nodeSignals);
