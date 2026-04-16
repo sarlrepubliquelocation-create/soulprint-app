@@ -6,6 +6,8 @@ import { findCity, isFranceDST } from './engines/astrology';
 import { generateStrategicReading } from './engines/strategic-reading';
 import { sto } from './engines/storage';
 import { runWeeklyAlphaGUpdate } from './engines/alpha-calibration'; // Phase 3c — centralisé
+import { saveScoreLive } from './engines/score-history'; // Fix Option 3a — background save triggers
+import { getCalibOffset } from './engines/calibration'; // Fix Option 3a — calibOffset pour background save
 import { runWeeklyPredictiveValidation } from './engines/predictive-validation'; // Phase 3c — centralisé
 import { useSyncDailyVector } from './engines/useSyncDailyVector';
 import type { PSIResult } from './engines/temporal';
@@ -29,6 +31,7 @@ const TemporalTab    = lazy(() => import('./components/TemporalTab'));
 const BondTab        = lazy(() => import('./components/BondTab'));
 import { type TemporalData } from './components/TemporalTab';
 import { Cd, P, FocusVisibleStyle } from './components/ui';
+import { TimelineProvider } from './contexts/TimelineContext'; // Fix CalendarTab crash — useTimeline hors Provider
 import OnboardingModal, { isOnboardingDone } from './components/OnboardingModal'; // V9 Sprint 7c
 
 // Inject custom scrollbar for tabs (once)
@@ -371,6 +374,76 @@ export default function App() {
       : dt.desc;
     notifyDailyScore(s, dt.label, hint);
   }, [data, notifyDailyScore]);
+
+  // ═══ Fix Option 3a — Background save : sauvegarder le score à chaque mise en arrière-plan ═══
+  // Complément à buildSoulData (qui ne tourne qu'au démarrage) :
+  // visibilitychange + pagehide garantissent que le score est persisté même si l'app
+  // n'est pas rouverte le lendemain. Corrige la Cause A du blind check-in (dérive ~35 pts).
+  //
+  // ═══ Fix P4 — Couverture "app ouverte toute la journée, minuit passe" ═══
+  // Le correctif précédent (setInterval + save direct) écrivait un score STALE pour le
+  // nouveau jour (data.conv.score reste figé tant que lock ne change pas).
+  //
+  // Nouvelle stratégie (Option B' validée par simulation) :
+  //   - visibilitychange/pagehide → save idempotent (score courant = score du jour)
+  //   - setInterval 30 min → vérifie le franchissement de minuit
+  //       • même jour → save idempotent (no-op via Guard F7 saveScoreLive)
+  //       • nouveau jour → force recalcul de data via setLock({...}) + clear caches
+  //         → buildSoulData recalcule avec le bon terrain/dashaMult du jour courant
+  //         → orchestrator.ts L130 sauvegarde automatiquement le vrai score
+  useEffect(() => {
+    const isMainProfile = profiles.find(p => p.id === activeProfileId)?.isMain ?? false;
+    if (!isMainProfile || !lock.bd || !data) return;
+
+    const getTodayStr = (): string => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const initialTodayStr = getTodayStr();
+
+    // Save idempotent du score courant (appelé sur visibilitychange/pagehide)
+    const handleBackgroundSave = () => {
+      try {
+        const conv = data.conv;
+        const todayStr = getTodayStr();
+        // Garde anti-stale : si le jour a changé depuis le mount, on ne save PAS
+        // (conv.score est figé sur initialTodayStr, save écrirait un faux score).
+        // Le franchissement de minuit est géré par handlePeriodicCheck ci-dessous.
+        if (todayStr !== initialTodayStr) return;
+        const off = getCalibOffset();
+        const xt = conv.xtLive ?? 0;
+        saveScoreLive(todayStr, conv.score, off, xt, lock.bd);
+      } catch { /* fail silently — storage indisponible */ }
+    };
+
+    // Check périodique 30 min : détecte le franchissement de minuit et force un recalcul
+    const handlePeriodicCheck = () => {
+      const todayStr = getTodayStr();
+      if (todayStr !== initialTodayStr) {
+        // Minuit franchi pendant que l'app est ouverte → data.conv.score est stale.
+        // On force un recalcul en changeant la ref de lock (useMemo re-run + clear caches).
+        // buildSoulData recalculera avec la bonne date → orchestrator.ts sauvera le bon score.
+        try {
+          clearRarityCache();
+          clearDayPreviewCache();
+          setLock(l => ({ ...l }));
+        } catch { /* fail silently */ }
+      } else {
+        // Même jour : save idempotent (no-op si score inchangé via Guard F7)
+        handleBackgroundSave();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleBackgroundSave);
+    window.addEventListener('pagehide', handleBackgroundSave);
+    const intervalId = setInterval(handlePeriodicCheck, 30 * 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', handleBackgroundSave);
+      window.removeEventListener('pagehide', handleBackgroundSave);
+      clearInterval(intervalId);
+    };
+  }, [data, lock.bd, activeProfileId, profiles]);
 
   // V5.4: Micro-validation → fragment prompt GPT (pondération par résonance utilisateur)
   const getResonancePromptFragment = (): string => {
@@ -824,18 +897,20 @@ export default function App() {
         {/* Content */}
         {!data && <Cd><div style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Entre tes informations ci-dessus et clique ✦ Calculer</div></Cd>}
         {data && (
-          <Suspense fallback={<Cd><div role="status" aria-live="polite" aria-busy="true" style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Chargement…</div></Cd>}>
-            {tab === 'convergence' && <ConvergenceTab data={data} psi={psiData} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
-            {tab === 'calendar' && <CalendarTab data={data} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
-            {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} fn={lock.fn} yearPreviews={yearPreviews} />}
-            {tab === 'bond' && <BondTab data={data} bd={lock.bd} />}
-            {tab === 'astro' && <AstroTab data={data} bd={lock.bd} bt={lock.bt} bp={lock.bp} />}
-            {tab === 'iching' && <IChingTab data={data} bd={lock.bd} />}
-            {tab === 'insights' && (<>
-              <LectureTab data={data} bd={lock.bd} bt={lock.bt} narr={narr} narrLoad={narrLoad} genNarr={genNarr} yearPreviews={yearPreviews} />
-              {temporal && <TemporalTab data={temporal} psi={psiData} />}
-            </>)}
-          </Suspense>
+          <TimelineProvider rawScore={data.conv.score}>
+            <Suspense fallback={<Cd><div role="status" aria-live="polite" aria-busy="true" style={{ textAlign: 'center', color: P.textDim, padding: 28, fontSize: 14 }}>Chargement…</div></Cd>}>
+              {tab === 'convergence' && <ConvergenceTab data={data} psi={psiData} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
+              {tab === 'calendar' && <CalendarTab data={data} bd={lock.bd} bt={lock.bt} yearPreviews={yearPreviews} />}
+              {tab === 'profile' && <ProfileTab data={data} bd={lock.bd} bt={lock.bt} gender={lock.gn} fn={lock.fn} yearPreviews={yearPreviews} />}
+              {tab === 'bond' && <BondTab data={data} bd={lock.bd} />}
+              {tab === 'astro' && <AstroTab data={data} bd={lock.bd} bt={lock.bt} bp={lock.bp} />}
+              {tab === 'iching' && <IChingTab data={data} bd={lock.bd} />}
+              {tab === 'insights' && (<>
+                <LectureTab data={data} bd={lock.bd} bt={lock.bt} narr={narr} narrLoad={narrLoad} genNarr={genNarr} yearPreviews={yearPreviews} />
+                {temporal && <TemporalTab data={temporal} psi={psiData} />}
+              </>)}
+            </Suspense>
+          </TimelineProvider>
         )}
 
         <div style={{ textAlign: 'center', marginTop: 48, fontSize: 9, color: '#27272a', letterSpacing: 3, fontWeight: 500 }}>KAIRONAUTE v4.5 © 2026</div>
