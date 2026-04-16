@@ -12,10 +12,13 @@
 
 import { calcNumerology, calcPersonalYear, calcPersonalMonth, calcPersonalDay, reduce, calcLifePathHorizontal, calcInclusionDisplay, calcPinnacles, calcChallenges, getActivePinnacleIdx, getNumberInfo, type NumerologyProfile, type Reduced, type InclusionDisplay } from './numerology';
 import { calcAge } from './date-utils';
+import { getCalibOffset } from './calibration';
+import { saveScoreLive } from './score-history';
 import { calcAstro, type AstroChart, getPlanetLongitudeForDate } from './astrology';
 import { calcChineseZodiac, type ChineseZodiac } from './chinese-zodiac';
 import { calcIChing, getHexTier, calcNatalIChing, getHexProfile, type IChingReading, type HexProfile } from './iching';
-import { calcConvergence, calcDayPreview, calcMonthPreviews, applySoftShiftBlend, estimateSlowTransitBonus, type ConvergenceResult, type DayPreview } from './convergence';
+import { calcConvergence, calcDayPreview, calcMonthPreviews, applySoftShiftBlend, estimateSlowTransitBonus, type ConvergenceResult, type DayPreview, type LifeContext } from './convergence';
+import { getLifeBracketFromBd } from './life-stages';
 import { calculateLuckPillars, calcBaZiDaily, getPeachBlossom, calcDayMaster, calcFourPillars, getNaYin, getChangsheng, type LuckPillarResult, type LuckPillar, type DayMasterDailyResult, type PeachBlossomResult, type FourPillars, type NaYinResult, type ChangshengResult } from './bazi';
 import { getMoonPhase, getNatalMoon, getRetroSchedule, getEclipseList, getMercuryStatus, getVoidOfCourseMoon, getPlanetaryRetrogrades, calcLunarNodes, type NatalMoon } from './moon';
 import { interpolateReturnIntensity, extractNatalReturnLongs, planetPosToLong } from './returns';
@@ -99,6 +102,8 @@ interface LockProfile {
   fn: string; mn: string; ln: string;
   bd: string; bt: string; bp: string;
   gn: 'M' | 'F'; tz: number;
+  /** R34 — Toggle profil bi-actif (59+). Ignoré par buildSoulData (couche affichage uniquement). */
+  lifeMode?: 'still_active' | null;
 }
 
 export function buildSoulData(lock: LockProfile): SoulData | null {
@@ -109,7 +114,22 @@ export function buildSoulData(lock: LockProfile): SoulData | null {
     const astro = calcAstro(lock.bd, lock.bt, lock.bp, lock.tz, today);
     const cz = calcChineseZodiac(lock.bd);
     const iching = calcIChing(lock.bd, today);
-    const conv = calcConvergence(num, astro, cz, iching, lock.bd, lock.bt || undefined);
+    // R34 — Contexte d'âge (couche affichage uniquement, aucun impact scoring)
+    const _lifeContext: LifeContext = {
+      bracket: getLifeBracketFromBd(lock.bd),
+      lifeMode: lock.lifeMode ?? null,
+    };
+    const conv = calcConvergence(num, astro, cz, iching, lock.bd, lock.bt || undefined, _lifeContext);
+
+    // ═══ Ronde #35 F5+F6 — Save unique score-history (format 4 champs) ═══
+    // Score brut (raw) + calibOffset (off) + xt + version.
+    // Le CalendarTab lira raw+off pour les jours passés (évite la dérive des multipliers).
+    // F1 Ronde #35 Session 3 — xt = X_total LIVE (snapshot crépusculaire pour détection changement de profil)
+    try {
+      const _calibOff = getCalibOffset();
+      saveScoreLive(today, conv.score, _calibOff, conv.xtLive ?? 0, lock.bd);
+    } catch { /* calibration/storage indisponible */ }
+
     const luckPillars = calculateLuckPillars(new Date(lock.bd + 'T00:00:00'), lock.gn);
 
     let dasha: CurrentDasha | undefined;
@@ -134,11 +154,16 @@ export function buildTemporalData(data: SoulData, bd: string): TemporalData | nu
 
     const pinnacles = buildPinnacles(num);
 
-    // Wrapper getScore : Date → number (score léger via calcDayPreview)
+    // Wrapper getScore : Date → number
+    // Aligné sur buildYearPreviews : passe les mêmes multiplicateurs pour cohérence
+    // entre TemporalTab (Momentum/Forecast/MACD) et CalendarTab (scores affichés).
     const transitBonus = estimateSlowTransitBonus(data.astro);
+    const ctxMult       = conv.ctxMult       ?? 1.0;
+    const dashaMult     = conv.dashaMult     ?? 1.0;
+    const baseSignal    = conv.shadowBaseSignal ?? 0;
     const getScore = (d: Date): number => {
       const ds = dateToStr(d);
-      return calcDayPreview(bd, num, cz, ds, transitBonus).score;
+      return calcDayPreview(bd, num, cz, ds, transitBonus, data.astro ?? null, ctxMult, dashaMult, baseSignal).score;
     };
 
     // Wrapper calcPY / calcPM
@@ -394,6 +419,13 @@ export function buildPSIData(data: SoulData, bd: string): PSIResult | null {
 // Calcule les 365 DayPreviews de l'année en cours + applySoftShiftBlend.
 // Mutualisé : ConvergenceTab, CalendarTab, ProfileTab, LectureTab utilisaient
 // chacun leur propre boucle 12 mois + soft-shift. Maintenant calculé une seule fois.
+//
+// ═══ Fix stabilité calendrier ═══
+// histScores + liveScore : overlay AVANT applySoftShiftBlend pour ancrer la distribution
+// sur les scores vus par l'utilisateur. Les jours passés avec historique sont marqués
+// _frozen → softShiftBlend skip leur score mais inclut leur xt dans le calcul de cs.
+// Cause racine : calcDailyModules bascule calcPersonalTransits → calcTransitsLite quand
+// un jour passe de "today" à "passé" → écart ~30 pts → cs instable → cascade sur 365 jours.
 export function buildYearPreviews(
   bd: string,
   num: NumerologyProfile,
@@ -403,6 +435,8 @@ export function buildYearPreviews(
   dashaMult: number,
   shadowBaseSignal: number,
   bt?: string,
+  histScores?: Record<string, number>,  // Fix stabilité — scores historiques (displayScore figé)
+  liveScore?: number,                   // Fix stabilité — score Pilotage d'aujourd'hui
 ): DayPreview[] | null {
   if (!bd) return null;
   try {
@@ -416,6 +450,30 @@ export function buildYearPreviews(
       );
       allPreviews.push(...mp.map(p => ({ ...p })));  // clone pour éviter mutation cache
     }
+
+    // ═══ Fix stabilité calendrier — overlay historique AVANT softShift ═══
+    // Ancre les jours passés sur le score réellement vu par l'utilisateur.
+    // Le xt (X_total_future) reste intact → la distribution pour cs est stable.
+    if (histScores || liveScore != null) {
+      const _todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+      const _scoreLCol = (s: number) => s >= 86 ? '#E0B0FF' : s >= 80 ? '#FFD700' : s >= 65 ? '#4ade80' : s >= 40 ? '#60a5fa' : s >= 25 ? '#9890aa' : '#ef4444';
+      for (const p of allPreviews) {
+        if (p.date === _todayStr && liveScore != null) {
+          // Aujourd'hui : score Pilotage exact
+          p.score = liveScore;
+          p.lCol = _scoreLCol(liveScore);
+          p._frozen = true;
+        } else if (p.date < _todayStr && histScores) {
+          const hist = histScores[p.date];
+          if (hist !== undefined) {
+            p.score = hist;
+            p.lCol = _scoreLCol(hist);
+            p._frozen = true;
+          }
+        }
+      }
+    }
+
     applySoftShiftBlend(allPreviews);
     return allPreviews;
   } catch {
