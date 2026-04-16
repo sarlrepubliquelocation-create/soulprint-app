@@ -110,6 +110,7 @@ export interface DomainScore {
   label: string;
   icon: string;
   color: string;
+  desc: string;   // description courte du domaine (ex: "Vie intérieure, équilibre, recharge")
   score: number; // 0-100
   directive: string;
 }
@@ -183,6 +184,8 @@ export interface DayPreview {
   // Ronde Cosmique — labels annuels (post-traitement plancher/plafond)
   isAnnualPeak?: boolean;   // "Pic de l'année" — top 3 jours d'une année pauvre (score ≥ 85)
   isCosmicCapped?: boolean; // jour ≥ 88 mais hors du top 25 (année trop riche) → perd le badge Cosmique
+  // Fix stabilité calendrier — score ancré sur score-history, applySoftShiftBlend skip ce jour
+  _frozen?: boolean;
 }
 
 // ══════════════════════════════════════
@@ -261,6 +264,8 @@ export interface ConvergenceResult {
     indiv: number;           // φ_indiv en points de score
     baseline: number;        // f(∅) = score avec tous groupes à 0
   };
+  // Ronde #35 F1 — X_total LIVE pour snapshot crépusculaire (score-history xt)
+  xtLive?: number;           // X_total du jour (calcMainScore) — checksum profil
 }
 
 // ══════════════════════════════════════
@@ -331,6 +336,9 @@ export interface MonthForecast {
   topDays: { date: string; score: number; dayType: string }[];
   // ═══ FIX NARRATION — Climat numérologique du mois (Expansion/Intériorité/Harmonie/etc.) ═══
   climateLabel?: string;
+  // ═══ Ronde #31-bis — Courant de fond astro (pour détection contradiction Tier vs Progressions) ═══
+  // Valeur 0 si astro absent ou |monthProgScore| < 2 (cohérent avec la règle de progNarrative)
+  monthProgScore: number;
 }
 
 // ══════════════════════════════════════

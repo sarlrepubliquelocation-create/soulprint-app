@@ -69,9 +69,11 @@ function addDays(dateStr: string, n: number): string {
 
 // ── API publique ──
 
-/** Offset calibré courant (valeur dans ±BORNES), à ajouter au score brut pour l'affichage */
+/** Offset calibré — DÉSACTIVÉ (Ronde #35 Session 3 — décision Jérôme : suppression calibration).
+ *  Retourne toujours 0. Les fonctions EMA/overlay restent exportées pour éviter les erreurs d'import
+ *  mais n'ont plus d'effet. Nettoyage complet prévu en phase suivante. */
 export function getCalibOffset(): number {
-  return loadCalib().offset;
+  return 0;
 }
 
 /** État complet de calibration (pour la UI et le debug) */

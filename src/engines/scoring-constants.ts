@@ -126,16 +126,49 @@ export const DASHA_WIDTH = 0.06;
 export const V5E_ALPHA_RAMP = 90;
 
 /**
- * SEUILS DE LABELS
+ * SEUILS DE SCORE — Source unique (Ronde #33)
+ *
+ * 6 niveaux officiels de l'app :
+ *   ≥ 86 : Convergence rare  🌟 (#E0B0FF)
+ *   80-85 : Alignement fort   🔥 (#FFD700)
+ *   65-79 : Bonne fenêtre     ✦ (#4ade80)
+ *   40-64 : Phase Consolidation🔄 (#60a5fa)
+ *   25-39 : Mode Maintenance   ☽ (#9890aa)
+ *    < 25 : Mode Bouclier     🛡️ (#ef4444)
+ *
  * COSMIC_THRESHOLD = 86 → score ≥ 86 = jour "Cosmique"
  *   Origine : V4.4, abaissé de 88→86 (compense k_future=0.65).
- *   Si augmenté : moins de Cosmiques, utilisateurs déçus.
- *   Si diminué : trop de Cosmiques, perte de rareté.
+ *
+ * STRONG_THRESHOLD = 80 → score ≥ 80 = "Alignement fort"
+ *   Origine : Ronde #33, remplace tous les hardcoded ">= 85".
+ *   Le seuil 85 n'a aucune réalité doctrinale.
  *
  * ANNUAL_PEAK_FLOOR = 82 → garantit des "Pic de l'année"
- *   Même en année faible (ex: 2027 pic=84 > 82 ✓).
  */
+export const COSMIC_THRESHOLD = 86;
+export const STRONG_THRESHOLD = 80;
+export const GOOD_THRESHOLD = 65;
+export const CONSOLIDATION_THRESHOLD = 40;
+export const MAINTENANCE_THRESHOLD = 25;
 export const ANNUAL_PEAK_FLOOR = 82;
+
+/** Métadonnées de score — fonction pure, source unique pour label/icône/couleur/tier */
+export type ScoreTier = 'cosmic' | 'strong' | 'good' | 'consolidation' | 'maintenance' | 'shield';
+export interface ScoreMeta {
+  label: string;
+  icon: string;
+  color: string;
+  tier: ScoreTier;
+  level: number; // 5=cosmic, 4=strong, 3=good, 2=consolidation, 1=maintenance, 0=shield
+}
+export function getScoreMeta(score: number): ScoreMeta {
+  if (score >= COSMIC_THRESHOLD) return { label: 'Convergence rare', icon: '🌟', color: '#E0B0FF', tier: 'cosmic', level: 5 };
+  if (score >= STRONG_THRESHOLD)  return { label: 'Alignement fort', icon: '🔥', color: '#FFD700', tier: 'strong', level: 4 };
+  if (score >= GOOD_THRESHOLD)    return { label: 'Bonne fenêtre', icon: '✦', color: '#4ade80', tier: 'good', level: 3 };
+  if (score >= CONSOLIDATION_THRESHOLD) return { label: 'Phase de Consolidation', icon: '🔄', color: '#60a5fa', tier: 'consolidation', level: 2 };
+  if (score >= MAINTENANCE_THRESHOLD)   return { label: 'Mode Maintenance', icon: '☽', color: '#9890aa', tier: 'maintenance', level: 1 };
+  return { label: 'Mode Bouclier', icon: '🛡️', color: '#ef4444', tier: 'shield', level: 0 };
+}
 
 /**
  * BORNES FINALES
