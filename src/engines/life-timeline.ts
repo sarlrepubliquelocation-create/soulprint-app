@@ -18,7 +18,7 @@ import { type NumerologyProfile, type Reduced,
 } from './numerology';
 import { calcAgeFromStrings } from './date-utils';
 import { type ChineseZodiac } from './chinese-zodiac';
-import { calcNatalIChing, getHexProfile, getHexTier } from './iching';
+import { calcNatalIChing, getHexProfile, getHexTier, getHexArchetypeGendered } from './iching';
 import { getNodeKeyMoments, calcLunarNodes } from './moon';
 
 // ── Types ──
@@ -79,7 +79,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 20, ageMax: 22, name: 'Premier retour Jupiter',
     planet: 'Jupiter', theme: 'expansion',
-    phrase: 'Vers 21-22 ans, un élan d\'expansion t\'a traversé — un horizon plus large s\'est ouvert, une envie de voir grand.',
+    phrase: 'Vers 21-22 ans, un élan d\'expansion t\'a traversé{e} — un horizon plus large s\'est ouvert, une envie de voir grand.',
     force: 'moyenne',
   },
   {
@@ -91,7 +91,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
   {
     ageMin: 35, ageMax: 37, name: 'Carré Uranus',
     planet: 'Uranus', theme: 'liberté',
-    phrase: 'Vers 36-37 ans, un fort besoin de liberté et d\'authenticité t\'a poussé à remettre en question des choix que tu croyais définitifs.',
+    phrase: 'Vers 36-37 ans, un fort besoin de liberté et d\'authenticité t\'a poussé{e} à remettre en question des choix que tu croyais définitifs.',
     force: 'forte',
   },
   {
@@ -144,7 +144,7 @@ const UNIVERSAL_TRANSITS: UniversalTransit[] = [
 // Chaque PY a 3 variantes pour éviter la répétition quand le même cycle revient tous les 9 ans
 const PY_THEMES: Record<number, { theme: string; keyword: string; actions: string[] }> = {
   1:  { theme: 'nouveau départ',       keyword: 'Initiative',     actions: [
-    'Une impulsion de renouveau t\'a traversé — besoin de repartir de zéro, de te réinventer, de marquer un territoire.',
+    'Une impulsion de renouveau t\'a traversé{e} — besoin de repartir de zéro, de te réinventer, de marquer un territoire.',
     'Un élan d\'initiative s\'est imposé — quelque chose de neuf demandait à naître.',
     'Un besoin de repartir à zéro, de te réinventer, de marquer un territoire.',
   ]},
@@ -154,17 +154,17 @@ const PY_THEMES: Record<number, { theme: string; keyword: string; actions: strin
     'Un appel à la patience et au partenariat s\'est fait sentir.',
   ]},
   3:  { theme: 'expansion créative',   keyword: 'Expression',     actions: [
-    'Un élan d\'expression t\'a porté — besoin de rayonner, de créer, de te rendre visible.',
+    'Un élan d\'expression t\'a porté{e} — besoin de rayonner, de créer, de te rendre visible.',
     'Ta voix intérieure a demandé à sortir — créativité, visibilité, expansion.',
     'Un besoin de te montrer et de créer s\'est imposé.',
   ]},
   4:  { theme: 'construction',         keyword: 'Structure',      actions: [
     'Un appel à la structure s\'est imposé. Tes fondations intérieures ont été consolidées, sans raccourci possible.',
-    'Le besoin de construire du solide t\'a rattrapé — rigueur, effort, fondations.',
+    'Le besoin de construire du solide t\'a rattrapé{e} — rigueur, effort, fondations.',
     'Un travail de fond s\'est imposé — poser des bases qui durent.',
   ]},
   5:  { theme: 'changement majeur',    keyword: 'Liberté',        actions: [
-    'Un besoin de rupture et de liberté t\'a traversé — quelque chose devait bouger, se reconfigurer, lâcher.',
+    'Un besoin de rupture et de liberté t\'a traversé{e} — quelque chose devait bouger, se reconfigurer, lâcher.',
     'Une envie de mouvement et de changement a secoué tes structures.',
     'Quelque chose devait lâcher — un appel à la liberté et à la reconfiguration.',
   ]},
@@ -191,7 +191,7 @@ const PY_THEMES: Record<number, { theme: string; keyword: string; actions: strin
   11: { theme: 'illumination',         keyword: 'Vision',         actions: [
     'Des intuitions fulgurantes ont traversé cette période — une tension nerveuse intense, le sentiment de percevoir plus loin que d\'habitude.',
     'Une vision plus grande que toi s\'est imposée — intensité rare, perception aiguisée.',
-    'Un sentiment de mission et d\'illumination intérieure t\'a traversé.',
+    'Un sentiment de mission et d\'illumination intérieure t\'a traversé{e}.',
   ]},
   22: { theme: 'bâtisseur cosmique',   keyword: 'Vision à grande échelle', actions: [
     'Une vision plus grande que toi s\'est imposée — un appel à construire quelque chose qui te dépasse.',
@@ -207,27 +207,28 @@ const PY_THEMES: Record<number, { theme: string; keyword: string; actions: strin
 
 // V5.1: Compteur d'occurrences pour varier les formulations
 const _pyOccurrenceCount: Record<number, number> = {};
-function getPYAction(pyValue: number): string {
+function getPYAction(pyValue: number, gender: 'M' | 'F' = 'M'): string {
   const theme = PY_THEMES[pyValue];
   if (!theme) return '';
   const count = _pyOccurrenceCount[pyValue] || 0;
   _pyOccurrenceCount[pyValue] = count + 1;
-  return theme.actions[count % theme.actions.length];
+  const action = theme.actions[count % theme.actions.length];
+  return action.replace(/\{e\}/g, gender === 'F' ? 'e' : '');
 }
 
 // ── Thèmes des Pinnacles ──
 
 // V5.1: Out-clause — dynamiques internes (Ronde #2)
 const PINNACLE_THEMES: Record<number, string> = {
-  1: 'indépendance et initiative — un besoin de te tenir debout seul s\'est imposé',
-  2: 'diplomatie et patience — une nécessité d\'écouter et de tisser des alliances t\'a structuré',
-  3: 'créativité et expression — un élan d\'expression et de visibilité t\'a traversé',
+  1: 'indépendance et initiative — un besoin de te tenir debout seul{e} s\'est imposé',
+  2: 'diplomatie et patience — une nécessité d\'écouter et de tisser des alliances t\'a structuré{e}',
+  3: 'créativité et expression — un élan d\'expression et de visibilité t\'a traversé{e}',
   4: 'travail et structure — un appel à bâtir des fondations solides par l\'effort s\'est fait sentir',
   5: 'liberté et changement — un besoin d\'instabilité et de mouvement t\'a fait évoluer',
   6: 'responsabilité et famille — un poids de protection et de guidance s\'est posé sur toi',
-  7: 'introspection et spécialisation — un besoin de profondeur et de vie intérieure t\'a recentré',
-  8: 'pouvoir et reconnaissance — une énergie de leadership et d\'autorité s\'est manifestée',
-  9: 'humanisme et achèvement — un appel à quelque chose de plus grand que toi t\'a porté',
+  7: 'introspection et spécialisation — un besoin de profondeur et de vie intérieure t\'a recentré{e}',
+  8: 'pouvoir et reconnaissance — une énergie d\'autorité et de direction s\'est manifestée',
+  9: 'humanisme et achèvement — un appel à quelque chose de plus grand que toi t\'a porté{e}',
   11: 'vision et illumination — une mission plus grande que toi s\'est imposée avec une intensité rare',
   22: 'bâtisseur cosmique — un projet qui dépasse ta génération a commencé à germer en toi',
   33: 'maître enseignant — une vocation de transmission et d\'élévation s\'est révélée',
@@ -298,6 +299,11 @@ function getRemarkableYears(bd: string, birthYear: number, ageStart: number, age
 
 // ── Génération d'insights par période ──
 
+// Helper : remplace le placeholder {e} par "e" (F) ou "" (M) dans les templates
+function _applyGenderMarker(text: string, gender: 'M' | 'F' = 'M'): string {
+  return text.replace(/\{e\}/g, gender === 'F' ? 'e' : '');
+}
+
 function generatePeriodInsights(
   period: { pinnacleIdx: number; pinnacle: Reduced; challenge: Reduced; ageStart: number; ageEnd: number },
   transits: UniversalTransit[],
@@ -306,12 +312,13 @@ function generatePeriodInsights(
   czAnimal: string,
   czElem: string,
   prevPinnacleV?: number,
+  gender: 'M' | 'F' = 'M',
 ): { insights: string[]; sources: string[] } {
   const insights: string[] = [];
   const sources: string[] = [];
   const pInfo = getNumberInfo(period.pinnacle.v);
   const cInfo = getNumberInfo(period.challenge.v);
-  const pinnTheme = PINNACLE_THEMES[period.pinnacle.v] || `énergie ${pInfo.k}`;
+  const pinnTheme = _applyGenderMarker(PINNACLE_THEMES[period.pinnacle.v] || `énergie ${pInfo.k}`, gender);
   const challTheme = CHALLENGE_THEMES[period.challenge.v] || `défi ${cInfo.k}`;
 
   // Ne générer que pour le passé (périodes déjà vécues ou en cours)
@@ -370,7 +377,7 @@ function generatePeriodInsights(
         dated.push({
           age: coincidingPY.age,
           order: 1,
-          text: `${shockPrefix}${tr.name} + phase de vie ${period.pinnacle.v} + Année ${coincidingPY.py.v} (${pyTheme.keyword}). ${getPYAction(coincidingPY.py.v)}${shockSuffix}`,
+          text: `${shockPrefix}${tr.name} + phase de vie ${period.pinnacle.v} + Année ${coincidingPY.py.v} (${pyTheme.keyword}). ${getPYAction(coincidingPY.py.v, gender)}${shockSuffix}`,
           source: isShock ? 'Universal Shock' : 'Convergence triple',
         });
         coveredTransitNames.add(tr.name); // Ce transit est couvert par la convergence
@@ -381,7 +388,7 @@ function generatePeriodInsights(
   // 2. Transits majeurs — seulement ceux qui n'ont PAS de convergence associée
   transits.forEach(tr => {
     if (tr.ageMax <= currentAge + 2 && !coveredTransitNames.has(tr.name)) {
-      dated.push({ age: tr.ageMin, order: 0, text: tr.phrase, source: tr.name });
+      dated.push({ age: tr.ageMin, order: 0, text: _applyGenderMarker(tr.phrase, gender), source: tr.name });
     }
   });
 
@@ -417,7 +424,7 @@ function generatePeriodInsights(
       dated.push({
         age: ry.age,
         order: 2,
-        text: `En ${ry.year} (${ry.age} ans), Année Personnelle ${ry.py.v} (${pyTheme.keyword}) : ${getPYAction(ry.py.v)}`,
+        text: `En ${ry.year} (${ry.age} ans), Année Personnelle ${ry.py.v} (${pyTheme.keyword}) : ${getPYAction(ry.py.v, gender)}`,
         source: `PY ${ry.py.v} (${ry.year})`,
       });
     }
@@ -477,9 +484,11 @@ export function generateLifeTimeline(
   cz: ChineseZodiac,
   bd: string,
   today?: string,
+  gender: 'M' | 'F' = 'M',
 ): LifeTimeline {
   // V5.1: Reset du compteur de variantes PY à chaque génération
   for (const k in _pyOccurrenceCount) delete _pyOccurrenceCount[Number(k)];
+  const _f = gender === 'F'; // accord féminin
 
   const t = today || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const birthYear = parseInt(bd.split('-')[0]);
@@ -511,6 +520,7 @@ export function generateLifeTimeline(
       cz.animal,
       cz.elem,
       prevPinnV,
+      gender,
     );
 
     // Intensité selon nombre de convergences
@@ -549,7 +559,7 @@ export function generateLifeTimeline(
   const natalNodes = calcLunarNodes(bd);
   const natalHexTier = getHexTier(natalHex.hexNum);
 
-  const portrait = buildIdentityPortrait(num, cz, natalHex, natalProfile, lpInfo, exprInfo, soulInfo, matInfo, masters, currentAge, natalNodes, natalHexTier);
+  const portrait = buildIdentityPortrait(num, cz, natalHex, natalProfile, lpInfo, exprInfo, soulInfo, matInfo, masters, currentAge, natalNodes, natalHexTier, gender);
 
   // ── Key Moments (top 5 moments les plus marquants) ──
   const keyMoments: string[] = [];
@@ -629,8 +639,10 @@ function buildIdentityPortrait(
   currentAge: number,
   natalNodes?: ReturnType<typeof calcLunarNodes>,
   natalHexTier?: ReturnType<typeof getHexTier>,
+  gender: 'M' | 'F' = 'M',
 ): string {
   const lines: string[] = [];
+  const _f = gender === 'F'; // accord féminin
   const nodeSign = natalNodes?.northNode?.sign || '';
   const southSign = natalNodes?.southNode?.sign || '';
 
@@ -638,7 +650,7 @@ function buildIdentityPortrait(
   // Source: Grok phrase 1 + GPT phrase 4
   if (masters.length >= 3) {
     lines.push(
-      `Tu es un Triple ${masters[0].v} rare : visionnaire dans l'âme, dans l'expression et dans l'image que tu projettes. Tu n'es pas fait pour un rôle d'exécutant — tu es fait pour incarner une vision, même si elle dérange.`
+      `Tu es un Triple ${masters[0].v} rare : visionnaire dans l'âme, dans l'expression et dans l'image que tu projettes. Tu n'es pas fait${_f ? 'e' : ''} pour un rôle d'exécutant — tu es fait${_f ? 'e' : ''} pour incarner une vision, même si elle dérange.`
     );
   } else if (masters.length >= 2) {
     lines.push(
@@ -646,7 +658,7 @@ function buildIdentityPortrait(
     );
   } else {
     lines.push(
-      `Tu es né sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ton énergie est d\'initiative et d\'action' : 'Ton énergie est de réceptivité et de stratégie'}.`
+      `Tu es né${_f ? 'e' : ''} sous l'énergie du ${cz.czY} (${cz.yy}), avec un Chemin de vie ${num.lp.v}${num.lp.m ? ' maître' : ''} (${lpInfo.k}). ${cz.yy === 'Yang' ? 'Ton énergie est d\'initiative et d\'action' : 'Ton énergie est de réceptivité et de stratégie'}.`
     );
   }
 
@@ -655,11 +667,11 @@ function buildIdentityPortrait(
   const exprSingle = num.expr.v > 9 ? num.expr.ch[num.expr.ch.length - 1] : num.expr.v;
   if (num.soul.m && !num.expr.m) {
     lines.push(
-      `Tu es né avec la vision d'un maître (${num.soul.v}) enfermé dans le besoin de construire des structures solides (${exprInfo.k} ${num.expr.v}) : tu ne supportes pas l'amateurisme.`
+      `Tu es né${_f ? 'e' : ''} avec la vision d'un maître (${num.soul.v}) enfermé${_f ? 'e' : ''} dans le besoin de construire des structures solides (${exprInfo.k} ${num.expr.v}) : tu ne supportes pas l'amateurisme.`
     );
   } else if (num.expr.v !== num.soul.v) {
     lines.push(
-      `Ton Expression ${num.expr.v} (${exprInfo.k}) est alimentée par une motivation profonde de ${soulInfo.k} (Âme ${num.soul.v}). C'est ce qui fait de toi un ${exprInfo.k.toLowerCase()} qui ne construit pas au hasard.`
+      `Ton Expression ${num.expr.v} (${exprInfo.k}) est alimentée par une motivation profonde de ${soulInfo.k} (Âme ${num.soul.v}). C'est ce qui fait de toi ${_f ? 'une' : 'un'} ${exprInfo.k.toLowerCase()} qui ne construit pas au hasard.`
     );
   }
 
@@ -706,14 +718,14 @@ function buildIdentityPortrait(
   // Source: GPT phrase 9 — détection Lune Verseau-like (indépendance intellectuelle)
   if ([1, 7, 11].includes(num.lp.v) || cz.yy === 'Yin') {
     lines.push(
-      `Tu prends les décisions importantes seul, même si tu sembles consulter. C'est à la fois ta force et ta vulnérabilité.`
+      `Tu prends les décisions importantes seul${_f ? 'e' : ''}, même si tu sembles consulter. C'est à la fois ta force et ta vulnérabilité.`
     );
   }
 
   // ── 7. Yi King natal ──
   if (natalProfile) {
     lines.push(
-      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${natalProfile.archetype}) révèle que tu réussis mieux quand tu ${(natalProfile.action?.toLowerCase() || 'écoutes ton instinct').replace(/\.\s*$/, '')}.`
+      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${getHexArchetypeGendered(natalProfile.archetype, gender)}) révèle que tu réussis mieux quand tu ${(natalProfile.action?.toLowerCase() || 'écoutes ton instinct').replace(/\.\s*$/, '')}.`
     );
   }
 
@@ -722,7 +734,7 @@ function buildIdentityPortrait(
   if (num.kl.length > 0) {
     const firstLesson = num.kl[0];
     lines.push(
-      `Tu as longtemps senti un vide autour du ${firstLesson} (${getNumberInfo(firstLesson).k}). Ce n'était pas une faiblesse, mais une leçon que tu es venu intégrer par l'effort.`
+      `Tu as longtemps senti un vide autour du ${firstLesson} (${getNumberInfo(firstLesson).k}). Ce n'était pas une faiblesse, mais une leçon que tu es venu${_f ? 'e' : ''} intégrer par l'effort.`
     );
   }
 
@@ -742,11 +754,11 @@ function buildIdentityPortrait(
   // Source: GPT phrase 10 — "ton défi n'est pas la réussite"
   if (masters.length >= 2 || cz.elem === 'Feu') {
     lines.push(
-      `Ton défi n'est pas la réussite — c'est la canalisation de ton intensité. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
+      `Ton défi n'est pas la réussite — c'est la canalisation de ton intensité. Chaque fois que la vie t\'a mis${_f ? 'e' : ''} à terre, tu t\'es relevé${_f ? 'e' : ''} plus fort${_f ? 'e' : ''} et plus stratégique.`
     );
   } else {
     lines.push(
-      `Le ${cz.animal} de ${cz.elem} t\'a donné une capacité de transformation hors norme. Chaque fois que la vie t\'a mis à terre, tu t\'es relevé plus fort et plus stratégique.`
+      `Le ${cz.animal} de ${cz.elem} t\'a donné${_f ? 'e' : ''} une capacité de transformation hors norme. Chaque fois que la vie t\'a mis${_f ? 'e' : ''} à terre, tu t\'es relevé${_f ? 'e' : ''} plus fort${_f ? 'e' : ''} et plus stratégique.`
     );
   }
 
@@ -756,7 +768,7 @@ function buildIdentityPortrait(
   // ── 11. CdV 11 + Nœud Nord Bélier/Lion + Serpent/Dragon → "Stratège visionnaire"
   if (num.lp.v === 11 && ['Bélier', 'Lion'].includes(nodeSign) && ['Serpent', 'Dragon'].includes(cz.animal)) {
     lines.push(
-      `Ton triple 11 + Nœud Nord en ${nodeSign} + ${cz.animal} fait de toi un stratège visionnaire qui voit les opportunités 6 mois avant les autres. Ce n'est pas de l'intuition — c'est de la pattern recognition cosmique.`
+      `Ton triple 11 + Nœud Nord en ${nodeSign} + ${cz.animal} fait de toi ${_f ? 'une' : 'un'} stratège visionnaire qui voit les opportunités 6 mois avant les autres. Ce n'est pas de l'intuition — c'est une lecture instinctive des cycles.`
     );
   }
 
@@ -784,21 +796,21 @@ function buildIdentityPortrait(
   // ── 15. Chaldéen + Expression + Challenge identiques → "Maître de la structure"
   if (num.ch && num.ch.rd.v === num.expr.v && num.challenges.some(c => c.v === num.expr.v)) {
     lines.push(
-      `Ton Chaldéen ${num.ch.rd.v} = Expression ${num.expr.v} = Challenge actif — triple résonance du même nombre. Tu es un maître de cette énergie, mais elle te consume si tu ne la canalises pas.`
+      `Ton Chaldéen ${num.ch.rd.v} = Expression ${num.expr.v} = Challenge actif — triple résonance du même nombre. Tu as une maîtrise totale de cette énergie, mais elle te consume si tu ne la canalises pas.`
     );
   }
 
   // ── 16. Leçon karmique = CdV + Nœud Sud → "Mission double"
   if (num.kl.includes(num.lp.v) && ['Scorpion', 'Cancer', 'Poissons'].includes(southSign)) {
     lines.push(
-      `Ta qualité à développer ${num.lp.v} est aussi ton Chemin de Vie, et ton Nœud Sud en ${southSign} confirme : tu es venu transformer exactement ce que tu portais en héritage.`
+      `Ta qualité à développer ${num.lp.v} est aussi ton Chemin de Vie, et ton Nœud Sud en ${southSign} confirme : tu es venu${_f ? 'e' : ''} transformer exactement ce que tu portais en héritage.`
     );
   }
 
   // ── 17. Yi King natal A-tier + CdV 1/8 → "Créateur-né"
   if (natalHexTier && natalHexTier.tier === 'A' && [1, 8].includes(num.lp.v)) {
     lines.push(
-      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${natalHexTier.label}) + CdV ${num.lp.v} : tu es un créateur-né. Les projets que tu lances portent une signature unique que les imitateurs n'arrivent pas à reproduire.`
+      `Ton Yi King natal (hex. ${natalHex.hexNum} — ${natalHexTier.label}) + CdV ${num.lp.v} : tu es ${_f ? 'une créatrice-née' : 'un créateur-né'}. Les projets que tu lances portent une signature unique que les imitateurs n'arrivent pas à reproduire.`
     );
   }
 

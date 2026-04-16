@@ -24,8 +24,8 @@ import { sto } from './storage';
 import { type NumerologyProfile, getNumberInfo, getActivePinnacleIdx, calcPersonalYear, KARMIC_MEANINGS } from './numerology';
 import { type AstroChart, SIGN_FR, PLANET_FR, SIGN_ELEM, ASPECT_SYM, ASPECT_FR } from './astrology';
 import { type ChineseZodiac } from './chinese-zodiac';
-import { type IChingReading, calcNatalIChing, getHexProfile, getHexTier, calcNuclearHex } from './iching';
-import { type ConvergenceResult, type RarityResult, type TemporalConfidence, type MonthForecast, type VoidOfCourseMoon, generateForecast36Months, COSMIC_THRESHOLD, getDomainLabel } from './convergence';
+import { type IChingReading, calcNatalIChing, getHexProfile, getHexTier, calcNuclearHex, getHexArchetypeGendered } from './iching';
+import { type ConvergenceResult, type RarityResult, type TemporalConfidence, type MonthForecast, type VoidOfCourseMoon, generateForecast36Months, COSMIC_THRESHOLD, STRONG_THRESHOLD, getDomainLabel } from './convergence';
 import { getMoonPhase, getMercuryStatus, calcLunarNodes, getLunarNodeTransit, type LunarNodeTransit, getEclipseList, getVoidOfCourseMoon } from './moon';
 import { generateLifeTimeline, type LifeTimeline } from './life-timeline';
 import { getSouthNode, generateKarmicMission, detectKarmicTension, getKarmicLessons } from './karmic-mission';
@@ -269,7 +269,7 @@ function dominantElement(el: Record<string, number>): string {
 
 // ── GÉNÉRATION BLOC PASSÉ (powered by Life Timeline Engine) ──
 
-function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: ChineseZodiac, bd: string, today: string, timeline: LifeTimeline, luckPillars: ReturnType<typeof calculateLuckPillars> | null, fourPillars: FourPillars | null): ReadingBlock {
+function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: ChineseZodiac, bd: string, today: string, timeline: LifeTimeline, luckPillars: ReturnType<typeof calculateLuckPillars> | null, fourPillars: FourPillars | null, gender: 'M' | 'F' = 'M'): ReadingBlock {
   const insights: ReadingInsight[] = [];
   const age = getAge(bd, today);
   const lpInfo = getNumberInfo(num.lp.v);
@@ -287,41 +287,41 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
     if (pastPillars.length > 0) {
       const crosses: string[] = [];
       // V5.2: Descriptions lisibles (plus de "forge × liberté" technique)
-      const CROSS_DESC: Record<string, Record<string, string>> = {
+      const CROSS_DESC: Record<string, Record<string, string[]>> = {
         croissance: {
-          expansion: 'période de fort élan, tout accélère',
-          construction: 'croissance structurée, bâtir sur du solide',
-          partenariats: 'croissance par les alliances et les rencontres',
-          liberté: 'période d\'ouverture et d\'exploration',
-          accomplissement: 'croissance orientée vers des résultats concrets',
+          expansion: ['période de fort élan, tout accélère', 'montée en puissance, les projets prennent de la vitesse'],
+          construction: ['croissance structurée, bâtir sur du solide', 'progression méthodique, chaque étape consolide la suivante'],
+          partenariats: ['croissance par les alliances et les rencontres', 'les bonnes personnes arrivent au bon moment'],
+          liberté: ['période d\'ouverture et d\'exploration', 'les horizons s\'élargissent, nouvelles directions possibles'],
+          accomplissement: ['croissance orientée vers des résultats concrets', 'élan soutenu vers des objectifs précis'],
         },
         soutien: {
-          expansion: 'énergie porteuse, un appui pour avancer vite',
-          construction: 'bases solides soutenues par l\'environnement',
-          partenariats: 'soutien relationnel fort, entraide',
-          liberté: 'espace pour explorer avec un filet de sécurité',
-          accomplissement: 'soutien extérieur qui amplifie tes résultats',
+          expansion: ['énergie porteuse, un appui pour avancer vite', 'l\'environnement pousse dans le dos'],
+          construction: ['bases solides soutenues par l\'environnement', 'les fondations tiennent, on peut bâtir'],
+          partenariats: ['soutien relationnel fort, entraide', 'les liens nourrissent, les alliances protègent'],
+          liberté: ['espace pour explorer avec un filet de sécurité', 'liberté sans isolement, ancrage sans enfermement'],
+          accomplissement: ['soutien extérieur qui amplifie tes résultats', 'les efforts sont vus et reconnus'],
         },
         conquête: {
-          expansion: 'conquête active, besoin de marquer un territoire',
-          construction: 'conquête par la structure et la discipline',
-          partenariats: 'conquête relationnelle, alliances stratégiques',
-          liberté: 'besoin de conquérir ta liberté, de te réinventer',
-          accomplissement: 'conquête orientée vers un accomplissement majeur',
+          expansion: ['conquête active, besoin de marquer un territoire', 'l\'énergie pousse à avancer, à s\'imposer'],
+          construction: ['conquête par la structure et la discipline', 'chaque brique posée est une victoire'],
+          partenariats: ['conquête relationnelle, alliances stratégiques', 'les bonnes connexions ouvrent les bonnes portes'],
+          liberté: ['besoin de conquérir ta liberté, de te réinventer', 'rupture avec ce qui retient, passage à autre chose'],
+          accomplissement: ['conquête orientée vers un accomplissement majeur', 'l\'ambition se cristallise autour d\'un objectif fort'],
         },
         forge: {
-          expansion: 'période de mise à l\'épreuve qui te fait grandir',
-          construction: 'décennie de forge intense, pression qui solidifie',
-          partenariats: 'épreuves relationnelles qui te renforcent',
-          liberté: 'tension entre contraintes et besoin de liberté',
-          accomplissement: 'défis qui préparent un accomplissement futur',
+          expansion: ['période d\'exigence qui te fait grandir', 'la pression révèle ce dont tu es capable'],
+          construction: ['décennie de forge intense, pression qui solidifie', 'ce qui résiste devient la base de tout'],
+          partenariats: ['défis relationnels qui te renforcent', 'les frictions élaguent ce qui ne sert plus'],
+          liberté: ['tension entre contraintes et besoin de liberté', 'trouver sa voie malgré les obstacles'],
+          accomplissement: ['défis qui préparent un accomplissement futur', 'chaque obstacle est une leçon pour la suite'],
         },
         stabilité: {
-          expansion: 'équilibre entre stabilité et envie d\'avancer',
-          construction: 'période stable propice à la construction',
-          partenariats: 'stabilité relationnelle, consolidation',
-          liberté: 'un cadre stable qui permet l\'indépendance',
-          accomplissement: 'stabilité qui porte ses fruits',
+          expansion: ['équilibre entre stabilité et envie d\'avancer', 'avancer sans tout bousculer'],
+          construction: ['période stable propice à la construction', 'le calme permet de bâtir sans interruption'],
+          partenariats: ['stabilité relationnelle, consolidation', 'les liens s\'approfondissent dans la durée'],
+          liberté: ['un cadre stable qui permet l\'indépendance', 'sécurité sans rigidité, structure sans enfermement'],
+          accomplissement: ['stabilité qui porte ses fruits', 'ce qui a été semé commence à se récolter'],
         },
       };
 
@@ -337,7 +337,11 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
           const pinnDir = [1, 3, 8].includes(pinnV) ? 'expansion' : [4, 7].includes(pinnV) ? 'construction' :
                           [2, 6].includes(pinnV) ? 'partenariats' : pinnV === 5 ? 'liberté' : 'accomplissement';
 
-          const desc = CROSS_DESC[theme]?.[pinnDir] || `${theme} et ${pinnDir}`;
+          const variants = CROSS_DESC[theme]?.[pinnDir];
+          const primaryDesc = variants?.[0] || `${theme} et ${pinnDir}`;
+          const altDesc = variants?.[1] || primaryDesc;
+          // Éviter le doublon : si la description principale apparaît déjà dans crosses, utiliser l'alternative
+          const desc = crosses.some(c => c.includes(primaryDesc)) ? altDesc : primaryDesc;
           crosses.push(`${pillar.startAge}-${pillar.endAge} ans : ${desc}`);
         }
       });
@@ -356,7 +360,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
     const fp = fourPillars;
     let fpText = `Ton thème chinois de naissance : `;
     fpText += `${fp.year.stem.chinese}${fp.year.branch.chinese} · ${fp.month.stem.chinese}${fp.month.branch.chinese} · ${fp.day.stem.chinese}${fp.day.branch.chinese} · ${fp.hour.stem.chinese}${fp.hour.branch.chinese}. `;
-    fpText += `Ton énergie fondamentale : ${fp.dayMaster.chinese} (${fp.dayMaster.element} ${fp.dayMaster.yinYang}) — ${fp.dayMaster.archetype}. `;
+    fpText += `Ton énergie fondamentale : ${fp.dayMaster.element} ${fp.dayMaster.yinYang} (${fp.dayMaster.chinese}) — ${fp.dayMaster.archetype}. `;
     fpText += fp.hourNarrative;
     insights.push({
       text: fpText,
@@ -410,7 +414,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
   const natalHex = calcNatalIChing(bd);
   const natalProfile = getHexProfile(natalHex.hexNum);
   if (natalProfile) {
-    let natalText = `Hexagramme natal n°${natalHex.hexNum} — ${natalHex.name} (${natalProfile.archetype}). `;
+    let natalText = `Hexagramme natal n°${natalHex.hexNum} — ${natalHex.name} (${getHexArchetypeGendered(natalProfile.archetype, gender)}). `;
     natalText += `Sagesse permanente : "${natalProfile.wisdom?.split('.')[0]}." `;
     natalText += `Force : ${natalProfile.opportunity.replace(/\.\s*$/, '')}. Vigilance : ${natalProfile.risk.replace(/\.\s*$/, '')}.`;
     insights.push({ text: natalText, sources: ['Yi King natal'], intensity: 'moyenne', icon: '☰' });
@@ -420,7 +424,7 @@ function buildPast(num: NumerologyProfile, astro: AstroChart | null, cz: Chinese
   const natalNodes = calcLunarNodes(bd);
   let nodeText = `☊ Nœud Nord en ${natalNodes.northNode.sign} — ${natalNodes.interpretation.mission} `;
   nodeText += `${natalNodes.interpretation.past} `;
-  nodeText += `Ce que tu es venu(e) dépasser : ${natalNodes.interpretation.challenge}`;
+  nodeText += `Ce que tu es venu${gender === 'F' ? 'e' : ''} dépasser : ${natalNodes.interpretation.challenge}`;
   insights.push({ text: nodeText, sources: ['Nœuds Lunaires', 'Direction de vie'], intensity: 'forte', icon: '☊' });
 
   // 8. Mission Karmique Enrichie V2.9.2 (Nœud Sud + tension)
@@ -465,8 +469,20 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   // 1. Énergie du jour croisée (Numérologie + Day Type + Yi King + Lune)
   const hexProfile = getHexProfile(iching.hexNum);
   let dayText = `Aujourd'hui vibre sur le ${num.ppd.v} (${pdInfo.k}) dans un mois ${num.pm.v} (${pmInfo.k}) et une année ${num.py.v} (${pyInfo.k}). `;
-  dayText += `Le jour est de type "${conv.dayType.label}" — ${conv.dayType.desc}. `;
-  dayText += `Le Yi King confirme avec l'hexagramme ${iching.hexNum} (${iching.name}) : ${iching.keyword}.`;
+  const _dtHint = conv.score < 65
+    ? (conv.dayType.type === 'decision' ? 'prépare tes décisions avec prudence'
+      : conv.dayType.type === 'observation' ? 'observe, analyse, prends du recul'
+      : conv.dayType.type === 'communication' ? 'échange en douceur, écoute plus que tu ne parles'
+      : conv.dayType.type === 'retrait' ? 'repose-toi, digère, lâche prise'
+      : conv.dayType.type === 'expansion' ? 'explore à ton rythme, sans forcer'
+      : conv.dayType.desc)
+    : conv.dayType.desc;
+  dayText += `Le jour est de type "${conv.dayType.label}" — ${_dtHint}. `;
+  // Évite le doublon "hexagramme 19 (Approche) : Approche" quand name === keyword
+  const hexDesc = iching.name.toLowerCase() !== iching.keyword.toLowerCase()
+    ? `${iching.name} — ${iching.keyword}`
+    : iching.name;
+  dayText += `Le Yi King confirme avec l'hexagramme ${iching.hexNum} (${hexDesc}).`;
 
   // V8 — Verrouillage tonalité : si score < 35 (Tempête), préfixe d'alerte
   // Empêche l'incohérence narrative où les modules positifs (PD élevé, IChing favorable)
@@ -489,12 +505,14 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   if (astro && astro.tr.length > 0) {
     const exactTransits = astro.tr.filter(t => t.x);
     const majorTransits = astro.tr.filter(t => ['jupiter', 'saturn', 'uranus', 'neptune', 'pluto'].includes(t.tp));
+    // Exclure les transits exacts de la liste des lents pour éviter la duplication
+    const nonExactMajorTransits = majorTransits.filter(t => !t.x);
     let transitText = `${astro.tr.length} transit${astro.tr.length > 1 ? 's' : ''} actif${astro.tr.length > 1 ? 's' : ''}. `;
     if (exactTransits.length > 0) {
       transitText += `🌟 Transit${exactTransits.length > 1 ? 's' : ''} EXACT${exactTransits.length > 1 ? 'S' : ''} : ${exactTransits.map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]} (${ASPECT_FR[t.t]?.split(' (')[0] || t.t})`).join(', ')}. Pic d'intensité aujourd'hui. `;
     }
-    if (majorTransits.length > 0) {
-      transitText += `Transits lents (impact profond) : ${majorTransits.slice(0, 3).map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]} (${ASPECT_FR[t.t]?.split(' (')[0] || t.t})`).join(', ')}.`;
+    if (nonExactMajorTransits.length > 0) {
+      transitText += `Transits lents (impact profond) : ${nonExactMajorTransits.slice(0, 3).map(t => `${PLANET_FR[t.tp]} ${ASPECT_SYM[t.t] || t.t} ${PLANET_FR[t.np]} (${ASPECT_FR[t.t]?.split(' (')[0] || t.t})`).join(', ')}.`;
     }
     insights.push({
       text: transitText,
@@ -505,7 +523,11 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   }
 
   // 3. Phase lunaire + biorhythmes
-  let bodyText = `${moon.emoji} ${moon.name} (${moon.illumination}% d'illumination) — ${moon.tactical.split('.')[0]}. `;
+  // Fix D : Pleine Lune "Récolte et célèbre" trop optimiste pour score < 65 → message neutre adapté au score
+  const moonTactical = (moon.phase === 4 && conv.score < 65)
+    ? 'Observe et intègre — l\'intensité émotionnelle demande à être canalisée'
+    : moon.tactical.split('.')[0];
+  let bodyText = `${moon.emoji} ${moon.name} (${moon.illumination}% d'illumination) — ${moonTactical}. `;
   if (bio) {
     const highest = bio.physical >= bio.emotional && bio.physical >= bio.intellectual ? 'physique' :
                     bio.emotional >= bio.intellectual ? 'émotionnel' : 'intellectuel';
@@ -525,10 +547,10 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
 
   // 4. Score d'alignement (synthèse convergence)
   let scoreText = `Score d'alignement : ${conv.score}% — ${conv.level}. `;
-  if (conv.score >= 85) scoreText += `Fenêtre exceptionnelle. Les systèmes convergent en ta faveur. Agis avec conviction.`;
+  if (conv.score >= COSMIC_THRESHOLD) scoreText += `Fenêtre exceptionnelle. Les systèmes convergent en ta faveur. Agis avec conviction.`;
   else if (conv.score >= 70) scoreText += `Conditions très porteuses. Les vents sont favorables — avance sur tes projets prioritaires.`;
   else if (conv.score >= 55) scoreText += `Conditions correctes. Pas de feu vert total mais suffisamment d'énergie pour progresser.`;
-  else if (conv.score >= 40) scoreText += `Phase de consolidation. L'énergie est tournée vers l'intérieur — prépare plutôt qu'agir.`;
+  else if (conv.score >= 40) scoreText += `L'énergie est tournée vers l'intérieur — prépare, structure, ne force pas.`;
   else scoreText += `Tensions actives. Plusieurs systèmes freinent — journée de recul stratégique recommandée.`;
 
   // Add breakdown highlights
@@ -544,7 +566,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
   insights.push({
     text: scoreText,
     sources: ['Convergence (14+ systèmes)'],
-    intensity: conv.score >= 85 || conv.score < 40 ? 'forte' : 'moyenne',
+    intensity: conv.score >= COSMIC_THRESHOLD || conv.score < 40 ? 'forte' : 'moyenne',
     icon: conv.score >= 70 ? '🌟' : conv.score >= 55 ? '☀️' : '☁️',
   });
 
@@ -638,7 +660,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     const cp = luckPillars.currentPillar;
     const yearsLeft = luckPillars.currentPillarYearsLeft;
     const narrative = getLuckPillarNarrative(cp, 'present', yearsLeft);
-    let lpText = `🏛 Ton cycle de 10 ans en cours : ${cp.stem.chinese}${cp.branch.chinese} (${cp.stem.element} ${cp.stem.yinYang}) — Tu es dans le Pilier ${cp.stem.element}-${cp.branch.animal} (${cp.branch.animal}). `;
+    let lpText = `🏛 Ton cycle de 10 ans en cours : ${cp.stem.element} ${cp.stem.yinYang} — ${cp.branch.animal} (${cp.stem.chinese}${cp.branch.chinese}). `;
     lpText += `${narrative} `;
     lpText += yearsLeft > 3 ? `Encore ~${yearsLeft} ans dans ce cycle.` : `Transition dans ~${yearsLeft} an${yearsLeft > 1 ? 's' : ''} — prépare le virage.`;
 
@@ -661,12 +683,12 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
     const tc = conv.temporalConfidence;
     const icon = tc.score >= 75 ? '🎯' : tc.score >= 55 ? '✅' : tc.score >= 35 ? '⚠️' : '❓';
     const fiabExplain = tc.score < 35
-      ? `Ton score du jour (${conv.score}) est fiable, mais sa prédictibilité est faible : les cycles longs se contredisent, ce qui rend la journée atypique et moins prévisible.`
+      ? `Ton score du jour (${conv.score}) est fiable, mais sa prévisibilité est faible : les cycles longs se contredisent, ce qui rend la journée atypique et moins prévisible.`
       : tc.score >= 75
-      ? `Tes cycles longs confirment le score du jour — la prédiction est particulièrement solide aujourd'hui.`
+      ? `Tes cycles longs confirment le score du jour — la lecture est particulièrement fiable aujourd'hui.`
       : `Les cycles longs sont partiellement alignés avec le score du jour.`;
     insights.push({
-      text: `Lisibilité de la journée : ${tc.label} (${tc.score}%). ${fiabExplain} ${tc.reason}`,
+      text: `Fiabilité de la journée : ${tc.label} (${tc.score}%). ${fiabExplain} ${tc.reason}`,
       sources: ['Confiance temporelle', 'Cycles longs'],
       intensity: tc.score >= 75 || tc.score < 35 ? 'forte' : 'subtile',
       icon,
@@ -698,7 +720,7 @@ function buildPresent(num: NumerologyProfile, astro: AstroChart | null, cz: Chin
 
 // ── GÉNÉRATION BLOC FUTUR ──
 
-function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: ChineseZodiac, iching: IChingReading, conv: ConvergenceResult, bd: string, today: string, luckPillars: ReturnType<typeof calculateLuckPillars> | null, forecast6: MonthForecast[]): ReadingBlock {
+function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: ChineseZodiac, iching: IChingReading, conv: ConvergenceResult, bd: string, today: string, luckPillars: ReturnType<typeof calculateLuckPillars> | null, forecast6: MonthForecast[], gender: 'M' | 'F' = 'M'): ReadingBlock {
   const insights: ReadingInsight[] = [];
   const currentYear = parseInt(today.split('-')[0]);
   const age = getAge(bd, today);
@@ -711,7 +733,8 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
   const periods = getPinnaclePeriods(bd, lpSingle);
   const currentPeriod = periods[activeIdx];
 
-  let pinnText = `Tu es dans ta ${activeIdx + 1}e grande phase de vie : énergie ${activePinnacle.v} (${getNumberInfo(activePinnacle.v).k})`;
+  const _ordinal = activeIdx === 0 ? '1ère' : `${activeIdx + 1}e`;
+  let pinnText = `Tu es dans ta ${_ordinal} grande phase de vie : énergie ${activePinnacle.v} (${getNumberInfo(activePinnacle.v).k})`;
   if (currentPeriod.end) {
     const yearsLeft = currentPeriod.end - age;
     pinnText += yearsLeft > 0
@@ -821,7 +844,7 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
       const yearsUntil = nextPillar.startYear - parseInt(today.split('-')[0]);
       if (yearsUntil > 0 && yearsUntil <= 15) {
         const narrative = getLuckPillarNarrative(nextPillar, 'future', yearsUntil);
-        let lpFutText = `Prochain grand cycle de 10 ans dans ~${yearsUntil} ans : ${nextPillar.stem.chinese}${nextPillar.branch.chinese} (${nextPillar.stem.element} ${nextPillar.stem.yinYang}). `;
+        let lpFutText = `Prochain grand cycle de 10 ans dans ~${yearsUntil} ans : ${nextPillar.stem.element} ${nextPillar.stem.yinYang} — ${nextPillar.branch.animal} (${nextPillar.stem.chinese}${nextPillar.branch.chinese}). `;
         lpFutText += narrative;
         insights.push({ text: lpFutText, sources: ['Luck Pillars (BaZi)'], intensity: 'moyenne', icon: '🏛' });
       }
@@ -872,7 +895,7 @@ function buildFuture(num: NumerologyProfile, astro: AstroChart | null, cz: Chine
   const natalProfile = getHexProfile(natalHex.hexNum);
   if (natalProfile) {
     let wisdomText = `Guidance permanente (Yi King natal n°${natalHex.hexNum}) : ${natalProfile.action} `;
-    wisdomText += `Ta posture stratégique de fond reste celle de "${natalProfile.archetype}" — quel que soit le contexte, reviens à cette sagesse quand tu doutes.`;
+    wisdomText += `Ta posture stratégique de fond reste celle de "${getHexArchetypeGendered(natalProfile.archetype, gender)}" — quel que soit le contexte, reviens à cette sagesse quand tu doutes.`;
     insights.push({ text: wisdomText, sources: ['Yi King natal'], intensity: 'moyenne', icon: '🧭' });
   }
 
@@ -1009,7 +1032,7 @@ function buildCorrelativeDescription(
 
   // T22. Communication + PD 3/6 + Mercure direct + Chinois allié → "Persuasion maximale"
   if (theme === 'communication' && systems.length >= 4 && [3, 6].includes(pdv) && hasChinois) {
-    return `Mode persuasion activé. Jour ${pdv} + ${cz.animal} + ${systems.length - 2} systèmes en mode communication. Tu convaincs naturellement — appelle le client, présente le projet, négocie le deal.`;
+    return `Mode persuasion activé. Jour ${pdv} + ${cz.animal} + ${systems.length - 2} systèmes en mode communication. Tu convaincs naturellement — appelle le client, présente le projet, négocie l'accord.`;
   }
 
   // T23. Créativité + Yi King + Bio pic émotionnel + PD 3/5 → "Muse cosmique"
@@ -1029,7 +1052,10 @@ function buildCorrelativeDescription(
 
   // Fallback : descriptions enrichies par défaut
   const defaults: Record<Theme, string> = {
-    action: `${systems.length} systèmes pointent vers l'action — c'est le moment de décider et d'avancer. L'hésitation est ton seul ennemi aujourd'hui.`,
+    // Score ≥ 65 : message offensif plein. Score < 65 (AJUSTER) : nuancer — la méthode prime sur la vitesse.
+    action: conv.score >= 65
+      ? `${systems.length} systèmes pointent vers l'action — c'est le moment de décider et d'avancer. L'hésitation est ton seul ennemi aujourd'hui.`
+      : `${systems.length} systèmes pointent vers l'action — avance sur tes priorités avec méthode. La direction compte plus que la vitesse.`,
     patience: `Convergence vers la patience — ${systems.length} signaux disent "pas encore". Le moment n'est pas mûr, prépare le terrain.`,
     communication: `Les nombres, les astres et les symboles t\'invitent à communiquer. Parle, écris, connecte — le message passera.`,
     introspection: `${systems.length} systèmes s'alignent vers l'intérieur. Médite, analyse, prends du recul — les réponses sont en toi.`,
@@ -1068,7 +1094,7 @@ function detectContradictions(
   if (numPts >= 5 && hexTier.tier === 'E') {
     c.push({
       type: 'Énergie vs Résistance',
-      description: `Ton énergie personnelle est forte, mais le Yi King signale une épreuve. `,
+      description: `Ton énergie personnelle est forte, mais le Yi King signale un défi. `,
       conseil: `Canalise cette puissance dans la révision et la préparation, pas le lancement.`,
     });
   }
@@ -1160,7 +1186,7 @@ function detectContradictions(
   const baziBreak = conv.breakdown.find(b => b.system === 'BaZi');
   if (baziBreak && baziBreak.points >= 2 && (hexTier.tier === 'D' || hexTier.tier === 'E')) {
     c.push({
-      type: 'Énergie du jour favorable vs Yi King tendu',
+      type: 'Énergie du jour favorable vs Yi King de vigilance',
       description: `Ton énergie personnelle est bien alignée aujourd'hui, mais le Yi King signale des obstacles à venir. `,
       conseil: `Ton énergie est forte — utilise-la pour naviguer les difficultés, pas pour les ignorer.`,
     });
@@ -1431,11 +1457,16 @@ function buildActionPlan(crossings: Crossing[], conv: ConvergenceResult, iching:
   }
 
   // Action 4 : si alerte ou prudence détectée → À ÉVITER
+  // Score-aware (R30) : si score ≥ 65, la prudence devient un conseil de discernement,
+  // pas une directive de report — sinon contradiction frontale avec FOCUS action.
   const cautionCrossing = crossings.find(c => c.theme === 'Prudence' || c.theme === 'Patience');
   if (cautionCrossing) {
+    const cautionWhy = conv.score >= 65
+      ? `${cautionCrossing.systems.map(s => SYSTEM_FR[s] || s).join(', ')} invitent à plus de discernement — avance, mais vérifie les détails avant de signer ou de t'engager définitivement.`
+      : `${cautionCrossing.strength} systèmes signalent la prudence : ${cautionCrossing.systems.map(s => SYSTEM_FR[s] || s).join(', ')}. Reporte les engagements définitifs si possible.`;
     actions.push({
       action: '🛡️ Point de vigilance',
-      why: `${cautionCrossing.strength} systèmes signalent la prudence : ${cautionCrossing.systems.map(s => SYSTEM_FR[s] || s).join(', ')}. Reporte les engagements définitifs si possible.`,
+      why: cautionWhy,
       sources: cautionCrossing.systems,
       priority: cautionCrossing.strength >= 4 ? 'haute' : 'basse',
       icon: '🛡️',
@@ -1491,7 +1522,7 @@ function buildMirrorPhrase(
   }
 
   // Score très haut → phrase d'élan
-  if (score >= 85) {
+  if (score >= COSMIC_THRESHOLD) {
     if (cdv === 1 || cdv === 8) return `Aujourd'hui, tu n'as pas besoin de permission pour avancer.`;
     if (cdv === 3 || cdv === 5) return `L'énergie est là, brute et libre — c'est ton moment.`;
     if (cdv === 7 || cdv === 9) return `Tout ce que tu as compris en silence est prêt à se manifester.`;
@@ -1581,7 +1612,7 @@ function buildVerdict(conv: ConvergenceResult, crossings: Crossing[], iching: IC
   if (conv.score >= COSMIC_THRESHOLD) {
     return `🌟 Alignement exceptionnel (${conv.score}%).${rarityTag} ${systemCount} systèmes convergent vers ${themes}. Le Yi King confirme : ${iching.keyword}. Fenêtre rare — agis avec conviction.`;
   }
-  if (conv.score >= 85) {
+  if (conv.score >= STRONG_THRESHOLD) {
     return `🔥 Alignement fort (${conv.score}%).${rarityTag} Les signaux s'alignent sur ${themes}. ${iching.keyword}. Conditions optimales pour avancer.`;
   }
   if (conv.score >= 70) {
@@ -1622,7 +1653,26 @@ function buildMajorWindow(
 
   // Construire la narration selon l'intensité
   let narrative: string;
-  const systemNames = positiveSystems.map(s => s.system).join(', ');
+  // Humaniser les noms de systèmes pour l'affichage (jargon sanskrit/chinois → français)
+  const SYSTEM_HUMAN: Record<string, string> = {
+    'Ashtakavarga ☉': 'Force solaire védique',
+    'Ashtakavarga ♂': 'Force martiale védique',
+    'Ashtakavarga ☽+SAV': 'Force lunaire védique',
+    'Yoga Kartari': 'Protection planétaire',
+    'Nakshatra': 'Mansion lunaire',
+    'Chandra Yoga': 'Configuration lunaire',
+    'Vimshottari Dasha': 'Cycle de vie védique',
+    'Jieqi 节气': 'Saison solaire chinoise',
+    'Chandrabala': 'Force de la Lune',
+    'Tithi Lord': 'Jour lunaire védique',
+    'Graha Drishti': 'Regard planétaire',
+    'Peach Blossom': 'Fleur de romance',
+    'Résonance lunaire védique': 'Résonance lunaire',
+    'Éclipses Natales': 'Éclipses',
+    '10 Archétypes': 'Archétypes du jour',
+  };
+  const humanSystem = (s: string) => SYSTEM_HUMAN[s] || s;
+  const systemNames = positiveSystems.map(s => humanSystem(s.system)).join(', ');
 
   if (conv.score >= COSMIC_THRESHOLD) {
     // V2.7: rank empirique au lieu du % théorique
@@ -1635,7 +1685,7 @@ function buildMajorWindow(
       + `c'est MAINTENANT. Pas demain, pas la semaine prochaine. Aujourd'hui. `
       + `${topTheme ? `L'énergie dominante est ${topTheme.theme.toLowerCase()} — ${topTheme.strength} systèmes l'amplifient.` : ''} `
       + `Les fenêtres comme celle-ci ne restent pas ouvertes longtemps.`;
-  } else if (conv.score >= 85) {
+  } else if (conv.score >= COSMIC_THRESHOLD) {
     narrative = `🌟 FENÊTRE GOLD — ${positiveSystems.length} systèmes positifs alignés. `
       + `${hexProfile ? `Le Yi King (${hexProfile.archetype}) confirme : "${hexProfile.judgment.split('.')[0]}."` : ''} `
       + `Ton énergie personnelle (${pdInfo.k}) est en résonance avec les cycles en cours. `
@@ -1674,14 +1724,14 @@ function buildMajorWindow(
   }
 
   return {
-    title: conv.score >= COSMIC_THRESHOLD ? '🌌 Convergence rare' : conv.score >= 85 ? '🔥 Alignement fort' : '✦ Fenêtre d\'Opportunité',
+    title: conv.score >= COSMIC_THRESHOLD ? '🌟 Convergence rare' : conv.score >= STRONG_THRESHOLD ? '🔥 Alignement fort' : '✦ Fenêtre d\'Opportunité',
     narrative,
     systems: positiveSystems.map(s => s.system),
     strength: positiveSystems.length,
     // Ronde #26 : pas de rang ordinal dans l'export — fréquence implicite pour les rares
     rarity: rarity.percentage <= 5 ? `${rarity.icon} ${rarity.label} (≈ 12 fois/an)` : `${rarity.icon} ${rarity.label} (${rarity.percentage.toFixed(1)}%)`,
     actions: actions.slice(0, 3),
-    icon: conv.score >= COSMIC_THRESHOLD ? '🌌' : conv.score >= 85 ? '🌟' : '✦',
+    icon: conv.score >= COSMIC_THRESHOLD ? '🌟' : conv.score >= STRONG_THRESHOLD ? '🔥' : '✦',
   };
 }
 
@@ -1697,6 +1747,7 @@ function buildMicroDetails(
   iching: IChingReading,
   astro: AstroChart | null,
   bd: string,
+  gender: 'M' | 'F' = 'M',
 ): MicroDetail[] {
   const details: MicroDetail[] = [];
   const pdv = num.ppd.v;
@@ -1709,7 +1760,7 @@ function buildMicroDetails(
   const masterCount = [num.lp, num.expr, num.soul, num.pers].filter(r => r.m).length;
   if (masterCount >= 2 && [1, 8, 11, 22].includes(pdv)) {
     details.push({
-      text: `Avec ${masterCount} nombres maîtres et un jour ${pdv}, tu es en mode "fondateur" — les décisions que tu prends aujourd'hui ont un poids disproportionné sur les 9 prochains mois.`,
+      text: `Avec ${masterCount} nombres maîtres et un jour ${pdv}, tu es en mode "fondateur${gender === 'F' ? 'rice' : ''}" — les décisions que tu prends aujourd'hui ont un poids disproportionné sur les 9 prochains mois.`,
       sources: ['Nombres maîtres', 'Jour personnel'],
       reliability: 'resonance',
     });
@@ -1755,11 +1806,11 @@ function buildMicroDetails(
     });
   }
 
-  // ── 6. Leçons karmiques + PD correspondant → "La leçon frappe à la porte"
+  // ── 6. Qualités à développer + PD correspondant → "Le thème revient naturellement"
   if (num.kl.length > 0 && num.kl.includes(pdv)) {
     details.push({
-      text: `Jour ${pdv} = ta qualité à développer. L'univers te remet face à ce que tu évites. Ce n'est pas une punition, c'est un entraînement — chaque confrontation te renforce.`,
-      sources: ['Leçon karmique ' + pdv, 'Jour personnel'],
+      text: `Jour ${pdv} = ta qualité à développer. Ce thème revient naturellement dans ta journée — c'est un signal d'apprentissage, pas un obstacle. Chaque expérience renforce cette compétence.`,
+      sources: ['Qualité à développer ' + pdv, 'Jour personnel'],
       reliability: 'cycle',
     });
   }
@@ -1946,7 +1997,7 @@ function buildMicroDetails(
   const masterCount2 = [num.lp, num.expr, num.soul, num.pers].filter(r => r.m).length;
   if (masterCount2 >= 2 && ['Lion', 'Bélier'].includes(natalNodeSign) && ['Dragon', 'Coq', 'Tigre'].includes(cz.animal)) {
     details.push({
-      text: `Tes ${masterCount2} nombres maîtres + Nœud Nord en ${natalNodeSign} + ${cz.animal} = profil de leader visionnaire né pour impacter à grande échelle.`,
+      text: `Tes ${masterCount2} nombres maîtres + Nœud Nord en ${natalNodeSign} + ${cz.animal} = profil de leader visionnaire, né${gender === 'F' ? 'e' : ''} pour impacter à grande échelle.`,
       sources: [`${masterCount2} maîtres`, `Nœud ${natalNodeSign}`, cz.animal],
       reliability: 'cycle',
     });
@@ -2005,13 +2056,13 @@ function buildMicroDetails(
     });
   }
 
-  // ── 31. Transit Saturne + Challenge 1 actif + PD 1 → "Test de leadership" (CYCLE)
+  // ── 31. Transit Saturne + Challenge 1 actif + PD 1 → "Test d'autorité" (CYCLE)
   if (astro) {
     const saturnTransit = astro.tr?.find(t => t.tp === 'saturn' && (t.t === 'conjunction' || t.t === 'square'));
     if (saturnTransit && activeChallenge?.v === 1 && pdv === 1) {
       const satAspFr = saturnTransit.t === 'conjunction' ? 'conjonction' : 'carré';
       details.push({
-        text: `Saturne en ${satAspFr} + Défi 1 + Jour Personnel 1 = test de leadership. Aujourd'hui tu affirmes ton autorité ou tu la perds.`,
+        text: `Saturne en ${satAspFr} + Défi 1 + Jour Personnel 1 = test d'autorité. Aujourd'hui tu affirmes ton autorité ou tu la perds.`,
         sources: [`Transit Saturne ${satAspFr}`, 'Challenge 1', 'Jour 1'],
         reliability: 'cycle',
       });
@@ -2051,7 +2102,7 @@ function buildMicroDetails(
   // ── 35. Maturité 6/11 + Âge 45+ + Nœud Nord Balance/Verseau → "Harmoniseur stratégique" (CYCLE)
   if ([6, 11].includes(num.mat.v) && age >= 45 && ['Balance', 'Verseau'].includes(natalNodeSign)) {
     details.push({
-      text: `Maturité ${num.mat.v} + Nœud Nord en ${natalNodeSign} après 45 ans = entrée dans ton rôle d'harmoniseur et de médiateur stratégique. La seconde moitié de ta vie est ton chef-d'œuvre.`,
+      text: `Maturité ${num.mat.v} + Nœud Nord en ${natalNodeSign} après 45 ans = entrée dans ton rôle d'harmoniseur${gender === 'F' ? 'se' : ''} et de médiateur${gender === 'F' ? 'trice' : ''} stratégique. La seconde moitié de ta vie est ton chef-d'œuvre.`,
       sources: [`Maturité ${num.mat.v}`, `Nœud ${natalNodeSign}`, `Âge ${age}`],
       reliability: 'cycle',
     });
@@ -2092,7 +2143,7 @@ function buildMicroDetails(
   }
 
   // Vague d'Or: score ≥ 75 3 jours de suite (estimé via score + momentum implicite)
-  if (conv.score >= 85 && positiveSystems >= 5) {
+  if (conv.score >= COSMIC_THRESHOLD && positiveSystems >= 5) {
     const wow = WOW_MOMENTS['vague_or'];
     details.push({
       text: `🏆 ${wow.titre} — ${wow.signification.split('.')[0]}. ${wow.conseil}`,
@@ -2117,7 +2168,7 @@ function buildMicroDetails(
   // ── 36. BaZi "same" + PD = LP → "Double racine" (CYCLE)
   if (conv.baziDaily && conv.baziDaily.relation === 'same' && pdv === lpv) {
     details.push({
-      text: `Ton énergie du jour (${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.element}) est en résonance avec ta nature profonde ET ton Jour Personnel = ton Chemin de Vie. Double racine : tu es aligné à 100% avec ta mission de vie aujourd'hui.`,
+      text: `Ton énergie du jour (${conv.baziDaily.dailyStem.chinese} ${conv.baziDaily.dailyStem.element}) est en résonance avec ta nature profonde ET ton Jour Personnel = ton Chemin de Vie. Double racine : alignement à 100% avec ta mission de vie aujourd'hui.`,
       sources: ['BaZi same element', `PD = CdV ${lpv}`],
       reliability: 'cycle',
     });
@@ -2132,13 +2183,13 @@ function buildMicroDetails(
     if (mainGood && nucBad && [7, 4, 2].includes(pdv)) {
       details.push({
         text: `La surface est favorable mais la fondation est fragile. Ne te fie pas aux apparences aujourd'hui — creuse avant de signer.`,
-        sources: ['I Ching surface', 'Hex Nucléaire profondeur', `Jour ${pdv}`],
+        sources: ['Yi King surface', 'Hex Nucléaire profondeur', `Jour ${pdv}`],
         reliability: 'resonance',
       });
     } else if (mainBad && nucGood && [1, 8].includes(pdv)) {
       details.push({
         text: `La surface semble difficile mais les fondations sont solides. L'obstacle que tu vois est une illusion — pousse.`,
-        sources: ['I Ching surface', 'Hex Nucléaire profondeur', `Jour ${pdv}`],
+        sources: ['Yi King surface', 'Hex Nucléaire profondeur', `Jour ${pdv}`],
         reliability: 'resonance',
       });
     }
@@ -2210,7 +2261,7 @@ function buildMicroDetails(
   // ── 43. Officer God + Challenge actif + Mercure rétro → "Test hiérarchique" (CYCLE)
   if (tenGods?.dominant && (tenGods.dominant.god === 'zheng_guan' || tenGods.dominant.god === 'qi_sha') && activeChallenge && mercStatus.phase !== 'direct') {
     details.push({
-      text: `${tenGods.dominant.label} + Challenge ${activeChallenge.v} + ${mercStatus.label}. Quelqu'un au-dessus de toi dans la hiérarchie va te tester. Ce n'est pas de la malveillance — c'est le système qui vérifie si tu es prêt pour le niveau suivant.`,
+      text: `${tenGods.dominant.label} + Challenge ${activeChallenge.v} + ${mercStatus.label}. Quelqu'un au-dessus de toi dans la hiérarchie va te tester. Ce n'est pas de la malveillance — c'est le système qui vérifie si tu as atteint le niveau suivant.`,
       sources: ['10 Gods Officer', `Challenge ${activeChallenge.v}`, mercStatus.label],
       reliability: 'cycle',
     });
@@ -2237,7 +2288,7 @@ function buildMicroDetails(
   // ── 46. Archétype Combattant + PD 1/8 + Bio physique >70 → "Guerrier stratège" (SUGGESTIF)
   if (tenGods?.dominant?.god === 'qi_sha' && [1, 8].includes(pdv) && bio && bio.physical > 70) {
     details.push({
-      text: `Archétype Combattant (compétition) + Jour ${pdv} (${getNumberInfo(pdv).k}) + Pic physique. Tu es en mode guerrier stratège — l'énergie est agressive mais contrôlable. Utilise cette force pour négocier dur ou trancher un conflit qui traîne.`,
+      text: `Archétype Combattant (compétition) + Jour ${pdv} (${getNumberInfo(pdv).k}) + Pic physique. Tu es en mode guerrier${gender === 'F' ? 'ère' : ''} stratège — l'énergie est agressive mais contrôlable. Utilise cette force pour négocier dur ou trancher un conflit qui traîne.`,
       sources: ['10 Gods 七殺', `Jour ${pdv}`, 'Bio physique pic'],
       reliability: 'suggestif',
     });
@@ -2393,7 +2444,7 @@ function buildMicroDetails(
   // ── 63. 10 Gods 正 (harmonieux) + Confiance > 70 + Score > 65 → "Courant porteur" (RESONANCE)
   if (tenGods?.dominant?.isZheng && confidence && confidence.ratio > 70 && conv.score > 65) {
     details.push({
-      text: `Archétype harmonieux + Signal fiable (${confidence.ratio}%) + Score ${conv.score}%. Tu es dans un courant porteur — pas besoin de forcer. Les bonnes choses arrivent naturellement quand tu es aligné comme ça.`,
+      text: `Archétype harmonieux + Signal fiable (${confidence.ratio}%) + Score ${conv.score}%. Tu es dans un courant porteur — pas besoin de forcer. Les bonnes choses arrivent naturellement quand l'alignement est là.`,
       sources: ['10 Gods 正', `Confiance ${confidence.ratio}%`, `Score ${conv.score}%`],
       reliability: 'resonance',
     });
@@ -2402,7 +2453,7 @@ function buildMicroDetails(
   // ── 64. 10 Gods 偏 (agressif) + Confiance < 50 → "Opportunité cachée dans le chaos" (SUGGESTIF)
   if (tenGods?.dominant && !tenGods.dominant.isZheng && confidence && confidence.ratio < 50) {
     details.push({
-      text: `Archétype agressif + Vents contraires. Les systèmes sont en désaccord, l'énergie est agressive — mais c'est exactement dans ce type de chaos que les meilleurs deals se négocient. Sois un opportuniste froid.`,
+      text: `Archétype agressif + Vents contraires. Les systèmes sont en désaccord, l'énergie est agressive — mais c'est exactement dans ce type de chaos que les meilleures opportunités se négocient. Sois un${gender === 'F' ? 'e' : ''} opportuniste froid${gender === 'F' ? 'e' : ''}.`,
       sources: ['10 Gods 偏', `Confiance ${confidence.ratio}%`, 'Chaos productif'],
       reliability: 'suggestif',
     });
@@ -2597,7 +2648,7 @@ function patternsMicroDetails(patterns: Pattern[]): MicroDetail[] {
 
 // Mapping mainTier → mot humain (consensus GPT+Grok+Gemini)
 const MAIN_TIER_WORD: Record<string, string> = {
-  A: "l'élan", B: "la progression", C: "l'équilibre", D: "la friction", E: "l'épreuve",
+  A: "l'élan", B: "la progression", C: "l'équilibre", D: "la friction", E: "le grand défi",
 };
 
 /**
@@ -2627,9 +2678,9 @@ function buildUndercurrentText(
     // Template A (GPT — contraste analytique)
     `Tu peux donner l'impression de ${mtw}, alors qu'en dessous quelque chose travaille. ${action}. ${image} — c'est ton courant caché du jour.`,
     // Template B (Grok — miroir émotionnel)
-    `Derrière ce que tu contrôles, ${archetype} (arcane n°${hexNum}) s'active en silence. ${judgment} — c'est ce qui travaille en toi quand personne ne regarde.`,
+    `Derrière ce que tu contrôles, ${archetype} (hexagramme natal n°${hexNum}) s'active en silence. ${judgment} — c'est ce qui travaille en toi quand personne ne regarde.`,
     // Template C (Gemini — révélation oraculaire)
-    `Il y a ce que tu gères en surface, et ce qui te traverse en profondeur. Ton courant caché (${archetype}, arcane n°${hexNum}) : ${strip(judgment)}. Le vrai enjeu n'est pas visible — c'est ${opportunity}.`,
+    `Il y a ce que tu gères en surface, et ce qui te traverse en profondeur. Ton courant caché (${archetype}, hexagramme natal n°${hexNum}) : ${strip(judgment)}. Le vrai enjeu n'est pas visible — c'est ${opportunity}.`,
   ];
 
   // Rotation basée sur la date + crossKey pour varier chaque jour
@@ -2667,8 +2718,8 @@ type FeelingBucket = 'pressure' | 'restraint' | 'overload' | 'clarity' | 'vulner
 
 const FEELING_POOL: Record<FeelingBucket, string[]> = {
   pressure: [
-    "Tu peux te sentir poussé, mais obligé de filtrer.",
-    "Tu te sens porter un poids invisible malgré la chance.",
+    "Tu peux sentir une pression qui pousse, tout en devant filtrer.",
+    "Tu peux ressentir un poids invisible malgré la chance.",
     "Tu peux sentir une urgence sourde sous une journée normale.",
   ],
   restraint: [
@@ -2679,7 +2730,7 @@ const FEELING_POOL: Record<FeelingBucket, string[]> = {
   overload: [
     "Tu peux vouloir décider, puis surpiloter chaque détail.",
     "Tu peux sentir que tu gères trop de choses à la fois.",
-    "Tu peux te sentir tiraillé entre agir et te protéger.",
+    "Tu peux ressentir un tiraillement entre agir et te protéger.",
   ],
   clarity: [
     "Tu peux te sentir net, sans avoir envie de t'expliquer.",
@@ -2939,7 +2990,7 @@ function buildQuickSummary(
   // Ligne 2: Tension ou convergence clé
   let line2: string;
   if (contradictions.length > 0) {
-    line2 = `Tension : ${contradictions[0].type.toLowerCase()}.`;
+    line2 = `Tension : ${contradictions[0].type}.`;
   } else if (crossings.length > 0) {
     const top = crossings[0];
     line2 = `${top.strength} systèmes convergent vers : ${top.theme.toLowerCase()}.`;
@@ -2954,7 +3005,10 @@ function buildQuickSummary(
   if (focus) {
     // Extraire le thème sans l'emoji
     const theme = focus.action.replace(/^[^\w\s]*\s*Priorise\s*:\s*/i, '');
-    line3 = `→ ${theme}.`;
+    // Ne pas répéter le thème si déjà mentionné dans line2 (ex : crossing dominant = focus)
+    if (!line2.toLowerCase().includes(theme.toLowerCase())) {
+      line3 = `→ ${theme}.`;
+    }
   }
   if (avoid) {
     line3 += line3 ? ` ⚠ Vigilance.` : `⚠ Vigilance recommandée.`;
@@ -2978,10 +3032,10 @@ export function generateStrategicReading(data: {
   const { num, astro, cz, iching, conv } = data;
 
   // Generate Life Timeline (crosses Pinnacles × PY × Transits)
-  const timeline = generateLifeTimeline(num, cz, bd, t);
+  const timeline = generateLifeTimeline(num, cz, bd, t, gender);
 
   // V3.0: Pattern Detection Engine
-  const patterns = detectPatterns(num, cz, bd, t);
+  const patterns = detectPatterns(num, cz, bd, t, gender);
 
   // V4.2: Luck Pillars pour croisement temporel Passé/Présent
   let luckPillars: ReturnType<typeof calculateLuckPillars> | null = null;
@@ -2997,9 +3051,9 @@ export function generateStrategicReading(data: {
   let forecast6: MonthForecast[] = [];
   try { forecast6 = generateForecast36Months(bd, num, cz, undefined, 0, astro ?? null).slice(0, 6); } catch { /* */ }
 
-  const past = buildPast(num, astro, cz, bd, t, timeline, luckPillars, fourPillars);
+  const past = buildPast(num, astro, cz, bd, t, timeline, luckPillars, fourPillars, gender);
   const present = buildPresent(num, astro, cz, iching, conv, bd, t, luckPillars);
-  const future = buildFuture(num, astro, cz, iching, conv, bd, t, luckPillars, forecast6);
+  const future = buildFuture(num, astro, cz, iching, conv, bd, t, luckPillars, forecast6, gender);
 
   // V3.0: Injecter les patterns dans Past/Present/Future
   injectPatternsIntoPast(past, patterns.patterns);
@@ -3015,7 +3069,7 @@ export function generateStrategicReading(data: {
   const majorWindow = buildMajorWindow(conv, crossings, num, cz, iching);
 
   // V2.5: Micro-détails "c'est exactement moi" (cold reading algorithmique)
-  const microDetailsRaw = buildMicroDetails(num, cz, conv, iching, astro, bd);
+  const microDetailsRaw = buildMicroDetails(num, cz, conv, iching, astro, bd, gender);
 
   // V3.0: Ajouter les patterns flippants aux micro-détails (priorité haute)
   const patternMicros = patternsMicroDetails(patterns.patterns);

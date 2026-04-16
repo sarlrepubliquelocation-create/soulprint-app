@@ -297,8 +297,10 @@ function detectCycleMirrors(
 function detectKarmicEchoes(
   bd: string, currentAge: number, num: NumerologyProfile,
   pinnacles: PinnacleInfo[],
+  gender: 'M' | 'F' = 'M',
 ): Pattern[] {
   const patterns: Pattern[] = [];
+  const _f = gender === 'F';
   const birthYear = getBirthYear(bd);
 
   if (num.kl.length === 0) return patterns;
@@ -370,15 +372,15 @@ function detectKarmicEchoes(
     }
 
     const narrative = activations.length >= 3
-      ? `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t\'a rendu plus fort sur exactement ce point.`
-      : `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée de manière intense en ${strongest.year} (${strongest.age} ans) via ${strongest.trigger}. Ce n'est pas une coïncidence : c'est le moment où tu as été confronté à ce que tu évitais le plus.`;
+      ? `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée ${activations.length} fois : ${activations.slice(0, 3).map(a => `${a.year} via ${a.trigger}`).join(', ')}. L'univers insiste — chaque test t\'a rendu${_f ? 'e' : ''} plus fort${_f ? 'e' : ''} sur exactement ce point.`
+      : `Ta qualité à développer ${kl.num} (${kl.info.k}) a été testée de manière intense en ${strongest.year} (${strongest.age} ans) via ${strongest.trigger}. Ce n'est pas une coïncidence : c'est le moment où tu as été confronté${_f ? 'e' : ''} à ce que tu évitais le plus.`;
 
     patterns.push({
       type: 'karmic_echo',
       title: `Écho de vie : ${kl.info.k}`,
       narrative,
       insight: futureActivation
-        ? `Prochaine confrontation prévue en ${futureActivation}. Cette fois, tu as l'expérience de ${activations.length} test${activations.length > 1 ? 's' : ''} — tu es prêt.`
+        ? `Prochaine confrontation prévue en ${futureActivation}. Cette fois, tu as l'expérience de ${activations.length} test${activations.length > 1 ? 's' : ''} — tu as les outils.`
         : `Tu as intégré les leçons principales. Cette énergie est maintenant une force, pas une faille.`,
       years: activations.map(a => a.year),
       systems: ['Leçons karmiques', ...new Set(activations.map(a => a.trigger.split(' + ')[1] || a.trigger))],
@@ -595,7 +597,9 @@ function detectElementConvergence(
 function detectLifeRhythm(
   bd: string, currentAge: number, num: NumerologyProfile,
   pinnacles: PinnacleInfo[], cz: ChineseZodiac,
+  gender: 'M' | 'F' = 'M',
 ): LifeRhythm {
+  const _f = gender === 'F';
   const birthYear = getBirthYear(bd);
 
   // Compter les énergies PY sur toute la vie adulte
@@ -644,7 +648,7 @@ function detectLifeRhythm(
       evidence.push(`Intervalle moyen entre ruptures : ${avgChangeInterval} ans`);
     } else {
       archetype = 'L\'Explorateur Perpétuel';
-      description = `Ta vie est un mouvement constant. Tu ne fuis pas — tu explores. Chaque ${avgChangeInterval} ans environ, tu changes de direction, et chaque virage t\'a mené plus loin que le précédent.`;
+      description = `Ta vie est un mouvement constant. Tu ne fuis pas — tu explores. Chaque ${avgChangeInterval} ans environ, tu changes de direction, et chaque virage t\'a mené${_f ? 'e' : ''} plus loin que le précédent.`;
       evidence.push(`${changeYears.length} virages majeurs détectés`);
     }
   } else if (topEnergies[0] === 'structure' || topEnergies[0] === 'build') {
@@ -671,15 +675,18 @@ function detectLifeRhythm(
     evidence.push(`${energyCounts['create'] || 0} années créatives détectées`);
   } else {
     archetype = 'Le Transformateur';
-    description = `Ta vie ne suit pas un schéma linéaire — elle se transforme par phases. Chaque grande transition t\'a révélé une facette de toi que tu ne soupçonnais pas.`;
+    description = `Ta vie ne suit pas un schéma linéaire — elle se transforme par phases. Chaque grande transition t\'a révélé${_f ? 'e' : ''} une facette de toi que tu ne soupçonnais pas.`;
     evidence.push(`Profil multi-facettes sans dominance unique`);
   }
 
+  // Accord féminin de l'archétype de vie
+  if (_f) archetype = CYCLE_ARCHETYPE_FEMININE[archetype] ?? archetype;
+
   // Ajouter contexte chinois
-  if (cz.elem === 'Feu' && (archetype.includes('Bâtisseur') || archetype.includes('Explorateur'))) {
+  if (cz.elem === 'Feu' && (archetype.includes('Bâtisseuse') || archetype.includes('Bâtisseur') || archetype.includes('Exploratrice') || archetype.includes('Explorateur'))) {
     evidence.push(`${cz.animal} de Feu amplifie le rythme de transformation`);
   }
-  if (cz.yy === 'Yin' && archetype.includes('Patient')) {
+  if (cz.yy === 'Yin' && (archetype.includes('Patient') || archetype.includes('Patiente'))) {
     evidence.push(`Énergie Yin du ${cz.animal} confirme la stratégie de patience`);
   }
 
@@ -772,8 +779,8 @@ function detectPredictiveConvergences(
 
       patterns.push({
         type: 'predictive_convergence',
-        title: `${year} — Convergence rare (rareté ${totalRarity})`,
-        narrative: `En ${year} (${futAge} ans), ${signals.length} cycles convergent simultanément : ${signals.join(' + ')}. Score de rareté : ${totalRarity}/20 — ce type de collision est statistiquement exceptionnel.`,
+        title: `${year} — Convergence rare (intensité ${totalRarity}/20)`,
+        narrative: `En ${year} (${futAge} ans), ${signals.length} cycles convergent simultanément : ${signals.join(' + ')}. Intensité : ${totalRarity}/20 — ce type de convergence est statistiquement rare.`,
         insight: py.v === 1 || py.v === 5
           ? `${year} est une année pour AGIR. Lance ce que tu prépares — l'alignement est optimal.`
           : py.v === 9
@@ -969,7 +976,7 @@ function detectVoidCourse(
       type: 'void_course',
       title: 'Lune en Pause — Non-action Stratégique',
       narrative: `La Lune quitte ${moonTr.sign} pour ${moonTrTomorrow.sign} aujourd'hui — période dite "Void of Course" (Lune hors cours) en astrologie horaire. Combiné avec ton Jour Personnel ${pdv} (${getNumberInfo(pdv).k.toLowerCase()}), c'est un signal clair : toute action lancée maintenant risque de ne mener nulle part. Ce n'est pas un mauvais jour — c'est un jour de NON-action stratégique.`,
-      insight: `Ne lance rien d'important aujourd'hui. Pas de signature, pas de pitch, pas de première impression. Utilise ce temps pour réfléchir, planifier, et attendre que la Lune entre en ${moonTrTomorrow.sign} demain.`,
+      insight: `Ne lance rien d'important aujourd'hui. Pas de signature, pas de présentation, pas de première impression. Utilise ce temps pour réfléchir, planifier, et attendre que la Lune entre en ${moonTrTomorrow.sign} demain.`,
       years: [parseInt(todayStr.slice(0, 4))],
       systems: ['Lune en pause', `Jour ${pdv}`, `Transit ${moonTr.sign}→${moonTrTomorrow.sign}`],
       intensity: 'fort',
@@ -1181,23 +1188,37 @@ function detectSystemicBurnout(
   return patterns;
 }
 
+// ── Map féminins des archétypes de cycles de vie ──
+const CYCLE_ARCHETYPE_FEMININE: Record<string, string> = {
+  'Le Bâtisseur-Destructeur': 'La Bâtisseuse-Destructrice',
+  "L'Explorateur Perpétuel":  "L'Exploratrice Perpétuelle",
+  "L'Architecte Visionnaire": "L'Architecte Visionnaire",  // invariable
+  'Le Stratège Patient':      'La Stratège Patiente',
+  'Le Moissonneux':           'La Moissonneuse',
+  'Le Sage Stratège':         'La Sage Stratège',          // invariable
+  'Le Créateur Série':        'La Créatrice Série',
+  'Le Transformateur':        'La Transformatrice',
+};
+
 export function detectPatterns(
   num: NumerologyProfile,
   cz: ChineseZodiac,
   bd: string,
   today?: string,
+  gender: 'M' | 'F' = 'M',
 ): PatternDetectionResult {
+  const _f = gender === 'F';
   const t = today || (() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`; })();
   const currentAge = getAge(bd, t);
   const pinnacles = buildPinnacles(num, bd);
 
   // Lancer les 12 détecteurs (V3.2: +4 Void Course, Resonance Leap, Phantom Loop, Systemic Burnout)
   const cycleMirrors = detectCycleMirrors(bd, currentAge, num, pinnacles);
-  const karmicEchoes = detectKarmicEchoes(bd, currentAge, num, pinnacles);
+  const karmicEchoes = detectKarmicEchoes(bd, currentAge, num, pinnacles, gender);
   const pyResonance = detectPinnaclePYResonance(bd, currentAge, num, pinnacles);
   const elementConv = detectElementConvergence(bd, currentAge, num, cz);
   const predictive = detectPredictiveConvergences(bd, currentAge, num, pinnacles);
-  const rhythm = detectLifeRhythm(bd, currentAge, num, pinnacles, cz);
+  const rhythm = detectLifeRhythm(bd, currentAge, num, pinnacles, cz, gender);
   const eclipseKarm = detectEclipseKarmique(bd, currentAge, num, pinnacles);
   const baziMaster = detectBaZiCycleMaster(bd, currentAge);
   const voidCourse = detectVoidCourse(bd, num);
