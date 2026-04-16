@@ -213,3 +213,34 @@ input:focus-visible {
   outline: 2px solid #D4AF37;
   outline-offset: 1px;
 }
+
+/* ═══ PREFERS-REDUCED-MOTION — WCAG AA ═══ */
+/* ═══ TODAY GLOW — Case du jour dans le calendrier ═══ */
+@keyframes today-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px #D4AF3766, inset 0 0 6px #D4AF3720;
+  }
+  50% {
+    box-shadow: 0 0 18px #D4AF37BB, inset 0 0 12px #D4AF3740;
+  }
+}
+
+.today-cell {
+  animation: today-glow 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fade-in {
+    animation: none !important;
+  }
+  .today-cell {
+    animation: none !important;
+    box-shadow: 0 0 16px #D4AF37AA, inset 0 0 10px #D4AF3730 !important;
+  }
+}
