@@ -84,7 +84,8 @@ export interface AstroChart {
   tSquares: TSquare[];         // V3.1: T-carrés
   noTime: boolean;
   tzUsed?: number;
-  tzSuggested?: number | null;
+  tzSuggested?: number | null;       // fuseau historique de naissance (pour info interne)
+  tzSuggestedForToday?: number | null; // fuseau actuel basé sur la ville + date du jour (pour badge UI)
 }
 
 // === CONSTANTS ===
@@ -749,7 +750,19 @@ export function calcTransits(natal: Omit<AstroChart, 'tr' | 'noTime'>, y: number
     }
   }
   res.sort((a, b) => a.o - b.o);
-  return res;
+
+  // Dedup transits mutuels : quand Jupiter et Saturne sont tous deux dans slow ET tgt,
+  // la paire (transit-Saturn opp natal-Jupiter) ET (transit-Jupiter opp natal-Saturn) apparaît.
+  // On garde celle avec le plus petit orbe.
+  const seen = new Set<string>();
+  const deduped: Transit[] = [];
+  for (const t of res) {
+    const pairKey = [t.tp, t.np].sort().join('|') + '|' + t.t;
+    if (seen.has(pairKey)) continue;
+    seen.add(pairKey);
+    deduped.push(t);
+  }
+  return deduped;
 }
 
 // === CITIES ===
@@ -898,13 +911,15 @@ const EET_CITIES = new Set([
 ]);
 
 /**
- * Suggère le fuseau UTC correct basé sur la ville et la date de naissance.
+ * Ronde #34 — Fonction générique : retourne le fuseau UTC pour une date + ville donnée.
+ * Utilisée 2× dans calcAstro : une fois pour la naissance (fuseau historique),
+ * une fois pour aujourd'hui (fuseau actuel → badge UI).
  * Supporte CET (France/Espagne/Italie/…), WET (UK/Portugal), EET (Grèce/Roumanie/Finlande).
  * Retourne null si la ville n'est pas reconnue.
  */
-export function suggestTimezone(bd: string, city: string): number | null {
+export function getTzForDate(dateStr: string, city: string): number | null {
   const normalized = city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
-  const [y, m, d] = bd.split('-').map(Number);
+  const [y, m, d] = dateStr.split('-').map(Number);
   // isFranceDST fonctionne pour toute l'Europe (mêmes règles EU de changement d'heure)
   const isDST = isFranceDST(y, m, d);
   if (CET_CITIES.has(normalized)) return isDST ? 2 : 1;
@@ -912,6 +927,9 @@ export function suggestTimezone(bd: string, city: string): number | null {
   if (EET_CITIES.has(normalized)) return isDST ? 3 : 2;
   return null;
 }
+
+/** @deprecated Ronde #34 — Alias rétrocompatible, utiliser getTzForDate() */
+export const suggestTimezone = getTzForDate;
 
 // ══════════════════════════════════════════════════
 // === TRANSITS PERSONNELS GAUSSIENS V4.8 ±15 ===
@@ -1163,15 +1181,25 @@ export function calcAstro(bd: string, bt: string, bp: string, tz: number, today:
   const [y, m, d] = bd.split('-').map(Number);
   const [hh, mm] = bt ? bt.split(':').map(Number) : [12, 0];
 
-  // Auto-correction DST France : si l'utilisateur a mis tz=1 en été ou tz=2 en hiver
-  const suggestedTz = suggestTimezone(bd, bp);
-  const effectiveTz = suggestedTz !== null ? suggestedTz : tz;
+  // Ronde #34 — Séparation fuseau natal (historique) vs fuseau actuel (quotidien)
+  // Le thème natal utilise le fuseau de la date de naissance (ex: 7 mars 1980 = hiver = UTC+1)
+  // Le badge UI compare le fuseau d'aujourd'hui (ex: 13 avril 2026 = été = UTC+2) avec le sélecteur
+  // Ronde #37-38 — currentTzFromBirthPlace : intentionnellement basé sur bp (ville de naissance).
+  // Ce n'est PAS la localisation actuelle de l'utilisateur.
+  // Sûr car calcTransits utilise midi UTC fixe (h=12, mi=0) — le fuseau n'est pas consommé.
+  // TODO(residenceCity) : quand les heures planétaires seront implémentées,
+  //   - ajouter profile.residenceCity (optionnel, fallback = birthCity)
+  //   - utiliser pour fuseau actuel + calculs lever/coucher solaire
+  //   - placer dans Paramètres > Éditer le profil (jamais à l'inscription)
+  const natalTz = getTzForDate(bd, bp);
+  const currentTzFromBirthPlace = getTzForDate(today, bp);
+  const effectiveTz = natalTz !== null ? natalTz : tz;
 
   const natal = calcChart(y, m, d, hh - effectiveTz, mm, city[0], city[1], noTime, houseSystem);
   const [ty, tm, td] = today.split('-').map(Number);
   const tr = calcTransits(natal, ty, tm, td, 12, 0, city[0], city[1]);
 
-  return { ...natal, tr, noTime, tzUsed: effectiveTz, tzSuggested: suggestedTz };
+  return { ...natal, tr, noTime, tzUsed: effectiveTz, tzSuggested: natalTz, tzSuggestedForToday: currentTzFromBirthPlace };
 }
 
 // ── R25 : ASC/MC pour une date/heure + position donnée ──
