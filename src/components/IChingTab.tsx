@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { sto } from '../engines/storage';
 import { type SoulData } from '../App';
 import { getNumberInfo } from '../engines/numerology';
-import { SIGN_FR, SIGN_SYM } from '../engines/astrology';
-import { TRIGRAM_NAMES, TRIGRAM_SENSE, HEX_NAMES, getHexProfile, calcConsciousIChing, calcNatalIChing, type ConsciousIChing } from '../engines/iching';
+import { SIGN_FR, SIGN_SYM, PLANET_SYM } from '../engines/astrology';
+import { TRIGRAM_NAMES, TRIGRAM_SENSE, TRIGRAM_HUMAN, HEX_NAMES, getHexProfile, calcConsciousIChing, calcNatalIChing, getHexArchetypeGendered, type ConsciousIChing } from '../engines/iching';
 import { getNuclearHexNum } from '../engines/iching-yao';
 import { Sec, Cd, P, a11yClick } from './ui';
 import { drawConsciousTarot, drawConscious3Cards, loadTarotHistory, saveTarotDraw, deleteTarotDraw, loadTarot3CardHistory, saveTarot3CardDraw, deleteTarot3CardDraw, getArcana, calcBirthCard, calcBirthCardConstellation, calcTarotDayNumber, calcPersonalDayCard, getConseilReverseText, loadJournalNote, saveJournalNote, deleteJournalNote, DASHA_ARCANA_MAP, TAROT_ONBOARDING, TAROT_3CARD_POSITIONS, type TarotDraw, type TarotDrawRecord, type Tarot3CardDraw, type Tarot3CardRecord } from '../engines/tarot';
@@ -52,7 +52,13 @@ function deleteConsciousDraw(id: string) {
   sto.set(LS_KEY, arr);
 }
 
-export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) {
+// ── Helper : renvoie l'archétype au bon genre (source : iching.ts) ──
+function getArchetype(archetype: string, isF: boolean): string {
+  return getHexArchetypeGendered(archetype, isF ? 'F' : 'M');
+}
+
+export default function IChingTab({ data, bd, gender }: { data: SoulData; bd: string; gender?: string }) {
+  const isF = gender === 'F';
   const { num, astro, cz, iching } = data;
   const prof = getHexProfile(iching.hexNum);
 
@@ -162,10 +168,10 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
     12: 'Neptune : la dissolution, le lâcher-prise, voir au-delà des apparences — la suspension du Pendu.',
     13: 'Scorpion : la transformation radicale, la mort et la renaissance — le passage obligé.',
     14: 'Sagittaire : la quête de sens, le voyage, la fusion des contraires — l\'alchimie de Tempérance.',
-    15: 'Capricorne : l\'ambition, les chaînes matérielles, l\'épreuve qui forge — les liens du Diable.',
-    16: 'Mars : l\'énergie destructrice et libératrice, l\'éclair qui révèle — la foudre de la Tour.',
+    15: 'Capricorne : l\'ambition, les attachements matériels, le défi qui forge — les liens du Diable.',
+    16: 'Mars : l\'énergie de rupture et de libération, l\'éclair qui révèle — la foudre de la Tour.',
     17: 'Verseau : l\'espoir, la vision, la connexion universelle — la lumière de l\'Étoile.',
-    18: 'Poissons : l\'imaginaire, les profondeurs, les illusions — les eaux troubles de la Lune.',
+    18: 'Poissons : l\'imaginaire, les profondeurs, le rêve éveillé — les eaux profondes de la Lune.',
     19: 'Soleil : la vitalité, la clarté, le rayonnement — la joie pure du Soleil.',
     20: 'Pluton : la transformation profonde, l\'appel irrésistible — la résurrection du Jugement.',
     21: 'Saturne : la structure, l\'accomplissement, le cycle complet — la totalité du Monde.',
@@ -173,12 +179,12 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
 
   // Mood + énergie de chaque grande période planétaire (Vimshottari)
   const DASHA_MOOD: Record<string, { emoji: string; mood: string; energie: string; conseil: string }> = {
-    Soleil:  { emoji: '☀', mood: 'Rayonnement et affirmation de soi', energie: 'Confiance, leadership, visibilité', conseil: 'Période pour briller, prendre ta place et exprimer qui tu es vraiment.' },
+    Soleil:  { emoji: '☀', mood: 'Rayonnement et affirmation de soi', energie: 'Confiance, autorité, visibilité', conseil: 'Période pour briller, prendre ta place et exprimer qui tu es vraiment.' },
     Lune:    { emoji: '☽', mood: 'Émotions, intuition et famille', energie: 'Sensibilité, introspection, vie intérieure', conseil: 'Période pour écouter tes ressentis, nourrir tes liens proches et ton monde intérieur.' },
-    Mars:    { emoji: '♂', mood: 'Action, conquête et énergie brute', energie: 'Combativité, ambition, passage à l\'acte', conseil: 'Période pour agir vite, relever des défis et avancer avec détermination.' },
-    Rahu:    { emoji: '☊', mood: 'Ambition, obsession et changements radicaux', energie: 'Désir intense, ruptures, nouveaux territoires', conseil: 'Période de montée en puissance — fascinante mais déstabilisante. Garde le cap.' },
+    Mars:    { emoji: '♂', mood: 'Action, conquête et énergie brute', energie: 'Détermination, ambition, passage à l\'acte', conseil: 'Période pour agir vite, relever des défis et avancer avec détermination.' },
+    Rahu:    { emoji: '☊', mood: 'Ambition, intensité et changements profonds', energie: 'Désir intense, tournants, nouveaux territoires', conseil: 'Période de montée en puissance — fascinante mais déstabilisante. Garde le cap.' },
     Jupiter: { emoji: '♃', mood: 'Expansion, chance et sagesse', energie: 'Optimisme, croissance, bonnes opportunités', conseil: 'Période faste pour apprendre, voyager, faire grandir tes projets et ta vision.' },
-    Saturne: { emoji: '♄', mood: 'Discipline, épreuves et maturation', energie: 'Rigueur, responsabilité, travail de fond', conseil: 'Période exigeante mais structurante — ce que tu construis ici dure.' },
+    Saturne: { emoji: '♄', mood: 'Discipline, exigence et maturation', energie: 'Rigueur, responsabilité, travail de fond', conseil: 'Période exigeante mais structurante — ce que tu construis ici dure.' },
     Mercure: { emoji: '☿', mood: 'Intellect, communication et adaptabilité', energie: 'Vivacité d\'esprit, échanges, apprentissages', conseil: 'Période pour apprendre, communiquer, négocier et multiplier les connexions.' },
     Ketu:    { emoji: '☋', mood: 'Lâcher-prise, spiritualité et détachement', energie: 'Dissolution, intériorisation, sagesse ancienne', conseil: 'Période de retrait intérieur — ce qui ne sert plus part, laissant place à l\'essentiel.' },
     Vénus:   { emoji: '♀', mood: 'Amour, plaisir et créativité', energie: 'Harmonie, beauté, relations, abondance', conseil: 'Période pour les relations, les arts, le confort et tout ce qui nourrit ta joie de vivre.' },
@@ -241,19 +247,29 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
   const synthese = (() => {
     // Catégorisation sémantique des hexagrammes par keyword
     const hexIntent: Record<string, string> = {
-      // Action / initiative
-      'Crée': 'action', 'Agis': 'action', 'Avance': 'action', 'Organise': 'action', 'Ose': 'action',
-      'Persévère': 'action', 'Construis': 'action', 'Entreprends': 'action', 'Secoue': 'action',
-      // Patience / réflexion
+      // Action / initiative — hex qui poussent à agir, avancer, décider
+      'Crée': 'action', 'Avance': 'action', 'Organise': 'action', 'Ose': 'action',
+      'Persévère': 'action', 'Secoue': 'action', 'Fonce': 'action', 'Décide': 'action',
+      'Progresse': 'action', 'Tranche': 'action', 'Monte': 'action', 'Inspire': 'action',
+      'Rayonne': 'action', 'Célèbre': 'action', 'Prépare': 'action', 'Recommence': 'action',
+      // Patience / réflexion — hex qui invitent à observer, attendre, intérioriser
       'Discipline': 'patience', 'Attends': 'patience', 'Observe': 'patience', 'Recule': 'patience',
-      'Médite': 'patience', 'Accepte': 'patience', 'Repose': 'patience', 'Contemple': 'patience',
-      'Simplifie': 'patience', 'Apprends': 'patience', 'Écoute': 'patience',
-      // Transformation / passage
-      'Transforme': 'transformation', 'Adapte': 'transformation', 'Libère': 'transformation',
-      'Lâche': 'transformation', 'Renonce': 'transformation', 'Traverse': 'transformation',
-      // Relation / connexion
-      'Unis': 'relation', 'Communique': 'relation', 'Partage': 'relation', 'Rassemble': 'relation',
-      'Harmonise': 'relation', 'Rapproche': 'relation', 'Accueille': 'relation',
+      'Accepte': 'patience', 'Apprends': 'patience', 'Arrête-toi': 'patience', 'Patiente': 'patience',
+      'Accumule': 'patience', 'Endure': 'patience', 'Puise': 'patience', 'Prudence': 'patience',
+      'Protège-toi': 'patience', 'Limite': 'patience', 'Nourris-toi': 'patience', 'Sois humble': 'patience',
+      'Sois pur': 'patience', 'Embellis': 'patience', 'Cultive': 'patience',
+      'Persiste': 'patience', 'Éclaire': 'action',
+      // Transformation / passage — hex de mutation, lâcher, changement profond
+      'Transforme': 'transformation', 'Libère': 'transformation', 'Lâche prise': 'transformation',
+      'Dissous': 'transformation', 'Explore': 'transformation', 'Plonge': 'transformation',
+      'Corrige': 'transformation', 'Grandis': 'transformation', 'Pénètre': 'transformation',
+      'Adapte-toi': 'transformation', 'Approche': 'transformation', 'Sacrifie': 'transformation',
+      'Contourne': 'transformation',
+      // Relation / connexion — hex de lien, fédération, échange
+      'Rassemble': 'relation', 'Harmonise': 'relation', 'Accueille': 'relation', 'Partage': 'relation',
+      'Unis-toi': 'relation', 'Réunis': 'relation', 'Rencontre': 'relation', 'Ressens': 'relation',
+      'Reçois': 'relation', 'Réjouis-toi': 'relation', 'Fais confiance': 'relation',
+      'Suis le flux': 'relation', 'Négocie': 'relation',
     };
     // Catégorisation sémantique des arcanes par thème
     const tarotIntent: Record<string, string> = {
@@ -261,7 +277,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
       'Autorité et structure': 'action', 'Effondrement libérateur': 'transformation',
       'Connaissance intérieure': 'patience', 'Sagesse en solitude': 'patience', 'Suspension volontaire': 'patience',
       'Illusion et profondeur': 'patience', 'Cycles et retournements': 'transformation',
-      'Transformation radicale': 'transformation', 'Face aux chaînes intérieures': 'transformation',
+      'Transformation radicale': 'transformation', 'Face aux attachements intérieurs': 'transformation',
       'L\'appel à être soi': 'transformation',
       'Abondance et création': 'relation', 'Choix du cœur': 'relation', 'Tradition et sagesse transmise': 'relation',
       'Accomplissement et totalité': 'action', 'Espoir et renouveau': 'patience',
@@ -326,8 +342,12 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
     );
   }
 
+  // Helper : affiche "Nom (Keyword)" seulement si différents — évite "Approche (Approche)"
+  const hexLabel = (name: string, keyword: string) =>
+    name.toLowerCase() === keyword.toLowerCase() ? name : `${name} (${keyword})`;
+
   // ── Header synthèse : 1 insight / 1 conseil / 1 vigilance (Ronde GPT) ──
-  const headerInsight = `${iching.name} (${iching.keyword}) + ${arcaneJour.name_fr} (${arcaneJour.theme})`;
+  const headerInsight = `${hexLabel(iching.name, iching.keyword)} + ${arcaneJour.name_fr} (${arcaneJour.theme})`;
   const headerConseil = prof.action;
   const headerVigilance = prof.risk;
 
@@ -379,7 +399,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                 );
               })}
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 6 }}>
-                {TRIGRAM_NAMES[iching.upper]} / {TRIGRAM_NAMES[iching.lower]}
+                {TRIGRAM_NAMES[iching.upper]} ({TRIGRAM_HUMAN[iching.upper]}) / {TRIGRAM_NAMES[iching.lower]} ({TRIGRAM_HUMAN[iching.lower]})
               </div>
             </div>
 
@@ -391,9 +411,9 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                 {iching.desc}
               </div>
               <div style={{ marginTop: 12, fontSize: 13, color: P.textMid, lineHeight: 1.7 }}>
-                Moitié basse (ton énergie intérieure) : <b style={{ color: P.gold }}>{TRIGRAM_NAMES[iching.lower]}</b><span style={{ fontSize: 11, color: P.textDim }}> — {TRIGRAM_SENSE[iching.lower]}</span><br />
-                Moitié haute (l'énergie du jour) : <b style={{ color: P.blue }}>{TRIGRAM_NAMES[iching.upper]}</b><span style={{ fontSize: 11, color: P.textDim }}> — {TRIGRAM_SENSE[iching.upper]}</span><br />
-                Ligne active : <b style={{ color: P.gold }}>{iching.changing + 1}</b>/6 — l'endroit où l'énergie se transforme en ce moment
+                Moitié basse (ton énergie intérieure) : <b style={{ color: P.gold }}>{TRIGRAM_NAMES[iching.lower]}</b><span style={{ fontSize: 11, color: P.textDim }}> — {TRIGRAM_HUMAN[iching.lower]}</span><br />
+                Moitié haute (l'énergie du jour) : <b style={{ color: P.blue }}>{TRIGRAM_NAMES[iching.upper]}</b><span style={{ fontSize: 11, color: P.textDim }}> — {TRIGRAM_HUMAN[iching.upper]}</span><br />
+                Ligne active : <b style={{ color: P.gold }}>{iching.changing + 1}</b> sur 6 — le point précis où l'énergie se transforme aujourd'hui
               </div>
             </div>
           </div>
@@ -420,7 +440,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
 
           {/* Action */}
           <div style={{ marginTop: 8, padding: '8px 12px', background: `${P.gold}0a`, borderRadius: 6, border: `1px solid ${P.gold}18` }}>
-            <div style={{ fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>☰ Action stratégique du jour</div>
+            <div style={{ fontSize: 9, color: P.gold, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>☰ Ton mouvement du jour</div>
             <div style={{ fontSize: 12, color: P.gold, lineHeight: 1.6 }}>{prof.action}</div>
           </div>
 
@@ -432,7 +452,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
             if (!nucProf || nucNum === iching.hexNum) return null; // pas de Hu Gua ou identique
             return (
               <div style={{ marginTop: 14, padding: '10px 14px', background: '#a78bfa08', borderRadius: 10, border: '1px solid #a78bfa18', borderLeft: '3px solid #a78bfa44' }}>
-                <div style={{ fontSize: 10, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>☯ Dynamique cachée</div>
+                <div style={{ fontSize: 10, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>☯ Ce qui mûrit en toi</div>
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.6, marginBottom: 8, fontStyle: 'italic' }}>
                   Derrière l'hexagramme visible se cache une énergie plus profonde — ce qui mûrit en toi avant même que ça se voie.
                 </div>
@@ -452,12 +472,29 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
               'Bâtisseur': 'patience', 'Chercheur': 'patience', 'Explorateur': 'transformation',
             };
             const hexEnergy: Record<string, string> = {
-              'Crée': 'action', 'Agis': 'action', 'Avance': 'action', 'Organise': 'action', 'Ose': 'action',
-              'Persévère': 'action', 'Construis': 'action', 'Secoue': 'action',
+              // Action
+              'Crée': 'action', 'Avance': 'action', 'Organise': 'action', 'Ose': 'action',
+              'Persévère': 'action', 'Secoue': 'action', 'Fonce': 'action', 'Décide': 'action',
+              'Progresse': 'action', 'Tranche': 'action', 'Monte': 'action', 'Inspire': 'action',
+              'Rayonne': 'action', 'Célèbre': 'action', 'Prépare': 'action', 'Recommence': 'action',
+              // Patience
               'Discipline': 'patience', 'Attends': 'patience', 'Observe': 'patience', 'Recule': 'patience',
-              'Médite': 'patience', 'Accepte': 'patience', 'Simplifie': 'patience', 'Apprends': 'patience', 'Écoute': 'patience',
-              'Transforme': 'transformation', 'Adapte': 'transformation', 'Libère': 'transformation', 'Traverse': 'transformation',
-              'Unis': 'relation', 'Communique': 'relation', 'Partage': 'relation', 'Harmonise': 'relation', 'Accueille': 'relation',
+              'Accepte': 'patience', 'Apprends': 'patience', 'Arrête-toi': 'patience', 'Patiente': 'patience',
+              'Accumule': 'patience', 'Endure': 'patience', 'Puise': 'patience', 'Prudence': 'patience',
+              'Protège-toi': 'patience', 'Limite': 'patience', 'Nourris-toi': 'patience', 'Sois humble': 'patience',
+              'Sois pur': 'patience', 'Embellis': 'patience', 'Cultive': 'patience',
+              'Persiste': 'patience', 'Éclaire': 'action',
+              // Transformation
+              'Transforme': 'transformation', 'Libère': 'transformation', 'Lâche prise': 'transformation',
+              'Dissous': 'transformation', 'Explore': 'transformation', 'Plonge': 'transformation',
+              'Corrige': 'transformation', 'Grandis': 'transformation', 'Pénètre': 'transformation',
+              'Adapte-toi': 'transformation', 'Approche': 'transformation', 'Sacrifie': 'transformation',
+              'Contourne': 'transformation',
+              // Relation
+              'Rassemble': 'relation', 'Harmonise': 'relation', 'Accueille': 'relation', 'Partage': 'relation',
+              'Unis-toi': 'relation', 'Réunis': 'relation', 'Rencontre': 'relation', 'Ressens': 'relation',
+              'Reçois': 'relation', 'Réjouis-toi': 'relation', 'Fais confiance': 'relation',
+              'Suis le flux': 'relation', 'Négocie': 'relation',
             };
             const signEnergy: Record<string, string> = {
               'Bélier': 'action', 'Lion': 'action', 'Sagittaire': 'action',
@@ -496,9 +533,14 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
             if (ratio >= 0.75) {
               level = 'Forte convergence'; levelColor = P.green;
               levelMsg = `Signal clair — l'énergie du jour est alignée vers « ${energyLabels[dominant]} ».`;
-            } else if (ratio >= 0.5) {
+            } else if (ratio > 0.5) {
+              // R30 fix : ratio > 0.5 strict (majorité réelle, pas égalité)
               level = 'Convergence partielle'; levelColor = P.gold;
-              levelMsg = `Tendance marquée vers « ${energyLabels[dominant]} », mais des voix dissidentes apportent de la nuance.`;
+              levelMsg = `Tendance vers « ${energyLabels[dominant]} », mais des voix dissidentes apportent de la nuance.`;
+            } else if (ratio === 0.5) {
+              // R30 fix : split exact (ex: 2-2) — on n'invente pas de tendance
+              level = 'Signal partagé'; levelColor = P.blue;
+              levelMsg = `Les systèmes se répartissent équitablement — pas de direction dominante. Laisse ton intuition trancher.`;
             } else {
               level = 'Tensions créatives'; levelColor = P.blue;
               levelMsg = 'Les systèmes pointent dans des directions différentes — c\'est une richesse. Les tensions créatives ouvrent des voies inattendues.';
@@ -553,7 +595,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
             <div style={{ marginBottom: 16, padding: '12px 14px', background: `${P.gold}0a`, borderRadius: 10, border: `1px solid ${P.gold}20` }}>
               <div style={{ fontSize: 10, color: P.gold, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700, marginBottom: 4 }}>🎴 Ton Arcane du jour</div>
               <div style={{ fontSize: 10, color: P.textDim, lineHeight: 1.5, marginBottom: 8 }}>
-                📅 Calculé automatiquement à partir de la date du jour (méthode Greer : jour + mois + année). Change chaque jour.
+                📅 Calculé automatiquement à partir de la date du jour (jour + mois + année). Change chaque jour.
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 54, height: 86, borderRadius: 6, border: `2px solid ${P.gold}44`, overflow: 'hidden', flexShrink: 0, background: `${P.gold}08` }}>
@@ -563,7 +605,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                   <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{arcaneJour.name_fr}</div>
                   <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginTop: 2 }}>Arcane {arcaneJour.num} · {arcaneJour.theme}</div>
                   <div style={{ fontSize: 10, color: '#a78bfa', marginTop: 3, lineHeight: 1.5 }}>
-                    {arcaneJour.astroType === 'sign' ? '♈' : '☿'} {ASTRO_EXPLAIN[arcaneJour.num] || arcaneJour.astroValue}
+                    {(() => { const PLANET_SYM_FR: Record<string, string> = { 'Uranus':'♅','Mercure':'☿','Lune':'☽','Vénus':'♀','Jupiter':'♃','Neptune':'♆','Pluton':'♇','Mars':'♂','Soleil':'☉','Saturne':'♄' }; return arcaneJour.astroType === 'sign' ? (SIGN_SYM[arcaneJour.astroValue] || '◉') : (PLANET_SYM_FR[arcaneJour.astroValue] || '☿'); })()} {ASTRO_EXPLAIN[arcaneJour.num] || arcaneJour.astroValue}
                   </div>
                   <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, lineHeight: 1.5 }}>✦ {arcaneJour.light}</div>
                 </div>
@@ -579,7 +621,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                 {synthese.type === 'convergence' ? '🔗 Convergence Yi King + Tarot' : '⚖ Complémentarité Yi King + Tarot'}
               </div>
               <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.5, marginBottom: 8 }}>
-                <b style={{ color: P.gold }}>{iching.name}</b> ({iching.keyword}) + <b style={{ color: P.gold }}>{arcaneJour.name_fr}</b> ({arcaneJour.theme})
+                <b style={{ color: P.gold }}>{iching.name}</b>{iching.name.toLowerCase() !== iching.keyword.toLowerCase() && <> ({iching.keyword})</>} + <b style={{ color: P.gold }}>{arcaneJour.name_fr}</b> ({arcaneJour.theme})
               </div>
               <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, fontStyle: 'italic' }}>
                 {synthese.msg}
@@ -606,19 +648,19 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                       <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{birthCard.name_fr}</div>
                       <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginTop: 2 }}>Arcane {birthCard.num} · {birthCard.theme}</div>
                       <div style={{ fontSize: 10, color: '#a78bfa', marginTop: 2, lineHeight: 1.5 }}>
-                        {birthCard.astroType === 'sign' ? '♈' : '☿'} {ASTRO_EXPLAIN[birthCard.num] || birthCard.astroValue}
+                        {(() => { const PLANET_SYM_FR: Record<string, string> = { 'Uranus':'♅','Mercure':'☿','Lune':'☽','Vénus':'♀','Jupiter':'♃','Neptune':'♆','Pluton':'♇','Mars':'♂','Soleil':'☉','Saturne':'♄' }; return birthCard.astroType === 'sign' ? (SIGN_SYM[birthCard.astroValue] || '◉') : (PLANET_SYM_FR[birthCard.astroValue] || '☿'); })()} {ASTRO_EXPLAIN[birthCard.num] || birthCard.astroValue}
                       </div>
                     </div>
                   </div>
 
-                  {/* Carte d'Âme (si différente de Personnalité) */}
+                  {/* Miroir Intérieur (si différent de Personnalité) */}
                   {soulCard && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 200 }}>
                       <div style={{ width: 42, height: 66, borderRadius: 5, border: '2px solid #c084fc44', overflow: 'hidden', flexShrink: 0, background: '#c084fc08' }}>
                         <img src={soulCard.image} alt={soulCard.name_fr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: '#c084fc', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600, marginBottom: 1 }}>Carte d'Âme</div>
+                        <div style={{ fontSize: 9, color: '#c084fc', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600, marginBottom: 1 }}>Ton Miroir Intérieur</div>
                         <div style={{ fontSize: 8, color: P.textDim, marginBottom: 3, lineHeight: 1.3 }}>ce qui te guide en profondeur, souvent sans que tu le saches</div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{soulCard.name_fr}</div>
                         <div style={{ fontSize: 10, color: '#c084fc', fontWeight: 600, marginTop: 2 }}>Arcane {soulCard.num} · {soulCard.theme}</div>
@@ -634,8 +676,8 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                         <img src={essenceCard.image} alt={essenceCard.name_fr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: '#e879f9', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600, marginBottom: 1 }}>Essence</div>
-                        <div style={{ fontSize: 8, color: P.textDim, marginBottom: 3, lineHeight: 1.3 }}>ton énergie la plus fondamentale, au-delà du rôle et de l'âme</div>
+                        <div style={{ fontSize: 9, color: '#e879f9', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600, marginBottom: 1 }}>Ton Noyau Profond</div>
+                        <div style={{ fontSize: 8, color: P.textDim, marginBottom: 3, lineHeight: 1.3 }}>qui tu es au-delà de tout rôle — ta nature première</div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{essenceCard.name_fr}</div>
                         <div style={{ fontSize: 10, color: '#e879f9', fontWeight: 600, marginTop: 2 }}>Arcane {essenceCard.num} · {essenceCard.theme}</div>
                         <div style={{ fontSize: 10, color: P.textDim, marginTop: 3, lineHeight: 1.5 }}>{essenceCard.narrative}</div>
@@ -677,19 +719,19 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                     ))}
                     <div style={{ fontSize: 8, color: '#a78bfa', marginTop: 3, opacity: 0.7, textAlign: 'center', lineHeight: 1.4 }}>
                       <div>{TRIGRAM_NAMES[natalHex.upper]}</div>
-                      <div style={{ opacity: 0.5, fontSize: 7 }}>{TRIGRAM_SENSE[natalHex.upper]}</div>
+                      <div style={{ opacity: 0.5, fontSize: 7 }}>{TRIGRAM_HUMAN[natalHex.upper]}</div>
                       <div style={{ opacity: 0.5, marginTop: 1 }}>sur</div>
                       <div>{TRIGRAM_NAMES[natalHex.lower]}</div>
-                      <div style={{ opacity: 0.5, fontSize: 7 }}>{TRIGRAM_SENSE[natalHex.lower]}</div>
+                      <div style={{ opacity: 0.5, fontSize: 7 }}>{TRIGRAM_HUMAN[natalHex.lower]}</div>
                     </div>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>Hexagramme {natalHex.hexNum} — {natalHex.name}</div>
                     <div style={{ fontSize: 12, color: '#a78bfa', fontWeight: 600, marginTop: 2 }}>→ {natalHex.keyword}</div>
                     <div style={{ fontSize: 10, color: P.textDim, marginTop: 4, lineHeight: 1.5 }}>
-                      <span style={{ color: P.blue }}>{TRIGRAM_NAMES[natalHex.upper]}</span><span style={{ color: P.textDim, fontSize: 9 }}> ({TRIGRAM_SENSE[natalHex.upper]})</span> rencontre <span style={{ color: P.gold }}>{TRIGRAM_NAMES[natalHex.lower]}</span><span style={{ color: P.textDim, fontSize: 9 }}> ({TRIGRAM_SENSE[natalHex.lower]})</span>
+                      <span style={{ color: P.blue }}>{TRIGRAM_NAMES[natalHex.upper]}</span><span style={{ color: P.textDim, fontSize: 9 }}> ({TRIGRAM_HUMAN[natalHex.upper]})</span> rencontre <span style={{ color: P.gold }}>{TRIGRAM_NAMES[natalHex.lower]}</span><span style={{ color: P.textDim, fontSize: 9 }}> ({TRIGRAM_HUMAN[natalHex.lower]})</span>
                     </div>
-                    <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, lineHeight: 1.5 }}>Archétype : {natalProf.archetype}</div>
+                    <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, lineHeight: 1.5 }}>Tu incarnes : {getArchetype(natalProf.archetype, isF)}</div>
                     <div style={{ fontSize: 10, color: P.textDim, marginTop: 4, lineHeight: 1.6, fontStyle: 'italic' }}>
                       « {natalProf.wisdom} »
                     </div>
@@ -755,7 +797,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                         <img src={antarArcana.image} alt={antarArcana.name_fr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 9, color: '#d97706', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Période secondaire · {DASHA_LORD_NAMES[antarLord] || antarLord}</div>
+                        <div style={{ fontSize: 9, color: '#d97706', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Cycle en cours · {DASHA_LORD_NAMES[antarLord] || antarLord}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginTop: 1 }}>{antarArcana.name_fr}</div>
                         <div style={{ fontSize: 10, color: '#d97706', fontWeight: 600 }}>{antarArcana.theme}</div>
                         <div style={{ fontSize: 10, color: P.textDim, marginTop: 2, lineHeight: 1.5 }}>
@@ -901,7 +943,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 14 }}>
                   {conscious.throws.map((t, i) => (
                     <div key={i} style={{ textAlign: 'center', padding: '4px 6px', borderRadius: 6, background: (t === 6 || t === 9) ? `${P.gold}0f` : P.surface, border: `1px solid ${(t === 6 || t === 9) ? P.gold + '33' : P.cardBdr}` }}>
-                      <div style={{ fontSize: 8, color: P.textDim }}>{['Fond.', 'Terre', 'Trans.', 'Cœur', 'Ciel', 'Sommet'][i]}</div>
+                      <div style={{ fontSize: 8, color: P.textDim }}>{['Base', 'Terre', 'Pivot', 'Cœur', 'Ciel', 'Sommet'][i]}</div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: throwColor[t] }}>{throwLabel[t]}</div>
                       <div style={{ fontSize: 8, color: throwColor[t], opacity: 0.7 }}>{t}</div>
                     </div>
@@ -917,7 +959,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                 {/* Hexagramme transformé */}
                 {conscious.transformed && profT && (
                   <div style={{ marginBottom: 14, padding: 12, background: '#60a5fa08', borderRadius: 8, border: '1px solid #60a5fa20' }}>
-                    <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>↗ Se transforme en — devenir</div>
+                    <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, marginBottom: 8 }}>↗ Ce qui en émerge — l'évolution en cours</div>
                     <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                       {renderLines(conscious.transformed.lines, [])}
                       <div style={{ flex: 1 }}>
@@ -940,7 +982,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                     </div>
                     <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginTop: 8 }}>
                       <strong style={{ color: P.gold }}>En pratique :</strong> {prof2.action}{' '}
-                      Ensuite, prépare-toi à {profT.action.charAt(0).toLowerCase() + profT.action.slice(1)}
+                      Pour la suite : {profT.action}
                     </div>
                     {prof2.risk && (
                       <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.5, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${P.cardBdr}` }}>
@@ -973,6 +1015,9 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                   const isExpanded = expandedIChingId === h.id;
                   const hProf = getHexProfile(h.hexNum);
                   const hProfT = h.transformedHexNum ? getHexProfile(h.transformedHexNum) : null;
+                  // Résoudre les noms depuis HEX_NAMES (pas les strings stockés) pour refléter les renommages
+                  const currentName = HEX_NAMES[h.hexNum] || h.hexName;
+                  const currentTransName = h.transformedHexNum ? (HEX_NAMES[h.transformedHexNum] || h.transformedName) : h.transformedName;
                   return (
                     <div key={h.id}>
                       <div style={{ padding: '8px 12px', borderRadius: isExpanded ? '8px 8px 0 0' : 8, background: P.surface, border: `1px solid ${P.cardBdr}`, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', transition: 'background 0.2s' }}
@@ -981,8 +1026,8 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 11, color: P.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>« {h.question} »</div>
                           <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                            {h.hexName} → {h.keyword}
-                            {h.transformedHexNum && <span style={{ color: '#60a5fa' }}> ↗ {h.transformedName}</span>}
+                            {hexLabel(currentName, h.keyword)}
+                            {h.transformedHexNum && <span style={{ color: '#60a5fa' }}> ↗ {currentTransName}</span>}
                           </div>
                         </div>
                         {h.movingCount > 0 && <div style={{ fontSize: 9, color: P.gold }}>⬤{h.movingCount}</div>}
@@ -996,8 +1041,10 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                       {isExpanded && (
                         <div style={{ padding: '10px 14px', background: `${P.surface}cc`, border: `1px solid ${P.cardBdr}`, borderTop: 'none', borderRadius: '0 0 8px 8px' }}>
                           <div style={{ fontSize: 12, color: P.textMid, fontStyle: 'italic', marginBottom: 8 }}>« {h.question} »</div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 2 }}>{h.hexName}</div>
-                          <div style={{ fontSize: 13, color: P.gold, fontWeight: 600, marginBottom: 8 }}>→ {h.keyword}</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 2 }}>{currentName}</div>
+                          {currentName.toLowerCase() !== h.keyword.toLowerCase() && (
+                            <div style={{ fontSize: 13, color: P.gold, fontWeight: 600, marginBottom: 8 }}>→ {h.keyword}</div>
+                          )}
                           <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.7, marginBottom: 10, padding: '8px 10px', background: `${P.gold}06`, borderRadius: 8, borderLeft: `3px solid ${P.gold}44` }}>
                             <div style={{ fontSize: 10, color: P.gold, fontWeight: 700, marginBottom: 4 }}>☰ Conseil</div>
                             {hProf.action}
@@ -1005,9 +1052,9 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                           {h.movingCount > 0 && <div style={{ fontSize: 10, color: P.gold, marginBottom: 6 }}>⬤ {h.movingCount} point{h.movingCount > 1 ? 's' : ''} de transformation</div>}
                           {h.transformedHexNum && hProfT && (
                             <div style={{ padding: '8px 10px', background: '#60a5fa08', borderRadius: 8, border: '1px solid #60a5fa20' }}>
-                              <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, marginBottom: 4 }}>↗ Se transforme en — devenir</div>
-                              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{h.transformedName}</div>
-                              <div style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600, marginTop: 2 }}>→ {hProfT.archetype}</div>
+                              <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, marginBottom: 4 }}>↗ Ce qui en émerge — l'évolution en cours</div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{currentTransName}</div>
+                              <div style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600, marginTop: 2 }}>→ {getArchetype(hProfT.archetype, isF)}</div>
                               <div style={{ fontSize: 11, color: P.textDim, marginTop: 4, lineHeight: 1.6 }}>{hProfT.action}</div>
                             </div>
                           )}
@@ -1080,7 +1127,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
             {tarotCardMode === '3cards' && tarot3Phase !== 'result' && (
               <>
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.6, marginBottom: 8, fontStyle: 'italic' }}>
-                  Tirage approfondi — 3 Arcanes pour éclairer ta question sous 3 angles : ce qui se joue, ce qui te challenge, et le conseil du moment.
+                  Tirage approfondi — 3 Arcanes pour éclairer ta question sous 3 angles : ce qui se joue, ce qui te met à l'épreuve, et le conseil du moment.
                 </div>
                 <textarea
                   value={tarotQuestion}
@@ -1252,7 +1299,7 @@ export default function IChingTab({ data, bd }: { data: SoulData; bd: string }) 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 11, color: P.textMid, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>« {h.question} »</div>
                             <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                              {h.arcanaNum} — {h.arcanaName}
+                              Arcane {h.arcanaNum} · {h.arcanaName}
                               {h.isReversed && <span style={{ color: '#f87171' }}> ↕ renversé</span>}
                             </div>
                           </div>

@@ -1,7 +1,8 @@
 import { Sec, Cd, P } from '../ui';
-import { TRIGRAM_NAMES } from '../../engines/iching';
+import { TRIGRAM_NAMES, TRIGRAM_SENSE } from '../../engines/iching';
 import { intro, gold12, Badge } from './shared';
 import type { DayPreview, ProfileData, SoulData } from '../../engines/orchestrator';
+import { COSMIC_THRESHOLD } from '../../engines/convergence';
 import { PY_DESC } from './NumerologySection';
 
 interface AstroSpiritSectionProps {
@@ -54,7 +55,7 @@ export default function AstroSpiritSection({
                 </div>
               ))}
               <div style={{ fontSize: 9, color: P.textDim, marginTop: 4 }}>
-                {TRIGRAM_NAMES[natal.lower]} / {TRIGRAM_NAMES[natal.upper]}
+                {TRIGRAM_NAMES[natal.lower]} ({TRIGRAM_SENSE[natal.lower]}) / {TRIGRAM_NAMES[natal.upper]} ({TRIGRAM_SENSE[natal.upper]})
               </div>
             </div>
             <div style={{ flex: 1 }}>
@@ -282,12 +283,12 @@ export default function AstroSpiritSection({
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 6 }}>
                         {topDays.map((day, i) => {
                           const sc = day.score;
-                          const col = sc >= 86 ? '#E0B0FF' : sc >= 80 ? '#4ade80' : P.textMid;
+                          const col = sc >= COSMIC_THRESHOLD ? '#E0B0FF' : sc >= 80 ? '#4ade80' : P.textMid;
                           return (
-                            <div key={i} style={{ padding: '8px 10px', borderRadius: 6, background: sc >= 86 ? '#E0B0FF08' : '#ffffff04', border: `1px solid ${sc >= 86 ? '#E0B0FF20' : 'rgba(255,255,255,0.08)'}`, fontSize: 9, color: P.textDim }}>
+                            <div key={i} style={{ padding: '8px 10px', borderRadius: 6, background: sc >= COSMIC_THRESHOLD ? '#E0B0FF08' : '#ffffff04', border: `1px solid ${sc >= COSMIC_THRESHOLD ? '#E0B0FF20' : 'rgba(255,255,255,0.08)'}`, fontSize: 9, color: P.textDim }}>
                               <div style={{ fontWeight: 600, color: col, marginBottom: 2 }}>
                                 {new Date(day.date + 'T00:00:00').toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' })}
-                                {sc >= 86 && <span style={{ fontSize: 8, marginLeft: 4 }}>✦</span>}
+                                {sc >= COSMIC_THRESHOLD && <span style={{ fontSize: 8, marginLeft: 4 }}>✦</span>}
                               </div>
                               <div style={{ color: col, fontWeight: 700 }}>{sc}/100</div>
                             </div>

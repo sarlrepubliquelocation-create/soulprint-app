@@ -8,8 +8,8 @@ import { getHexProfile } from '../engines/iching';
 import { Sec, Cd, P } from './ui';
 import FeedbackWidget from './FeedbackWidget';
 import { getDayFeedback, saveDayFeedback, loadDeltas } from '../engines/validation-tracker'; // AD
-import { getCalibOffset } from '../engines/calibration'; // GAP=0 — même calibOffset que Pilotage
 import { getAllHistoricalScores } from '../engines/score-history'; // Scores LIVE historiques
+import { useTimeline } from '../contexts/TimelineContext'; // Ronde #35 S2 — source unique calibOffset
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MOIS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -89,6 +89,10 @@ function heatColor(s: number): string {
 
 export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: SoulData; bd: string; bt?: string; yearPreviews: DayPreview[] | null }) {
   const { num, cz, astro } = data;
+  // Ronde #35 S2 — calibOffset + toDisplay via TimelineProvider (source unique)
+  const { calibOffset: _calOff, toDisplay: _toDisplay } = useTimeline();
+  // ── Profile key pour scoper le feedback au bon profil ──
+  const _profileKey = bd.replace(/[^0-9]/g, '');
   const [calView, setCalView] = useState<'calendar' | 'horizon'>('calendar');
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
@@ -122,17 +126,18 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
     // Convertir slider 1-5 en rating legacy pour rétrocompat
     const legacyRating: 'good' | 'neutral' | 'bad' = blindRating >= 4 ? 'good' : blindRating <= 2 ? 'bad' : 'neutral';
     // AD — récupérer les deltas d'hier stockés au chargement de la veille
-    const yDeltas = loadDeltas(blindYesterday);
+    const yDeltas = loadDeltas(blindYesterday, _profileKey);
     saveDayFeedback(
       blindYesterday, blindPredicted, blindLabel, legacyRating,
       undefined, undefined, blindRating,
       undefined, undefined,
-      yDeltas?.luneDelta, yDeltas?.ephemDelta, yDeltas?.baziDelta, yDeltas?.scoreBrut
+      yDeltas?.luneDelta, yDeltas?.ephemDelta, yDeltas?.baziDelta, yDeltas?.scoreBrut,
+      _profileKey
     );
     setBlindMode('result');
     // Auto-dismiss après 4 secondes
     setTimeout(() => setBlindMode(null), 4000);
-  }, [blindYesterday, blindRating, blindPredicted, blindLabel]);
+  }, [blindYesterday, blindRating, blindPredicted, blindLabel, _profileKey]);
 
   const STAR_LABELS = ['', 'Difficile', 'Mitigé', 'Correct', 'Bon', 'Excellent'];
 
@@ -180,7 +185,13 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
   const yearHeatmap = useMemo(() => {
     // Phase 3a fix : yearPreviews (prop) = année courante uniquement.
     // Pour les autres années, recalculer localement (comme avant Phase 3a).
+    // ═══ Fix stabilité calendrier ═══
+    // Pour l'année courante : yearPreviews arrive déjà overlay+softShift (fait dans buildYearPreviews).
+    // Pour les autres années : overlay historique AVANT applySoftShiftBlend.
     let allPreviews: DayPreview[];
+    const _calibOff = _calOff;
+    const _scoreLCol = (s: number) => s >= COSMIC_THRESHOLD ? '#E0B0FF' : s >= 80 ? '#FFD700' : s >= 65 ? '#4ade80' : s >= 40 ? '#60a5fa' : s >= 25 ? '#9890aa' : '#ef4444';
+
     if (year === currentYear && yearPreviews) {
       allPreviews = yearPreviews.map(p => ({ ...p }));
     } else {
@@ -195,34 +206,40 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
         );
         _allRaw.push(...mp.map(p => ({ ...p })));
       }
+      // ═══ Fix stabilité — overlay historique AVANT softShift (même logique que buildYearPreviews) ═══
+      const _history = getAllHistoricalScores(bd);
+      const _liveScore = Math.max(0, Math.min(100, Math.round(data.conv.score + _calibOff)));
+      for (const p of _allRaw) {
+        if (p.date === todayStr) {
+          p.score = _liveScore;
+          p.lCol = _scoreLCol(_liveScore);
+          p._frozen = true;
+        } else if (p.date < todayStr) {
+          const hist = _history[p.date];
+          if (hist !== undefined) {
+            p.score = hist;
+            p.lCol = _scoreLCol(hist);
+            p._frozen = true;
+          }
+        }
+      }
       applySoftShiftBlend(_allRaw);
       allPreviews = _allRaw;
     }
     const days: { score: number; month: number; day: number; date: string; isAnnualPeak?: boolean; isCosmicCapped?: boolean }[] = [];
     let peakScore = 0, peakMonth = 1;
 
-    // ═══ FIX GAP=0 yearHeatmap : forcer le score LIVE pour aujourd'hui ═══
-    // applySoftShiftBlend a un guard pour today, mais calcDayPreview est une
-    // approximation rapide. On écrase avec data.conv.score + calibOffset (= Pilotage exact).
-    const _calibOff = getCalibOffset();
-    const _liveScore = Math.max(0, Math.min(100, Math.round(data.conv.score + _calibOff)));
+    // ═══ Post-overlay safety net ═══
+    // GAP=0 : aujourd'hui = score Pilotage exact (cv.score + calibOffset).
+    // Les jours futurs gardent leur score brut (soft-shift pur) — le calibOffset
+    // est un ajustement personnel d'AFFICHAGE qui ne doit PAS entrer dans le
+    // comptage Cosmiques (sinon un offset de -6 supprime 8+ Cosmiques).
+    const _liveScorePost = Math.max(0, Math.min(100, Math.round(data.conv.score + _calibOff)));
     const _todayP = allPreviews.find(p => p.date === todayStr);
     if (_todayP) {
-      _todayP.score = _liveScore;
-      _todayP.lCol = _liveScore >= COSMIC_THRESHOLD ? '#E0B0FF' : _liveScore >= 80 ? '#FFD700' : _liveScore >= 65 ? '#4ade80' : _liveScore >= 40 ? '#60a5fa' : _liveScore >= 25 ? '#9890aa' : '#ef4444';
-    }
-
-    // ═══ Scores historiques : écraser les jours passés avec le score LIVE enregistré ═══
-    // Évite la divergence entre Pilotage (calcMainScore) et Calendrier (scoreFromGroups/L2-lite).
-    const _history = getAllHistoricalScores(bd);
-    const _scoreLCol = (s: number) => s >= COSMIC_THRESHOLD ? '#E0B0FF' : s >= 80 ? '#FFD700' : s >= 65 ? '#4ade80' : s >= 40 ? '#60a5fa' : s >= 25 ? '#9890aa' : '#ef4444';
-    for (const p of allPreviews) {
-      if (p.date >= todayStr) continue; // ne toucher que les jours passés
-      const hist = _history[p.date];
-      if (hist !== undefined) {
-        p.score = hist;
-        p.lCol = _scoreLCol(hist);
-      }
+      _todayP.score = _liveScorePost;
+      _todayP.lCol = _scoreLCol(_liveScorePost);
+      _todayP._frozen = true;
     }
 
     // Post-traitement annuel : plancher 3 "Pic de l'année" + plafond Cosmiques
@@ -276,7 +293,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
-    const existing = getDayFeedback(yStr);
+    const existing = getDayFeedback(yStr, _profileKey);
     // Montrer le blind check-in si hier n'a PAS de feedback slider (userScore)
     if (!existing?.userScore) {
       setBlindYesterday(yStr);
@@ -300,7 +317,16 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
         }
       }
     }
-  }, [yearHeatmap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [yearHeatmap, _profileKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Reset blind state on profile switch ──
+  useEffect(() => {
+    setBlindMode(null);
+    setBlindYesterday('');
+    setBlindPredicted(0);
+    setBlindLabel('');
+    setBlindRating(3);
+  }, [bd]);
 
   // Month stats — Gold & Cosmique Days (Ronde Cosmique : respecte labels annuels)
   const stats = useMemo(() => {
@@ -339,8 +365,8 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
     const base = ann.length > 0 ? ann : previews;
     // ═══ FIX GAP=0 : aujourd'hui = score Pilotage exact (cv.score + calibOffset) ═══
     // GAP=0 fix : date locale (pas UTC) — cohérent avec getTodayStr() du moteur
-    const calibOff = getCalibOffset();
-    const liveScore = Math.max(0, Math.min(100, Math.round(data.conv.score + calibOff)));
+    const calibOff = _calOff;
+    const liveScore = _toDisplay(data.conv.score);
     // Recalcul lCol cohérent avec scoreLevelColor (convergence.ts, non-exportée)
     const _lCol = liveScore >= COSMIC_THRESHOLD ? '#E0B0FF' : liveScore >= 80 ? '#FFD700' : liveScore >= 65 ? '#4ade80' : liveScore >= 40 ? '#60a5fa' : liveScore >= 25 ? '#9890aa' : '#ef4444';
     return base.map(p => p.date === todayStr ? { ...p, score: liveScore, lCol: _lCol } : p);
@@ -484,7 +510,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                 color: match ? '#4ade80' : '#f59e0b',
                 border: `1px solid ${match ? '#4ade8030' : '#f59e0b30'}`
               }}>
-                {match ? '✓ Concordant — le moteur capte ton énergie' : '≠ Décalage — chaque feedback affine la précision'}
+                {match ? '✓ Concordant — le moteur capte ton énergie' : '≠ Décalage — chaque retour affine la précision'}
               </div>
             );
           })()}
@@ -518,7 +544,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
         {/* ══════════════════════════════════════
             VUE HORIZON 36 MOIS
         ══════════════════════════════════════ */}
-        {calView === 'horizon' && <ForecastTab data={data} bd={bd} bt={bt} />}
+        {calView === 'horizon' && <ForecastTab data={data} bd={bd} bt={bt} yearPreviews={yearPreviews} />}
 
         {/* ══════════════════════════════════════
             VUE CALENDRIER (originale)
@@ -547,7 +573,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
           <div style={{ fontSize: 11, color: P.textDim, marginBottom: 6 }}>
             {yearHeatmap.cosmiqueTotal > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{yearHeatmap.cosmiqueTotal}</span> <span title="Convergence rare : tous les systèmes s'alignent simultanément (score ≥86)">Convergence rare ✦</span> · </>}
             {yearHeatmap.annualPeakTotal > 0 && <><span style={{ color: '#00CED1', fontWeight: 700 }}>{yearHeatmap.annualPeakTotal}</span> Fenêtre clé · </>}
-            <span style={{ color: P.gold, fontWeight: 700 }}>{yearHeatmap.goldTotal}</span> Alignement fort · Score max <span style={{ color: yearHeatmap.peakScore >= COSMIC_THRESHOLD ? '#E0B0FF' : P.gold, fontWeight: 700 }}>{yearHeatmap.peakScore}%</span> en {MOIS_FR[yearHeatmap.peakMonth - 1]}
+            <span style={{ color: P.gold, fontWeight: 700 }}>{yearHeatmap.goldTotal}</span> Alignement fort · Score max <span style={{ color: _toDisplay(yearHeatmap.peakScore) >= COSMIC_THRESHOLD ? '#E0B0FF' : P.gold, fontWeight: 700 }}>{_toDisplay(yearHeatmap.peakScore)}%</span> en {MOIS_FR[yearHeatmap.peakMonth - 1]}
           </div>
 
           {/* Month labels */}
@@ -607,7 +633,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                       outline: isCosm ? '1px solid #E0B0FFaa' : isPeak ? '1px solid #00CED1aa' : 'none',
                       borderLeft: isMonthBoundary ? '2px solid rgba(255,255,255,0.15)' : 'none',
                     }}
-                    title={cell ? `${cell.day} ${MOIS_FR[cell.month - 1]} — ${cell.score}%${isPeak ? ' ★ Fenêtre clé' : ''}${cell.isCosmicCapped ? ' (plafonné)' : ''}` : ''}
+                    title={cell ? `${cell.day} ${MOIS_FR[cell.month - 1]} — ${_toDisplay(cell.score)}%${isPeak ? ' ★ Fenêtre clé' : ''}${cell.isCosmicCapped ? ' (plafonné)' : ''}` : ''}
                   />
                   );
                 })
@@ -638,7 +664,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                 {stats.cosmiqueDays.length > 0 && <><span style={{ color: '#E0B0FF', fontWeight: 700 }}>{stats.cosmiqueDays.length}</span> <span title="Convergence rare : tous les systèmes s'alignent (score ≥86)">Convergence rare ✦</span> · </>}
                 {stats.annualPeakDays.length > 0 && <><span style={{ color: '#00CED1', fontWeight: 700 }}>{stats.annualPeakDays.length}</span> Fenêtre clé · </>}
                 <span style={{ color: P.gold, fontWeight: 700 }}>{stats.goldDays.length}</span> Alignement fort
-                {stats.bestDay && <> · Jour fort : <span style={{ color: P.gold, fontWeight: 700 }}>le {(stats.bestDay as DayPreview).day}</span> (<span style={{ color: P.gold }}>{(stats.bestDay as DayPreview).score}%</span>)</>}
+                {stats.bestDay && <> · Jour fort : <span style={{ color: P.gold, fontWeight: 700 }}>le {(stats.bestDay as DayPreview).day}</span> (<span style={{ color: P.gold }}>{_toDisplay((stats.bestDay as DayPreview).score)}%</span>)</>}
               </div>
             </div>
             <button onClick={nextMonth} aria-label="Mois suivant" style={{ background: P.surface, border: `1px solid ${P.cardBdr}`, borderRadius: 8, padding: '8px 14px', cursor: 'pointer', color: P.text, fontSize: 16, fontFamily: 'inherit' }}>▶</button>
@@ -709,19 +735,27 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
             {Array.from({ length: firstDow }, (_, i) => (
               <div key={`e${i}`} style={{ aspectRatio: '1', borderRadius: 6 }} />
             ))}
-            {/* ═══ FIX GAP=0 FINAL — score LIVE forcé dans le rendu (belt-and-suspenders) ═══ */}
+            {/* ═══ Ronde #35 — calibOffset appliqué à l'AFFICHAGE, pas au comptage (cohérence Pilotage↔Calendrier) ═══ */}
             {(() => {
-              const _calibOff2 = getCalibOffset();
-              const _liveToday = Math.max(0, Math.min(100, Math.round(data.conv.score + _calibOff2)));
+              const _liveToday = _toDisplay(data.conv.score);
+              const _clampDisplay = _toDisplay;
+              const _displayLCol = (s: number) => s >= COSMIC_THRESHOLD ? '#E0B0FF' : s >= 80 ? '#FFD700' : s >= 65 ? '#4ade80' : s >= 40 ? '#60a5fa' : s >= 25 ? '#9890aa' : '#ef4444';
               return annotatedPreviews.map(p => {
               const isToday = p.date === todayStr;
-              // Belt-and-suspenders : forcer le score LIVE pour today, même si annotatedPreviews n'a pas appliqué l'override
-              const _score = isToday ? _liveToday : p.score;
-              const _lCol = isToday ? (_liveToday >= COSMIC_THRESHOLD ? '#E0B0FF' : _liveToday >= 80 ? '#FFD700' : _liveToday >= 65 ? '#4ade80' : _liveToday >= 40 ? '#60a5fa' : _liveToday >= 25 ? '#9890aa' : '#ef4444') : p.lCol;
+              const isPast = p.date < todayStr;
+              // _rawScore = score brut (pour badges/comptage Cosmiques — SANS calibOffset)
+              const _rawScore = isToday ? _liveToday : p.score;
+              // _displayScore = score affiché à l'utilisateur (AVEC calibOffset)
+              // Aujourd'hui : LIVE (déjà inclut calibOffset)
+              // Passé (_frozen) : score-history (déjà raw+off via getAllHistoricalScores)
+              // Futur : score brut + calibOffset
+              const _displayScore = isToday ? _liveToday : (isPast && p._frozen) ? p.score : _clampDisplay(p.score);
+              const _lCol = _displayLCol(_displayScore);
               const isSel = selected?.date === p.date;
-              const isCosmique = _score >= COSMIC_THRESHOLD && !p.isCosmicCapped;
+              // Badges : comptage sur score BRUT (sans calibOffset) — un calibOffset négatif ne doit pas supprimer des Cosmiques
+              const isCosmique = _rawScore >= COSMIC_THRESHOLD && !p.isCosmicCapped;
               const isPeak = !!p.isAnnualPeak;
-              const isGold = _score >= 80 && !isCosmique && !isPeak;
+              const isGold = _rawScore >= 80 && !isCosmique && !isPeak;
               const tierCol = isCosmique ? '#E0B0FF' : isPeak ? '#00CED1' : P.gold;
               const dtColor = p.dayType.color;
               // V4.0: Domain filter
@@ -731,10 +765,11 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
               return (
                 <button key={p.day}
                   onClick={() => setSelected(isSel ? null : p)}
+                  className={isToday ? 'today-cell' : undefined}
                   style={{
                     aspectRatio: '1',
-                    background: domainFilter && isDomTop ? `${domColor}18` : isCosmique ? '#E0B0FF18' : isPeak ? '#00CED118' : isGold ? `${P.gold}18` : isSel ? `${dtColor}25` : `${dtColor}18`,
-                    border: domainFilter && isDomTop ? `2px solid ${domColor}60` : (isGold || isPeak) ? `2px solid ${tierCol}` : isToday ? `2px solid ${P.gold}88` : isSel ? `2px solid ${dtColor}` : `1px solid ${dtColor}18`,
+                    background: domainFilter && isDomTop ? `${domColor}18` : isCosmique ? '#E0B0FF18' : isPeak ? '#00CED118' : isGold ? `${P.gold}18` : isSel ? `${dtColor}25` : isToday ? `${P.gold}15` : `${dtColor}18`,
+                    border: domainFilter && isDomTop ? `2px solid ${domColor}60` : (isGold || isPeak) ? `2px solid ${tierCol}` : isToday ? `2px solid ${P.gold}` : isSel ? `2px solid ${dtColor}` : `1px solid ${dtColor}18`,
                     borderRadius: 8, cursor: 'pointer',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     padding: 2, position: 'relative', transition: 'all 0.15s ease',
@@ -744,7 +779,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                   {!domainFilter && isCosmique && <div className="sp-star" style={{ position: 'absolute', top: 0, left: 1, fontSize: 9, color: '#E0B0FF', lineHeight: 1 }}>✦</div>}
                   {!domainFilter && isPeak && <div style={{ position: 'absolute', top: 0, left: 1, fontSize: 8, color: '#00CED1', lineHeight: 1 }}>★</div>}
                   <div style={{ fontSize: 14, fontWeight: 700, color: isDomTop ? domColor : isGold && !domainFilter ? tierCol : isToday ? P.gold : P.text, lineHeight: 1 }}>{p.day}</div>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: domainFilter ? domColor : _lCol, marginTop: 1, opacity: domainFilter ? (isDomTop ? 1 : 0.5) : 1 }}>{domScore ?? _score}</div>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: domainFilter ? domColor : _lCol, marginTop: 1, opacity: domainFilter ? (isDomTop ? 1 : 0.5) : 1 }}>{domScore ?? _displayScore}</div>
                   {isToday
                     ? <div style={{ fontSize: 7, fontWeight: 800, color: P.gold, marginTop: 1, letterSpacing: 0.5, textTransform: 'uppercase', lineHeight: 1 }}>Auj.</div>
                     : <div style={{ width: 8, height: 8, borderRadius: '50%', background: dtColor, marginTop: 1, boxShadow: `0 0 4px ${dtColor}55` }} />
@@ -778,7 +813,17 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
         </Cd>
 
         {/* Selected Day Detail */}
-        {selected && (
+        {selected && (() => {
+          // Ronde #35 — score affiché = brut + calibOffset (cohérence Pilotage↔Calendrier)
+          // Badges Cosmique/Gold restent sur score BRUT (p.score) pour ne pas fausser le comptage.
+          const _isSelToday = selected.date === todayStr;
+          const _isSelPast = selected.date < todayStr;
+          const _selDisplayScore = _isSelToday
+            ? _toDisplay(data.conv.score)
+            : (_isSelPast && selected._frozen) ? selected.score
+            : _toDisplay(selected.score);
+          const _selDisplayLCol = _selDisplayScore >= COSMIC_THRESHOLD ? '#E0B0FF' : _selDisplayScore >= 80 ? '#FFD700' : _selDisplayScore >= 65 ? '#4ade80' : _selDisplayScore >= 40 ? '#60a5fa' : _selDisplayScore >= 25 ? '#9890aa' : '#ef4444';
+          return (
           <Cd sx={{ marginTop: 12 }}>
             {/* Gold / Cosmique / Fenêtre clé Day Banner */}
             {selected.score >= 80 && (() => {
@@ -805,7 +850,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                   <div style={{ fontSize: 11, color: col, opacity: 0.8, marginTop: 4 }}>
                     {isCosm ? 'Tous tes systèmes convergent simultanément — c\'est extrêmement rare'
                       : isPeak ? 'Potentiel élevé — un moment à saisir pleinement'
-                      : 'Alignement rare — toutes les conditions sont réunies'}
+                      : 'Forte convergence de tes systèmes — les conditions sont favorables'}
                   </div>
                 </div>
               );
@@ -825,12 +870,19 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                     : selected.dayType.label}
                 </div>
                 <div style={{ fontSize: 12, color: P.textMid, marginTop: 2 }}>{(selected.score >= COSMIC_THRESHOLD && !selected.isCosmicCapped)
-                  ? (selected.dayType.type === 'decision' ? 'Journée idéale pour trancher et s\'engager' : selected.dayType.type === 'communication' ? 'Tes échanges portent loin aujourd\'hui' : selected.dayType.type === 'expansion' ? 'Le terrain est grand ouvert — avance' : selected.dayType.type === 'observation' ? 'Lucidité exceptionnelle — tranche avec précision' : 'Connexion intérieure puissante — profites-en')
-                  : selected.dayType.desc}</div>
+                  ? (selected.dayType.type === 'decision' ? 'Le moment idéal pour trancher et s\'engager' : selected.dayType.type === 'communication' ? 'Tes échanges portent loin aujourd\'hui' : selected.dayType.type === 'expansion' ? 'Le terrain est grand ouvert — avance' : selected.dayType.type === 'observation' ? 'Lucidité exceptionnelle — tranche avec précision' : 'Connexion intérieure puissante — profites-en')
+                  : _selDisplayScore < 65
+                    ? (selected.dayType.type === 'decision' ? 'prépare tes décisions avec prudence'
+                      : selected.dayType.type === 'observation' ? 'observe, analyse, prends du recul'
+                      : selected.dayType.type === 'communication' ? 'échange en douceur, écoute plus que tu ne parles'
+                      : selected.dayType.type === 'retrait' ? 'repose-toi, digère, lâche prise'
+                      : selected.dayType.type === 'expansion' ? 'explore à ton rythme, sans forcer'
+                      : selected.dayType.desc)
+                    : selected.dayType.desc}</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: selected.lCol, ...(selected.score >= 75 ? { textShadow: `0 0 12px ${P.gold}66` } : {}) }}>{selected.score}</div>
-                <div style={{ fontSize: 9, color: selected.lCol + 'aa' }}>%</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: _selDisplayLCol, ...(_selDisplayScore >= 75 ? { textShadow: `0 0 12px ${P.gold}66` } : {}) }}>{_selDisplayScore}</div>
+                <div style={{ fontSize: 9, color: _selDisplayLCol + 'aa' }}>%</div>
               </div>
             </div>
 
@@ -871,10 +923,15 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
               </div>
             )}
 
-            {/* Conseil */}
+            {/* Conseil — FIX CALIBOFFSET : si le score affiché est < COSMIC_THRESHOLD mais le conseil
+                mentionne "CONVERGENCE RARE" (basé sur score brut avant calibOffset), corriger le label */}
             <div style={{ padding: '12px 14px', marginBottom: 14, background: `${P.gold}08`, borderRadius: 10, border: `1px solid ${P.gold}20` }}>
               <div style={{ fontSize: 10, color: P.gold, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700, marginBottom: 6 }}>✦ Conseil du jour</div>
-              <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.7 }}>{selected.conseil}</div>
+              <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.7 }}>{
+                selected.score < COSMIC_THRESHOLD && selected.conseil.includes('CONVERGENCE RARE')
+                  ? selected.conseil.replace(/🌟 CONVERGENCE RARE — /g, '🔥 ALIGNEMENT FORT — ')
+                  : selected.conseil
+              }</div>
             </div>
 
             {/* Yi King Narration */}
@@ -884,7 +941,11 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                   ☰ Yi King #{selected.hexNum} — {selected.hexName}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>Archétype ·</span>
                   <div style={{ padding: '3px 10px', borderRadius: 4, background: `${P.gold}15`, fontSize: 12, fontWeight: 700, color: P.gold }}>{selProfile.archetype}</div>
+                  {selected.hexKeyword && (
+                    <span style={{ fontSize: 11, color: P.textDim }}>→ {selected.hexKeyword}</span>
+                  )}
                 </div>
                 <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.7, marginBottom: 8 }}>{selProfile.judgment}</div>
                 <div style={{ fontSize: 12, color: P.textDim, fontStyle: 'italic', lineHeight: 1.6, marginBottom: 10 }}>« {selProfile.image} »</div>
@@ -924,13 +985,13 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                 const cleaned = r.replace(/\s*\(\+?\-?\d+\)\s*/g, '').replace(/\s*→\s*[\+\-]?\d+\s*$/, '').trim();
                 // Détecter la source
                 let source = '';
-                if (/nakshatra|mrigashira|lord mars|tarabala|tithi|yoga |karana|gochara|ashtakavarga/i.test(r)) source = 'cycles profonds';
-                else if (/rigel|sirius|canopus|aldebaran|spica|regulus|antares|fomalhaut|vega|arcturus/i.test(r)) source = 'étoile fixe';
-                else if (/transit|aspect|saturne|jupiter|mars|vénus|mercure|neptune|uranus|pluton/i.test(r)) source = 'transit';
-                else if (/bazi|jour maître|10 dieux|étoile chinoise|calendrier chinois|shen sha|kong wang|jian chu/i.test(r)) source = 'chinois';
-                else if (/lune|croissant|éclipse|VoC/i.test(r)) source = 'lune';
-                else if (/yi jing|yi king|oracle|hexagramme/i.test(r)) source = 'yi king';
-                else if (/mercure.*ombre|rétrograde/i.test(r)) source = 'transit';
+                if (/nakshatra|mrigashira|lord mars|tarabala|tithi|yoga |karana|gochara|ashtakavarga/i.test(r)) source = 'Cycles profonds';
+                else if (/rigel|sirius|canopus|aldebaran|spica|regulus|antares|fomalhaut|vega|arcturus/i.test(r)) source = 'Étoile fixe';
+                else if (/transit|aspect|saturne|jupiter|mars|vénus|mercure|neptune|uranus|pluton/i.test(r)) source = 'Transit';
+                else if (/bazi|jour maître|10 dieux|étoile chinoise|calendrier chinois|shen sha|kong wang|jian chu/i.test(r)) source = 'Astrologie chinoise';
+                else if (/lune|croissant|éclipse|VoC/i.test(r)) source = 'Lune';
+                else if (/yi jing|yi king|oracle|hexagramme/i.test(r)) source = 'Yi King';
+                else if (/mercure.*ombre|rétrograde/i.test(r)) source = 'Transit';
                 return { human: cleaned, isNeg, source };
               };
               const items = selected.reasons.map(humanize);
@@ -954,7 +1015,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                 {/* L2 — Détail technique (collapsible) */}
                 <details style={{ marginTop: 8 }}>
                   <summary style={{ fontSize: 10, color: P.textDim, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, padding: '4px 0', userSelect: 'none' }}>
-                    Détail technique ({selected.reasons.length} signaux)
+                    ▸ Explorer les signaux ({selected.reasons.length})
                   </summary>
                   <div style={{ marginTop: 6 }}>
                     {selected.reasons.map((r, i) => {
@@ -984,6 +1045,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                 <FeedbackWidget
                   date={selected.date} score={selected.score} dayType={selected.dayType.type}
                   breakdown={selected.date === todayStr ? data.conv.breakdown?.map(b => ({ system: b.system, points: b.points })) : undefined}
+                  profileKey={_profileKey}
                 />
               )}
             </div>
@@ -992,7 +1054,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
               <div style={{ marginTop: 10, padding: '8px 12px', background: `${P.gold}10`, borderRadius: 8, border: `1px solid ${P.gold}25`, fontSize: 12, color: P.gold, fontWeight: 600, textAlign: 'center' }}>● Aujourd'hui</div>
             )}
           </Cd>
-        )}
+        ); })()}
 
         {/* Month Summary */}
         <Cd sx={{ marginTop: 12 }}>
@@ -1011,7 +1073,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
           </div>
           {(stats.goldDays.length > 0 || stats.cosmiqueDays.length > 0 || stats.annualPeakDays.length > 0) && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginBottom: 6 }}>🔥 Jours Alignement fort & 🌟 Convergence rare (≥80)</div>
+              <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginBottom: 6 }}>🔥 Alignement fort (≥80) & 🌟 Convergence rare (≥{COSMIC_THRESHOLD})</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[
                   ...stats.cosmiqueDays.map(p => ({ ...p, _tier: 'cosm' as const })),
@@ -1025,7 +1087,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
                   <button key={p.day} onClick={() => setSelected(p)} style={{ background: `${col}18`, border: `1px solid ${col}35`, borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, color: col, fontFamily: 'inherit', fontWeight: 600 }}>
                     {isCosm && <span className="sp-star" style={{ fontSize: 8, marginRight: 3 }}>✦</span>}
                     {isPeak && <span style={{ fontSize: 8, marginRight: 3 }}>★</span>}
-                    <b>{p.day}</b> {p.score}% {p.dayType.icon}
+                    <b>{p.day}</b> {_toDisplay(p.score)}% {p.dayType.icon}
                   </button>
                   );
                 })}
@@ -1038,7 +1100,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {stats.topDays.filter(d => d.score < 80).sort((a, b) => a.day - b.day).slice(0, 8).map(p => (
                   <button key={p.day} onClick={() => setSelected(p)} style={{ background: `${p.dayType.color}15`, border: `1px solid ${p.dayType.color}30`, borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, color: P.text, fontFamily: 'inherit' }}>
-                    <b>{p.day}</b> <span style={{ color: p.lCol, fontSize: 10 }}>{p.score}%</span> {p.dayType.icon}
+                    <b>{p.day}</b> <span style={{ color: p.lCol, fontSize: 10 }}>{_toDisplay(p.score)}%</span> {p.dayType.icon}
                   </button>
                 ))}
               </div>
@@ -1050,7 +1112,7 @@ export default function CalendarTab({ data, bd, bt, yearPreviews }: { data: Soul
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {stats.weakDays.sort((a, b) => a.day - b.day).map(p => (
                   <button key={p.day} onClick={() => setSelected(p)} style={{ background: '#9370DB0c', border: '1px solid #9370DB25', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, color: '#9370DB', fontFamily: 'inherit', opacity: 0.85 }}>
-                    {p.day} · {p.score}%
+                    {p.day} · {_toDisplay(p.score)}%
                   </button>
                 ))}
               </div>

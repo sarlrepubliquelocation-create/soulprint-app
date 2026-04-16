@@ -23,7 +23,7 @@ const CZ_ELEM: Record<string, string> = {
   'Métal': 'Discipline, rigueur, détermination. L\'élément Métal aiguise ta capacité de décision et ton sens de la justice.',
   'Eau':   'Intuition, adaptabilité, profondeur. L\'Eau te donne la capacité de contourner les obstacles avec fluidité.',
   'Bois':  'Croissance, créativité, expansion. Le Bois nourrit ta vision à long terme et ta générosité naturelle.',
-  'Feu':   'Passion, charisme, action. Le Feu amplifie ton leadership et ta capacité à inspirer les autres.',
+  'Feu':   'Passion, charisme, action. Le Feu amplifie ton autorité naturelle et ta capacité à inspirer les autres.',
   'Terre': 'Stabilité, pragmatisme, fiabilité. La Terre t\'ancre dans le concret et renforce la confiance des autres.',
 };
 

@@ -6,6 +6,8 @@ import { getPlanetSignDesc } from '../engines/astro-descriptions';
 import { Sec, Cd, P, SectionGroup, a11yClick } from './ui';
 // Phase 3d — calculs purs extraits dans useAstroComputed
 import { useAstroComputed } from '../hooks/useAstroComputed';
+// R34 — Couche affichage planète × tranche d'âge
+import { addAgeContext, getLifeBracketFromBd, type AgePlanet } from '../engines/life-stages';
 
 // === Domaines de vie par maison (unique source de vérité) ===
 const HOUSE_DOMAIN: Record<number, string> = {
@@ -25,6 +27,16 @@ const PL_HUMAN: Record<string, string> = {
   northNode: 'ta direction de vie', southNode: 'ton héritage passé',
   chiron: 'ton point de sensibilité profonde', lilith: 'ta part sauvage',
 };
+
+// === Possessif adapté au genre de la planète en français ===
+// Vénus et Lune sont féminines → "ta Vénus", "ta Lune" ; les autres → "ton Mars", "ton Jupiter"
+const PL_POSS: Record<string, string> = {
+  sun: 'ton', moon: 'ta', mercury: 'ton', venus: 'ta',
+  mars: 'ton', jupiter: 'ton', saturn: 'ton',
+  uranus: 'ton', neptune: 'ton', pluto: 'ton',
+  northNode: 'ton', southNode: 'ton', chiron: 'ton', lilith: 'ta',
+};
+const plPoss = (k: string) => PL_POSS[k] || 'ton';
 
 // === Verbes d'aspect en langage naturel (pour lecture de thème) ===
 const ASPECT_HUMAN: Record<string, string> = {
@@ -107,15 +119,15 @@ const PL_ROLE: Record<string, string> = {
   moon: 'Émotions · Instinct · Besoins',
   mercury: 'Communication · Pensée · Apprentissage',
   venus: 'Relations · Valeurs · Attractivité',
-  mars: 'Action · Énergie · Combativité',
+  mars: 'Action · Énergie · Détermination',
   jupiter: 'Expansion · Chance · Vision',
   saturn: 'Discipline · Limites · Maturité',
   uranus: 'Innovation · Rupture · Liberté',
-  neptune: 'Intuition · Inspiration · Illusions',
-  pluto: 'Pouvoir · Transformation · Ombres',
+  neptune: 'Intuition · Inspiration · Imaginaire',
+  pluto: 'Pouvoir · Transformation · Profondeur',
   northNode: 'Cap de vie · Ce que tu construis · Direction à cultiver',
   southNode: 'Héritage naturel · Ce que tu portes déjà · À transcender',
-  chiron: 'Point de sensibilité · Là où l\'épreuve devient force · Guérison',
+  chiron: 'Point de sensibilité · Là où le défi devient force · Guérison',
   lilith: 'Énergie brute non filtrée · Puissance instinctive · Ce que tu n\'apprivoises pas encore',
 };
 
@@ -130,7 +142,7 @@ const ASPECT_FR: Record<string, string> = {
   sesquisquare: 'en friction subtile avec',
 };
 const ASPECT_VIBE: Record<string, { label: string; col: string }> = {
-  conjunction: { label: '🌟 Fusion (conjonction)', col: '#FFD700' },
+  conjunction: { label: '✦ Fusion (conjonction)', col: '#FFD700' },
   opposition: { label: '🔵 Face-à-face (opposition)', col: '#60a5fa' },
   trine: { label: '🟢 Harmonie (trigone)', col: '#4ade80' },
   square: { label: '🟠 Friction créative (carré)', col: '#f97316' },
@@ -166,6 +178,20 @@ const TRANSIT_ADVICE: Record<string, string> = {
   sextile: '→ Une opportunité se présente — fais un petit pas concret aujourd\'hui.',
 };
 
+// R34 — Conversion clé planète astrology (lowercase) → AgePlanet (capitalized)
+// Mercury exclu (consensus R34) ; Uranus/Neptune/Pluto/nœuds non couverts
+const PLANET_KEY_TO_AGE: Record<string, AgePlanet | undefined> = {
+  sun: 'Sun', moon: 'Moon', venus: 'Venus', mars: 'Mars',
+  jupiter: 'Jupiter', saturn: 'Saturn',
+};
+
+// Reverse lookup : nom FR de planète → clé interne EN (pour PLANET_SYM / PL_HUMAN)
+const PLANET_FR_TO_KEY: Record<string, string> = {
+  'mars': 'mars', 'vénus': 'venus', 'mercure': 'mercury',
+  'lune': 'moon', 'soleil': 'sun', 'jupiter': 'jupiter', 'saturne': 'saturn',
+  'uranus': 'uranus', 'neptune': 'neptune', 'pluton': 'pluto',
+};
+
 // Saveurs des signes pour la profection annuelle (ce que ça veut dire concrètement)
 const PROF_SIGN_FLAVOR: Record<string, string> = {
   Aries: 'Année d\'initiative — tu oses, tu fonces.',
@@ -181,22 +207,22 @@ const PROF_SIGN_FLAVOR: Record<string, string> = {
   Aquarius: 'Année de renouveau — tu innoves, tu te libères, tu surprends.',
   Pisces: 'Année d\'intuition — tu ressens, tu rêves, tu te connectes.',
 };
-// Saveurs des planètes guide
+// Saveurs des planètes guide (ton 2ème personne, cohérent avec le reste de l'UI)
 const PROF_PLANET_FLAVOR: Record<string, string> = {
-  mars: 'Moteur : l\'action et le courage.',
-  vénus: 'Moteur : l\'amour, l\'art et la douceur.',
-  mercure: 'Moteur : la parole, les idées et les contacts.',
-  lune: 'Moteur : les émotions et l\'instinct.',
-  soleil: 'Moteur : la confiance et la volonté.',
-  jupiter: 'Moteur : la chance et la croissance.',
-  saturne: 'Moteur : la discipline et la maturité.',
+  mars: 'Cette année, tu avances par l\'action directe et le courage — fais confiance à ton élan.',
+  vénus: 'Cette année, les relations, la créativité et la douceur sont tes leviers — cultive ce qui t\'attire.',
+  mercure: 'Cette année, tu évolues par les idées, les échanges et la communication — ta pensée est ton outil principal.',
+  lune: 'Cette année, ton instinct et tes émotions te guident — écoute ce que tu ressens.',
+  soleil: 'Cette année, tu avances par la confiance en toi et la volonté — rayonne sans te retenir.',
+  jupiter: 'Cette année, la croissance et les opportunités sont au rendez-vous — ose voir grand.',
+  saturne: 'Cette année, la discipline et la structure portent tes efforts — construis avec méthode.',
 };
 
 // Interprétations des signes progressés par planète
 const PROG_SUN_INTERP: Record<string, string> = {
   Aries: 'Tu es dans une phase de volonté brute — besoin d\'affirmer qui tu es, d\'oser.',
   Taurus: 'Ta motivation profonde cherche la stabilité et le concret — tu veux construire.',
-  Gemini: 'Tu es poussé par la curiosité — envie d\'apprendre, communiquer, explorer.',
+  Gemini: 'Tu es {poussé|poussée} par la curiosité — envie d\'apprendre, communiquer, explorer.',
   Cancer: 'Ce qui te motive, c\'est le cocon — famille, émotions, sécurité intérieure.',
   Leo: 'Tu veux rayonner — créer, être vu, exprimer ta singularité.',
   Virgo: 'Tu es dans une phase d\'analyse — besoin d\'améliorer, d\'ordonner, d\'être utile.',
@@ -205,14 +231,14 @@ const PROG_SUN_INTERP: Record<string, string> = {
   Sagittarius: 'Tu veux plus grand — voyager, apprendre, dépasser tes limites.',
   Capricorn: 'Tu es dans une phase d\'ambition structurée — discipline et long terme.',
   Aquarius: 'Tu as besoin de liberté — innover, surprendre, sortir du cadre.',
-  Pisces: 'Ta volonté se fait intuitive — tu avances au feeling, guidé par tes rêves.',
+  Pisces: 'Ta volonté se fait intuitive — tu avances au feeling, {guidé|guidée} par tes rêves.',
 };
 const PROG_MOON_INTERP: Record<string, string> = {
   Aries: 'Émotionnellement, tu as besoin d\'action — l\'attente te pèse.',
   Taurus: 'Besoin de douceur et de sécurité émotionnelle — ralentis et savoure.',
   Gemini: 'Tes émotions passent par les mots — tu as besoin de parler, d\'échanger.',
   Cancer: 'Tes émotions sont intenses et profondes — le foyer et la famille te touchent fort.',
-  Leo: 'Tu as besoin de reconnaissance affective — d\'être aimé pour qui tu es.',
+  Leo: 'Tu as besoin de reconnaissance affective — d\'être {aimé|aimée} pour qui tu es.',
   Virgo: 'Tes émotions se calment quand tu es utile et que les choses sont en ordre.',
   Libra: 'Tu as besoin d\'harmonie relationnelle — les conflits te perturbent profondément.',
   Scorpio: 'Tes émotions sont intenses — tu ressens tout en profondeur, pas de demi-mesure.',
@@ -225,9 +251,9 @@ const PROG_MARS_INTERP: Record<string, string> = {
   Aries: 'Ton énergie d\'action est directe et explosive — tu fonces sans hésiter.',
   Taurus: 'Tu agis lentement mais sûrement — endurance et ténacité.',
   Gemini: 'Tu te bats avec les mots et les idées — stratégie plutôt que force.',
-  Cancer: 'Tu agis pour protéger tes proches — ta combativité est émotionnelle.',
+  Cancer: 'Tu agis pour protéger tes proches — ta détermination est émotionnelle.',
   Leo: 'Tu agis avec panache — besoin que tes actions soient reconnues.',
-  Virgo: 'Tu es méthodique dans l\'action — chaque geste est précis et utile.',
+  Virgo: 'Tu agis avec méthode — chaque geste est précis et utile.',
   Libra: 'Tu agis par la diplomatie — tu cherches le compromis plutôt que l\'affrontement.',
   Scorpio: 'Ton énergie est intense et stratégique — tu ne lâches rien.',
   Sagittarius: 'Tu agis avec enthousiasme et spontanéité — tu vises loin.',
@@ -268,13 +294,13 @@ const FULL_MOON_SIGN: Record<string, string> = {
 
 // Interprétation de la planète dominante — ce que ça dit de toi
 const DOMINANT_PLANET_INTERP: Record<string, string> = {
-  sun: 'Tu es fondamentalement solaire — besoin de rayonner, de créer et d\'être reconnu. Tu attires naturellement l\'attention.',
-  moon: 'Tes émotions mènent la danse — tu es intuitif·ve, empathique, et ton humeur colore tout ce que tu fais.',
+  sun: 'Tu es fondamentalement solaire — besoin de rayonner, de créer et d\'être {reconnu|reconnue}. Tu attires naturellement l\'attention.',
+  moon: 'Tes émotions mènent la danse — tu es {intuitif|intuitive}, empathique, et ton humeur colore tout ce que tu fais.',
   mercury: 'Tu vis par les idées — communication, apprentissage, analyse. Ton esprit est toujours en mouvement.',
   venus: 'Les relations et l\'harmonie sont au centre de ta vie — tu cherches la beauté, le lien, le plaisir.',
-  mars: 'Tu es porté·e par l\'action — courage, compétition, énergie. Tu as besoin de bouger et de te battre pour avancer.',
+  mars: 'Tu es {porté|portée} par l\'action — courage, compétition, énergie. Tu as besoin de bouger et de te battre pour avancer.',
   jupiter: 'Tu vois toujours plus grand — expansion, optimisme, quête de sens. Tu inspires confiance et tu sais motiver.',
-  saturn: 'Tu es bâti·e pour la durée — discipline, structure, responsabilité. Tu prends les choses au sérieux et tu construis solide.',
+  saturn: 'Tu es {bâti|bâtie} pour la durée — discipline, structure, responsabilité. Tu prends les choses au sérieux et tu construis solide.',
   uranus: 'Tu es un électron libre — innovation, originalité, besoin de casser les codes. Tu surprends et tu déranges.',
   neptune: 'Tu vis entre rêve et réalité — intuition, créativité, sensibilité aux atmosphères. Tu captes ce que les autres ne voient pas.',
   pluto: 'Tu vis en profondeur — transformation, intensité, pouvoir. Tu ne fais rien à moitié et tu cherches la vérité.',
@@ -361,9 +387,9 @@ const DIG_REASON: Record<string, Record<string, string>> = {
   },
   mercury: {
     Gemini: 'Mercure gouverne les Gémeaux — communication fluide et rapide.',
-    Virgo: 'Mercure gouverne aussi la Vierge — analyse précise et méthodique.',
+    Virgo: 'Mercure gouverne la Vierge — analyse précise, rigueur méthodique et esprit critique à leur sommet.',
     Sagittarius: 'Mercure est en exil en Sagittaire — l\'esprit vise large au détriment de la précision.',
-    Pisces: 'Mercure est en chute/exil en Poissons — la pensée devient intuitive mais floue.',
+    Pisces: 'Mercure est en chute en Poissons — la pensée devient intuitive et poétique, mais perd en précision. L\'esprit vogue plus qu\'il n\'analyse.',
   },
   venus: {
     Taurus: 'Vénus gouverne le Taureau — elle savoure les plaisirs et la beauté.',
@@ -386,14 +412,34 @@ const DIG_REASON: Record<string, Record<string, string>> = {
     Pisces: 'Jupiter gouverne aussi les Poissons — la foi et l\'intuition sont amplifiées.',
     Cancer: 'Jupiter est exalté en Cancer — la générosité se nourrit de l\'émotion.',
     Gemini: 'Jupiter est en exil en Gémeaux — l\'expansion se disperse en trop de directions.',
+    Virgo: 'Jupiter est en exil en Vierge — la vision large de Jupiter s\'enraye dans le perfectionnisme de la Vierge. Le souci du détail peut freiner la croissance.',
     Capricorn: 'Jupiter est en chute en Capricorne — l\'optimisme est freiné par le réalisme.',
   },
   saturn: {
     Capricorn: 'Saturne gouverne le Capricorne — discipline et structure au sommet.',
     Aquarius: 'Saturne gouverne aussi le Verseau — la rigueur sert l\'innovation.',
-    Libra: 'Saturne est exalté en Balance — la justice et l\'équilibre sont structurés.',
+    Libra: 'Saturne est exalté en Balance — la rigueur de Saturne s\'exprime ici avec équité et mesure. Tu structures avec sagesse, tu peines moins à tenir le cap sur le long terme.',
     Cancer: 'Saturne est en exil en Cancer — les émotions et la rigidité se heurtent.',
+    Leo: 'Saturne est en exil en Lion — la structure de Saturne tempère le besoin de reconnaissance du Lion, ce qui peut générer de la retenue là où tu voudrais briller librement.',
     Aries: 'Saturne est en chute en Bélier — la patience de Saturne supporte mal l\'impulsivité.',
+  },
+  uranus: {
+    Aquarius: 'Uranus gouverne le Verseau — originalité, rupture et innovation sans limites.',
+    Scorpio: 'Uranus est exalté en Scorpion (doctrine moderne) — la force de transformation du Scorpion amplifie l\'énergie révolutionnaire d\'Uranus : tu changes les choses en profondeur, pas en surface.',
+    Taurus: 'Uranus est en chute en Taureau — l\'instabilité d\'Uranus heurte le besoin de sécurité du Taureau.',
+    Leo: 'Uranus est en exil en Lion — l\'élan collectif d\'Uranus s\'oppose à l\'affirmation individuelle du Lion.',
+  },
+  neptune: {
+    Pisces: 'Neptune gouverne les Poissons — intuition, sensibilité et imagination à leur plein potentiel.',
+    Cancer: 'Neptune est exalté en Cancer (doctrine moderne) — la fluidité émotionnelle du Cancer magnifie la capacité d\'empathie et de connexion profonde.',
+    Capricorn: 'Neptune est en chute en Capricorne — le réalisme de Capricorne résiste à la dissolution de Neptune. La vision et la structure ont du mal à coexister.',
+    Virgo: 'Neptune est en exil en Vierge — l\'imprecision de Neptune heurte le souci du détail de la Vierge. Tension entre le rêve et l\'analyse.',
+  },
+  pluto: {
+    Scorpio: 'Pluton gouverne le Scorpion — intensité, transformation et pouvoir à leur maximum.',
+    Leo: 'Pluton est exalté en Lion (doctrine moderne) — la force créatrice et la volonté du Lion amplifient le pouvoir de transformation de Pluton.',
+    Aquarius: 'Pluton est en chute en Verseau (doctrine moderne) — les transformations radicales de Pluton se heurtent à l\'idéalisme collectif du Verseau.',
+    Taurus: 'Pluton est en exil en Taureau — l\'instabilité profonde de Pluton heurte le besoin de permanence du Taureau.',
   },
 };
 // Tooltips courts pour le badge compact (hover)
@@ -411,7 +457,7 @@ const B3_DESC: Record<string, Record<string, string>> = {
     Taurus:'Vocation bâtisseur — tu excelles dans ce qui dure, le concret, la création de valeur.',
     Gemini:'Vocation communicateur — tu brilles par la parole, l\'écriture, la transmission.',
     Cancer:'Vocation nourricière — tu réussis en prenant soin des autres.',
-    Leo:'Vocation créatrice — tu brilles sur scène, dans les arts, dans le leadership.',
+    Leo:'Vocation créatrice — tu brilles sur scène, dans les arts, dans la direction.',
     Virgo:'Vocation analytique — tu excelles dans le service, la précision, la santé.',
     Libra:'Vocation harmonisatrice — tu brilles dans la diplomatie, la beauté, la justice.',
     Scorpio:'Vocation transformatrice — tu excelles dans l\'investigation et les crises.',
@@ -421,18 +467,18 @@ const B3_DESC: Record<string, Record<string, string>> = {
     Pisces:'Vocation artistique — tu excelles dans la créativité, la spiritualité, le soin.',
   },
   sun: {
-    Aries:'Tu es un leader né, porté par l\'action et l\'initiative.',
-    Taurus:'Tu es bâtisseur, porté par la stabilité et la persévérance.',
-    Gemini:'Tu es un connecteur d\'idées, agile et curieux.',
-    Cancer:'Tu es guidé par l\'intuition et l\'intelligence émotionnelle.',
-    Leo:'Tu es un meneur charismatique qui inspire la loyauté.',
-    Virgo:'Tu es un analyste précis qui vises l\'excellence.',
-    Libra:'Tu es un diplomate né, créateur d\'équilibre et d\'alliances.',
-    Scorpio:'Tu es un stratège intense qui transformes les obstacles en leviers.',
-    Sagittarius:'Tu es un visionnaire qui vois grand et penses global.',
-    Capricorn:'Tu es un architecte patient qui construis dans la durée.',
-    Aquarius:'Tu es un innovateur qui penses hors des sentiers battus.',
-    Pisces:'Tu es guidé par une intuition profonde et une vision holistique.',
+    Aries:'Tu es {un leader né|une leader née}, {porté|portée} par l\'action et l\'initiative.',
+    Taurus:'Tu es {bâtisseur|bâtisseuse}, {porté|portée} par la stabilité et la persévérance.',
+    Gemini:'Tu es {un connecteur|une connectrice} d\'idées, {agile et curieux|agile et curieuse}.',
+    Cancer:'Tu es {guidé|guidée} par l\'intuition et l\'intelligence émotionnelle.',
+    Leo:'Tu es {un meneur charismatique|une meneuse charismatique} qui inspire la loyauté.',
+    Virgo:'Tu es {un analyste précis|une analyste précise} qui vises l\'excellence.',
+    Libra:'Tu es {un diplomate né|une diplomate née}, {créateur|créatrice} d\'équilibre et d\'alliances.',
+    Scorpio:'Tu es {un stratège intense|une stratège intense} qui transformes les obstacles en leviers.',
+    Sagittarius:'Tu es {un visionnaire|une visionnaire} qui vois grand et penses global.',
+    Capricorn:'Tu es {un architecte patient|une architecte patiente} qui construis dans la durée.',
+    Aquarius:'Tu es {un innovateur|une innovatrice} qui penses hors des sentiers battus.',
+    Pisces:'Tu es {guidé|guidée} par une intuition profonde et une vision holistique.',
   },
   moon: {
     Aries:'Sous pression, tu réagis vite et passes à l\'action.',
@@ -468,7 +514,12 @@ const B3_DESC: Record<string, Record<string, string>> = {
 const HOUSE_SYSTEM_FR: Record<string, string> = { placidus: 'Placidus', wholesign: 'Signes Entiers', equal: 'Égales' };
 type LocalHouseSystem = 'placidus' | 'wholesign' | 'equal';
 
-export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: string; bt: string; bp?: string }) {
+export default function AstroTab({ data, bd, bt, bp, gender = 'M' }: { data: SoulData; bd: string; bt: string; bp?: string; gender?: 'M' | 'F' }) {
+  const isF = gender === 'F';
+  // R34 — tranche d'âge calculée une fois (couche affichage uniquement)
+  const _bracket = useMemo(() => getLifeBracketFromBd(bd), [bd]);
+  // Helper : résout les balises {masc|fem} selon le genre du profil
+  const genderize = (s: string): string => s.replace(/\{([^|{}]*)\|([^|{}]*)\}/g, (_m, m, f) => isF ? f : m);
   const { astro } = data;
   const [expandedPl, setExpandedPl] = useState<Set<string>>(new Set(['sun', 'moon', 'mercury']));
   const [portrait, setPortrait] = useState<PortraitData | null>(null);
@@ -788,9 +839,15 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
           {/* Ligne 1 : Transit du jour */}
           {topTransit ? (
             <div style={{ marginBottom: 4 }}>
-              <strong style={{ color: P.gold }}>{PLANET_FR[topTransit.tp]}</strong> {TRANSIT_DESC[topTransit.t] || 'active'} ton <strong style={{ color: P.text }}>{PLANET_FR[topTransit.np]}</strong>{PL_HUMAN[topTransit.np] ? ` (${PL_HUMAN[topTransit.np]})` : ''}.
-              {topTransit.x && <span style={{ color: P.gold, fontWeight: 600 }}> Pic d'intensité aujourd'hui.</span>}
+              <strong style={{ color: P.gold }}>{PLANET_FR[topTransit.tp]}</strong> {TRANSIT_DESC[topTransit.t] || 'active'} {plPoss(topTransit.np)} <strong style={{ color: P.text }}>{PLANET_FR[topTransit.np]}</strong>{PL_HUMAN[topTransit.np] ? ` (${PL_HUMAN[topTransit.np]})` : ''}.
+              {!!topTransit.x && <span style={{ color: P.gold, fontWeight: 600 }}> Pic d'intensité aujourd'hui.</span>}
               {TRANSIT_ADVICE[topTransit.t] && <div style={{ fontSize: 11, color: P.gold, marginTop: 2, opacity: 0.85 }}>{TRANSIT_ADVICE[topTransit.t]}</div>}
+              {/* R34 — contexte d'âge pour 59+ sur transits difficiles */}
+              {(() => {
+                const agePlanet = PLANET_KEY_TO_AGE[topTransit.tp];
+                const ageCtx = agePlanet ? addAgeContext(agePlanet, topTransit.t, _bracket) : null;
+                return ageCtx ? <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, fontStyle: 'italic', opacity: 0.85 }}>{ageCtx}</div> : null;
+              })()}
             </div>
           ) : (
             <div style={{ marginBottom: 4 }}>Une journée sans transit majeur — bon moment pour consolider et préparer.</div>
@@ -798,16 +855,25 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
           {/* Ligne 2 : Cycle annuel */}
           {profection && (
             <div style={{ marginBottom: 4, fontSize: 12, color: P.textDim }}>
-              Ton année tourne autour de « {profection.domain} » — {profection.timeLord} ({PL_HUMAN[profection.timeLord.toLowerCase()] || 'ton guide annuel'}) t'accompagne.
+              Ton année tourne autour de « {profection.domain} » — {profection.timeLord} ({PL_HUMAN[PLANET_FR_TO_KEY[profection.timeLord.toLowerCase()] || ''] || 'ton guide annuel'}) t'accompagne.
             </div>
           )}
           {/* Ligne 3 : Conseil */}
           <div style={{ fontSize: 12, color: P.textDim, fontStyle: 'italic' }}>
-            {displayScore >= 80
-              ? 'Le bon geste : avance sur ce qui compte, les énergies te soutiennent.'
-              : displayScore >= 60
-              ? 'Le bon geste : reste ouvert aux signaux du jour sans forcer.'
-              : 'Le bon geste : ralentis, clarifie, reporte ce qui peut attendre.'}
+            {/* R34 — tonalité adaptée pour 59+ (vocabulaire moins "performance") */}
+            {_bracket === '59+' ? (
+              displayScore >= 80
+                ? 'Le bon geste : pose ce qui te tient à cœur, l\'énergie est avec toi.'
+                : displayScore >= 60
+                ? 'Le bon geste : reste à l\'écoute, savoure le rythme du jour.'
+                : 'Le bon geste : ralentis, laisse les choses se déposer, prends soin de toi.'
+            ) : (
+              displayScore >= 80
+                ? 'Le bon geste : avance sur ce qui compte, les énergies te soutiennent.'
+                : displayScore >= 60
+                ? 'Le bon geste : reste ouvert aux signaux du jour sans forcer.'
+                : 'Le bon geste : ralentis, clarifie, reporte ce qui peut attendre.'
+            )}
           </div>
         </div>
       </div>
@@ -827,11 +893,11 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
         // Bâtir le texte de synthèse en cohérence avec le score global
         let synthText: string;
         if (nTense > nPos && scoreHigh) {
-          synthText = `Côté ciel : ${nTense} tensions et ${nPos} soutiens — le ciel est remuant. Mais ton score global (${displayScore}/100) reste élevé grâce aux autres indicateurs (cycles lunaires, astrologie chinoise, profil). Les frictions d'aujourd'hui ne sont pas un obstacle — elles t'activent.`;
+          synthText = `Côté ciel : ${nTense} ${nTense > 1 ? 'tensions' : 'tension'} et ${nPos} ${nPos > 1 ? 'soutiens' : 'soutien'} — le ciel est remuant. Mais ton score global (${displayScore}/100) reste élevé grâce aux autres indicateurs (cycles lunaires, astrologie chinoise, profil). Les frictions d'aujourd'hui ne sont pas un obstacle — elles t'activent.`;
         } else if (nTense > nPos) {
-          synthText = `Côté ciel : ${nTense} tensions contre ${nPos} soutiens — journée qui demande de l'adaptation.${hasExact ? ' Un transit exact accentue l\'intensité.' : ''}`;
+          synthText = `Côté ciel : ${nTense} ${nTense > 1 ? 'tensions' : 'tension'} contre ${nPos} ${nPos > 1 ? 'soutiens' : 'soutien'} — journée qui demande de l'adaptation.${hasExact ? ' Un transit exact accentue l\'intensité.' : ''}`;
         } else if (nPos > nTense) {
-          synthText = `Côté ciel : ${nPos} influx porteurs contre ${nTense} tensions — le ciel te soutient.${hasExact ? ' Un transit exact rend cette journée particulièrement active.' : ''}`;
+          synthText = `Côté ciel : ${nPos} ${nPos > 1 ? 'influx porteurs' : 'influx porteur'} contre ${nTense} ${nTense > 1 ? 'tensions' : 'tension'} — le ciel te soutient.${hasExact ? ' Un transit exact rend cette journée particulièrement active.' : ''}`;
         } else {
           synthText = `Côté ciel : autant de soutiens que de tensions (${nPos}/${nTense}) — journée contrastée.${hasExact ? ' Un transit exact rend le tout plus vif.' : ''}`;
         }
@@ -848,27 +914,44 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               {synthText}
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
-              {astro.tr.slice(0, 10).map((t, i) => {
-                const vibe = ASPECT_VIBE[t.t];
-                const tdesc = TRANSIT_DESC[t.t] || '';
-                return (
-                  <div key={i} style={{ padding: '10px 12px', background: t.x ? `${P.gold}0C` : P.bg, borderRadius: 8, border: t.x ? `1px solid ${P.gold}30` : `1px solid ${P.textDim}15` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span title={ASPECT_EXPLAIN[t.t] || ''} style={{ fontSize: 10, color: vibe?.col || P.textDim, fontWeight: 600, background: (vibe?.col || P.textDim) + '15', padding: '1px 5px', borderRadius: 3, cursor: 'help' }}>{vibe?.label || t.t}</span>
-                      {t.x ? <span style={{ fontSize: 9, color: P.gold, fontWeight: 700, background: P.gold + '18', padding: '1px 5px', borderRadius: 3 }}>EXACT — pic d'intensité</span> : null}
-                      <span style={{ fontSize: 10, color: P.textDim, marginLeft: 'auto' }}>{t.o.toFixed(1)}°</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.5 }}>
-                      <strong style={{ color: P.gold }}>{PLANET_FR[t.tp]}</strong> {tdesc} ton <strong style={{ color: P.text }}>{PLANET_FR[t.np]}</strong>{PL_HUMAN[t.np] ? ` (${PL_HUMAN[t.np]})` : ''}.
-                    </div>
-                    {TRANSIT_ADVICE[t.t] && (
-                      <div style={{ fontSize: 11, color: P.gold, marginTop: 4, lineHeight: 1.4, opacity: 0.85 }}>
-                        {TRANSIT_ADVICE[t.t]}
+              {(() => {
+                // Afficher le conseil uniquement pour le PREMIER transit de chaque type d'aspect
+                // pour éviter la répétition (ex: 3 carrés = 3× la même phrase)
+                const adviceShown = new Set<string>();
+                return astro.tr.slice(0, 10).map((t, i) => {
+                  const vibe = ASPECT_VIBE[t.t];
+                  const tdesc = TRANSIT_DESC[t.t] || '';
+                  const showAdvice = TRANSIT_ADVICE[t.t] && !adviceShown.has(t.t);
+                  if (TRANSIT_ADVICE[t.t]) adviceShown.add(t.t);
+                  return (
+                    <div key={i} style={{ padding: '10px 12px', background: t.x ? `${P.gold}0C` : P.bg, borderRadius: 8, border: t.x ? `1px solid ${P.gold}30` : `1px solid ${P.textDim}15` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span title={ASPECT_EXPLAIN[t.t] || ''} style={{ fontSize: 10, color: vibe?.col || P.textDim, fontWeight: 600, background: (vibe?.col || P.textDim) + '15', padding: '1px 5px', borderRadius: 3, cursor: 'help' }}>{vibe?.label || t.t}</span>
+                        {t.x ? <span style={{ fontSize: 9, color: P.gold, fontWeight: 700, background: P.gold + '18', padding: '1px 5px', borderRadius: 3 }}>EXACT — pic d'intensité</span> : null}
+                        <span style={{ fontSize: 10, color: P.textDim, marginLeft: 'auto' }}>{t.o.toFixed(1)}°</span>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      <div style={{ fontSize: 13, color: P.textMid, lineHeight: 1.5 }}>
+                        <strong style={{ color: P.gold }}>{PLANET_FR[t.tp]}</strong> {tdesc} {plPoss(t.np)} <strong style={{ color: P.text }}>{PLANET_FR[t.np]}</strong>{PL_HUMAN[t.np] ? ` (${PL_HUMAN[t.np]})` : ''}.
+                      </div>
+                      {showAdvice && (
+                        <div style={{ fontSize: 11, color: P.gold, marginTop: 4, lineHeight: 1.4, opacity: 0.85 }}>
+                          {TRANSIT_ADVICE[t.t]}
+                        </div>
+                      )}
+                      {/* R34 — contexte d'âge pour 59+ sur transits difficiles */}
+                      {(() => {
+                        const agePlanet = PLANET_KEY_TO_AGE[t.tp];
+                        const ageCtx = agePlanet ? addAgeContext(agePlanet, t.t, _bracket) : null;
+                        return ageCtx ? (
+                          <div style={{ fontSize: 11, color: P.textMid, marginTop: 4, fontStyle: 'italic', opacity: 0.85, lineHeight: 1.4 }}>
+                            {ageCtx}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </Cd>
         </Sec>
@@ -944,7 +1027,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               <div style={{ padding: '10px 12px', background: P.bg, borderRadius: 8, border: `1px solid ${P.textDim}15` }}>
                 <div style={{ fontSize: 10, color: P.textDim, textTransform: 'uppercase', marginBottom: 4 }}>Planète guide</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>
-                  {PLANET_SYM[profection.timeLord.toLowerCase()] || ''} {profection.timeLord}
+                  {PLANET_SYM[PLANET_FR_TO_KEY[profection.timeLord.toLowerCase()] || ''] || ''} {profection.timeLord}
                 </div>
                 <div style={{ fontSize: 12, color: P.textMid, marginTop: 6, lineHeight: 1.5 }}>
                   {PROF_PLANET_FLAVOR[profection.timeLord.toLowerCase()] || ''}
@@ -952,7 +1035,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               </div>
             </div>
             <div style={{ marginTop: 8, padding: '10px 12px', background: `${P.gold}08`, borderRadius: 8, fontSize: 12, color: P.textMid, lineHeight: 1.6 }}>
-              <strong style={{ color: P.gold }}>Concrètement :</strong> cette année tourne autour de « {profection.domain} ». L'énergie {SIGN_FR[profection.activeSign] || profection.activeSign} colore ta façon d'aborder ce domaine, et les moments où {profection.timeLord} est activée par un transit sont les moments-clés de ton année.
+              <strong style={{ color: P.gold }}>Concrètement :</strong> cette année tourne autour de « {profection.domain} ». L'énergie {SIGN_FR[profection.activeSign] || profection.activeSign} colore ta façon d'aborder ce domaine, et les périodes où {profection.timeLord} est en mouvement fort (transit, retour) sont les moments-clés de ton année.
             </div>
             <div style={{ marginTop: 6, padding: '8px 12px', background: P.bg, borderRadius: 8, fontSize: 11, color: P.gold, lineHeight: 1.4 }}>
               → Porte ton attention sur tout ce qui touche à « {profection.domain} » — c'est là que les choses bougent le plus pour toi.
@@ -1064,7 +1147,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
 
       {/* ===== PROGRESSIONS — CE QUI CHANGE LENTEMENT EN TOI ===== */}
       {progressions && (
-        <Sec icon="🔮" title="Ce qui change lentement en toi">
+        <Sec icon="🌀" title="Ce qui change lentement en toi">
           <Cd>
             <div style={{ fontSize: 12, color: P.textDim, marginBottom: 10, lineHeight: 1.5 }}>
               Tu évolues avec le temps. Ton thème de naissance « avance » lentement : chaque planète traverse de nouveaux signes au fil des années, ce qui modifie tes besoins et tes envies en profondeur.
@@ -1083,7 +1166,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                     </span>
                   </div>
                   <div style={{ fontSize: 11, color: P.textMid, lineHeight: 1.5 }}>
-                    {p.interp[p.sign] || p.desc}
+                    {genderize(p.interp[p.sign] || p.desc)}
                   </div>
                 </div>
               ))}
@@ -1099,18 +1182,18 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                     const progName = PLANET_FR[a.progPlanet.toLowerCase()] || a.progPlanet;
                     const natalName = PLANET_FR[a.natalPlanet] || a.natalPlanet;
                     const aspectLabel = ASPECT_FR[a.aspect] || a.aspect;
-                    const icon = a.progPlanet === 'Sun' ? '☀' : a.progPlanet === 'Moon' ? '☽' : '♂';
+                    const icon = PLANET_SYM[a.progPlanet.toLowerCase()] || '◉';
                     const mood = a.points > 0 ? 'porteur' : 'exigeant';
                     const moodCol = a.points > 0 ? '#4ade80' : '#f97316';
                     return (
                       <div key={i} style={{ padding: '8px 10px', background: P.bg, borderRadius: 8, borderLeft: `3px solid ${moodCol}40` }}>
                         <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>
-                          {icon} Ton <strong style={{ color: P.text }}>{progName}</strong> progressé (qui évolue avec le temps) est <span style={{ color: P.textMid }}>{aspectLabel}</span> ton <strong style={{ color: P.text }}>{natalName}</strong> de naissance.
+                          {icon} {plPoss(a.progPlanet.toLowerCase()) === 'ta' ? 'Ta' : 'Ton'} <strong style={{ color: P.text }}>{progName}</strong> progressé{plPoss(a.progPlanet.toLowerCase()) === 'ta' ? 'e' : ''} (qui évolue avec le temps) est <span style={{ color: P.textMid }}>{aspectLabel}</span> {plPoss(a.natalPlanet)} <strong style={{ color: P.text }}>{natalName}</strong> de naissance.
                         </div>
                         <div style={{ fontSize: 10, color: moodCol, marginTop: 3 }}>
                           {a.points > 0
                             ? '→ Un courant porteur — laisse cette évolution faire son travail.'
-                            : '→ Un passage exigeant — sois patient·e avec toi-même, ça transforme en profondeur.'}
+                            : genderize('→ Un passage exigeant — sois {patient|patiente} avec toi-même, ça transforme en profondeur.')}
                         </div>
                       </div>
                     );
@@ -1133,7 +1216,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                     return (
                       <div key={i} style={{ padding: '8px 10px', background: P.bg, borderRadius: 8, borderLeft: `3px solid ${moodCol}40` }}>
                         <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.5 }}>
-                          ◎ <strong style={{ color: P.text }}>{saName}</strong> <span style={{ color: P.textDim }}>{aspectLabel}</span> ton <strong style={{ color: P.text }}>{natalName}</strong> natal.
+                          ◎ <strong style={{ color: P.text }}>{saName}</strong> <span style={{ color: P.textDim }}>{aspectLabel}</span> {plPoss(a.natalPlanet)} <strong style={{ color: P.text }}>{natalName}</strong> natal{plPoss(a.natalPlanet) === 'ta' ? 'e' : ''}.
                         </div>
                         <div style={{ fontSize: 10, color: moodCol, marginTop: 3 }}>
                           {a.points > 0
@@ -1252,7 +1335,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                  { k: 'asc', s: astro.b3.asc, lb: '↑ Ascendant — Ton image', sub: 'Comment les autres te voient' }]
             ).map(({ k, s, lb, sub }) => {
               const ec = ELEM_COL[SIGN_ELEM[s]] || P.textDim;
-              const desc = B3_DESC[k]?.[s] || '';
+              const desc = genderize(B3_DESC[k]?.[s] || '');
               return (
                 <div key={k} style={{ padding: '12px 14px', background: ec + '0A', borderRadius: 10, borderLeft: `3px solid ${ec}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -1493,18 +1576,18 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
               const ELEM_HUMAN: Record<string, string> = { fire: 'l\'action et l\'enthousiasme', earth: 'le concret et la stabilité', air: 'les idées et les échanges', water: 'l\'intuition et les émotions' };
               const MODE_HUMAN: Record<string, string> = { cardinal: 'lancer les choses', fixed: 'tenir le cap', mutable: 's\'adapter et évoluer' };
               const COMBO: Record<string, string> = {
-                'fire-cardinal': 'Tu es un initiateur de feu — tu fonces, tu lances, tu inspires. Quand tu crois en quelque chose, tu y vas sans hésiter.',
-                'fire-fixed': 'Tu es un créateur tenace — passionné et déterminé, tu ne lâches pas. Ta flamme brûle longtemps une fois allumée.',
-                'fire-mutable': 'Tu es un explorateur enthousiaste — tu t\'enflammes vite et tu t\'adaptes. Tu rebondis naturellement d\'une aventure à l\'autre.',
-                'earth-cardinal': 'Tu es un bâtisseur ambitieux — tu structures et tu lances du concret. Tu transformes les idées en réalité.',
-                'earth-fixed': 'Tu es une fondation inébranlable — stable, patient, tu construis pour durer. On peut compter sur toi.',
-                'earth-mutable': 'Tu es un praticien adaptable — tu optimises et tu trouves toujours la solution. Tu es pragmatique et flexible.',
-                'air-cardinal': 'Tu es un stratège social — tu crées des liens et tu lances des idées. Tu excelles à fédérer autour de projets.',
-                'air-fixed': 'Tu es un penseur original — convictions profondes et innovation obstinée. Tes idées ont de la profondeur.',
-                'air-mutable': 'Tu es un esprit vif — communicateur né, tu jongles entre idées et gens. Tu t\'adaptes à n\'importe quel interlocuteur.',
-                'water-cardinal': 'Tu es un leader émotionnel — tu inities en ressentant, tu protèges. Tu sens les choses avant les autres.',
-                'water-fixed': 'Tu es un intense qui va au fond — émotions profondes, tu ne lâches rien. Ta loyauté est indéfectible.',
-                'water-mutable': 'Tu es un intuitif fluide — empathique, tu te coules dans chaque situation. Tu absorbes l\'ambiance et tu t\'ajustes.',
+                'fire-cardinal': genderize('Tu es {un initiateur de feu|une initiatrice de feu} — tu fonces, tu lances, tu inspires. Quand tu crois en quelque chose, tu y vas sans hésiter.'),
+                'fire-fixed': genderize('Tu es {un créateur tenace|une créatrice tenace} — {passionné et déterminé|passionnée et déterminée}, tu ne lâches pas. Ta flamme brûle longtemps une fois allumée.'),
+                'fire-mutable': genderize('Tu es {un explorateur enthousiaste|une exploratrice enthousiaste} — tu t\'enflammes vite et tu t\'adaptes. Tu rebondis naturellement d\'une aventure à l\'autre.'),
+                'earth-cardinal': genderize('Tu es {un bâtisseur ambitieux|une bâtisseuse ambitieuse} — tu structures et tu lances du concret. Tu transformes les idées en réalité.'),
+                'earth-fixed': genderize('Tu es une fondation inébranlable — stable, {patient|patiente}, tu construis pour durer. On peut compter sur toi.'),
+                'earth-mutable': genderize('Tu es {un praticien adaptable|une praticienne adaptable} — tu optimises et tu trouves toujours la solution. Tu es pragmatique et flexible.'),
+                'air-cardinal': genderize('Tu es {un stratège social|une stratège sociale} — tu crées des liens et tu lances des idées. Tu excelles à fédérer autour de projets.'),
+                'air-fixed': genderize('Tu es {un penseur original|une penseuse originale} — convictions profondes et innovation obstinée. Tes idées ont de la profondeur.'),
+                'air-mutable': genderize('Tu es un esprit vif — {communicateur né|communicatrice née}, tu jongles entre idées et gens. Tu t\'adaptes à n\'importe quel interlocuteur.'),
+                'water-cardinal': genderize('Tu es {un leader émotionnel|une leader émotionnelle} — tu inities en ressentant, tu protèges. Tu sens les choses avant les autres.'),
+                'water-fixed': genderize('Tu es {un intense qui va au fond|une intense qui va au fond} — émotions profondes, tu ne lâches rien. Ta loyauté est indéfectible.'),
+                'water-mutable': genderize('Tu es {un intuitif fluide|une intuitive fluide} — empathique, tu te coules dans chaque situation. Tu absorbes l\'ambiance et tu t\'ajustes.'),
               };
               const COMBO_FORCE: Record<string, string> = {
                 'fire-cardinal': 'Capacité à entraîner les autres et à passer à l\'action immédiatement.',
@@ -1617,16 +1700,28 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
             {/* Vue Modes */}
             {tempSegment === 'modes' && (() => {
               const mx = Math.max(...Object.values(astro.mo));
-              const topMode = Object.entries(astro.mo).find(([, v]) => v === mx)?.[0] || '';
+              const topModes = Object.entries(astro.mo).filter(([, v]) => v === mx).map(([k]) => k);
+              const topMode = topModes[0] || '';
               const MODE_INTRO: Record<string, string> = {
                 cardinal: 'Ton mode d\'action naturel : tu lances, tu inities, tu prends les devants.',
                 fixed: 'Ton mode d\'action naturel : tu persévères, tu tiens bon, tu ne lâches pas.',
                 mutable: 'Ton mode d\'action naturel : tu t\'adaptes, tu évolues, tu rebondis face aux situations.',
               };
+              const MODE_TIE: Record<string, string> = {
+                'cardinal-mutable': 'Tu oscilles entre lancer les choses et t\'adapter — deux forces complémentaires.',
+                'mutable-cardinal': 'Tu oscilles entre lancer les choses et t\'adapter — deux forces complémentaires.',
+                'cardinal-fixed': 'Tu lances les choses ET tu tiens bon — une combinaison de feu et de roc.',
+                'fixed-cardinal': 'Tu lances les choses ET tu tiens bon — une combinaison de feu et de roc.',
+                'fixed-mutable': 'Tu tiens bon ET tu t\'adaptes — une combinaison de stabilité et de souplesse.',
+                'mutable-fixed': 'Tu tiens bon ET tu t\'adaptes — une combinaison de stabilité et de souplesse.',
+              };
+              const introText = topModes.length > 1
+                ? MODE_TIE[topModes.join('-')] || `Deux modes dominants : ${topModes.map(m => MODE_FR[m]).join(' et ')}.`
+                : MODE_INTRO[topMode] || `Ton mode dominant : ${MODE_FR[topMode]}`;
               return (
                 <div>
                   <div style={{ fontSize: 12, color: P.textMid, marginBottom: 8, padding: '6px 10px', background: P.bg, borderRadius: 6, lineHeight: 1.5 }}>
-                    {MODE_INTRO[topMode] || `Ton mode dominant : ${MODE_FR[topMode]}`}
+                    {introText}
                   </div>
                   <div className="grid-responsive-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                     {Object.entries(astro.mo).map(([k, v]) => {
@@ -1654,7 +1749,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
       {/* Aspects + GT/T-Carré (wording accessible) +         */}
       {/* Dominante (sans score) + Stelliums                  */}
       {/* ═══════════════════════════════════════════════════ */}
-      <Sec icon="🌟" title="Tes dynamiques internes">
+      <Sec icon="🔷" title="Tes dynamiques internes">
         <Cd>
 
           {/* --- Dominante planétaire (sans score, narrative) --- */}
@@ -1680,7 +1775,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                 </div>
                 {DOMINANT_PLANET_INTERP[dom.planet] && (
                   <div style={{ fontSize: 12, color: P.textMid, lineHeight: 1.6 }}>
-                    {DOMINANT_PLANET_INTERP[dom.planet]}
+                    {genderize(DOMINANT_PLANET_INTERP[dom.planet])}
                   </div>
                 )}
               </div>
@@ -1705,7 +1800,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                 {astro.grandTrines && astro.grandTrines.length > 0 && astro.grandTrines.map((gt, i) => {
                   const col = ELEM_COL[gt.element] || P.gold;
                   const GT_INTERP: Record<string, string> = {
-                    fire: 'action, leadership et enthousiasme',
+                    fire: 'action, initiative et enthousiasme',
                     earth: 'concret, stabilité et construction',
                     air: 'idées, communication et réflexion',
                     water: 'intuition, empathie et émotion',
@@ -1778,7 +1873,7 @@ export default function AstroTab({ data, bd, bt, bp }: { data: SoulData; bd: str
                         <span style={{ fontSize: 9, color: col, marginLeft: 'auto' }}>{st.planets.length} énergies concentrées</span>
                       </div>
                       <div style={{ fontSize: 10, color: P.textDim }}>
-                        {st.planets.map(pk => PL_HUMAN[pk] ? `${PL_HUMAN[pk]} (${PLANET_FR[pk]})` : PLANET_FR[pk]).join(', ')}
+                        {st.planets.map(pk => PL_HUMAN[pk] ? `${PLANET_FR[pk]} (${PL_HUMAN[pk]})` : PLANET_FR[pk]).join(', ')}
                       </div>
                     </div>
                   );

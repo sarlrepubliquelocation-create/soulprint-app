@@ -20,6 +20,7 @@ interface FeedbackWidgetProps {
   dayType: string;       // Type de jour (label)
   breakdown?: Array<{ system: string; points: number }>; // pour personnalisation
   shadowScore?: number;  // Y2 shadow — score moteur Cœur Unifié candidat [0-100]
+  profileKey?: string;   // Scope le feedback au profil actif (bd sans tirets)
 }
 
 type Note = -1 | 0 | 1;
@@ -36,7 +37,7 @@ function noteToStar(n: Note): number {
   return 5;
 }
 
-export default function FeedbackWidget({ date, score, dayType, breakdown, shadowScore }: FeedbackWidgetProps) {
+export default function FeedbackWidget({ date, score, dayType, breakdown, shadowScore, profileKey }: FeedbackWidgetProps) {
   const [note, setNote]             = useState<Note | null>(null);
   const [stars, setStars]           = useState<number | null>(null);
   const [hoverStar, setHoverStar]   = useState<number>(0);
@@ -48,7 +49,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
 
   useEffect(() => {
     // Rétrocompat : lire le feedback localStorage si existant, convertir étoiles → note
-    const existing = getDayFeedback(date);
+    const existing = getDayFeedback(date, profileKey);
     if (existing) {
       const s = existing.userScore ?? (existing.userRating === 'good' ? 4 : existing.userRating === 'bad' ? 2 : 3);
       const n: Note = s >= 4 ? 1 : s <= 2 ? -1 : 0;
@@ -60,15 +61,15 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
       setSaved(false);
     }
 
-    if (breakdown && breakdown.length > 0) saveBreakdownForDate(date, breakdown);
+    if (breakdown && breakdown.length > 0) saveBreakdownForDate(date, breakdown, profileKey);
 
-    const s = getValidationStats();
+    const s = getValidationStats(profileKey);
     setStats(s);
     const weights = loadPersonalWeights();
     setOnboardMsg(getOnboardingMessage(s.totalFeedbacks, weights));
-    const feedbacks = sto.get<any[]>('sp_validation_feedback') || [];
+    const feedbacks = sto.get<any[]>(profileKey ? `sp_validation_feedback_${profileKey}` : 'sp_validation_feedback') || [];
     setFlatlineMsg(getFlatlineAlert(feedbacks));
-  }, [date]);
+  }, [date, profileKey]);
 
   const handleStar = useCallback(async (s: number) => {
     if (saving) return;
@@ -94,7 +95,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
     <div style={{ marginTop: 14 }}>
 
       <div style={{ fontSize: 11, color: P.textDim, marginBottom: 8, fontWeight: 600, letterSpacing: 1 }}>
-        NOTE TA JOURNÉE POUR AFFINER TES PRÉDICTIONS
+        NOTE TA JOURNÉE POUR AFFINER TES LECTURES
       </div>
 
       {/* 5 étoiles */}
@@ -155,7 +156,7 @@ export default function FeedbackWidget({ date, score, dayType, breakdown, shadow
             <div style={{ fontSize: 10, color: P.textDim }}>
               {stats.streak >= 3 && <span>🔥 {stats.streak} jours de suite — </span>}
               {isGood
-                ? 'Tes notations confirment la fiabilité des prédictions.'
+                ? 'Tes notations confirment la fiabilité des lectures.'
                 : 'Continue à noter tes journées pour améliorer la précision.'}
             </div>
           </div>

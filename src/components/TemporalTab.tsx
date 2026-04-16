@@ -18,7 +18,9 @@ import {
   type PSIResult,
 } from '../engines/temporal';
 import { type TemporalCI, type PotentielAction, type TransitionAlert } from '../engines/temporal-layers';
+import { COSMIC_THRESHOLD, STRONG_THRESHOLD } from '../engines/scoring-constants';
 import { Sec, Cd, P } from './ui';
+import { useTimelineSafe } from '../contexts/TimelineContext'; // Ronde #35 S2 — calibOffset sur affichages
 
 // ── Props ──
 export interface ForecastCIData {
@@ -275,7 +277,8 @@ const EVENT_DETAILS = {
 // ── P2-3 : Paliers Potentiel calibrés sur données réelles ──
 // Distribution observée : 50% des jours entre 40-70, extremes rares
 const getPotentielPalier = (score: number): { label: string; color: string; icon: string } => {
-  if (score >= 85) return { label: 'Exceptionnel', color: '#E0B0FF', icon: '💎' };
+  if (score >= COSMIC_THRESHOLD) return { label: 'Convergence rare', color: '#E0B0FF', icon: '🌟' };
+  if (score >= STRONG_THRESHOLD) return { label: 'Alignement fort', color: '#FFD700', icon: '🔥' };
   if (score >= 72) return { label: 'Fort',         color: '#4ade80', icon: '🔥' };
   if (score >= 55) return { label: 'Bon',          color: '#60a5fa', icon: '✦' };
   if (score >= 40) return { label: 'Modéré',       color: '#f59e0b', icon: '○' };
@@ -285,6 +288,9 @@ const getPotentielPalier = (score: number): { label: string; color: string; icon
 export default function TemporalTab({ data, psi }: Props) {
   const { momentum, forecast, past, present, arc, narrative, macd, forecastCI, potentielAction, transitionAlerts } = data;
   const [showAllWindows, setShowAllWindows] = useState(false);
+  // Ronde #35 S2 — toDisplay() pour convertir les scores bruts engine → affichés (+ calibOffset)
+  const _tl = useTimelineSafe();
+  const toD = _tl?.toDisplay ?? ((v: number) => Math.round(v)); // fallback identité si pas de provider
   // P2-1 : Toggle Essentiel / Complet
   const [viewMode, setViewMode] = useState<'essentiel' | 'complet'>('essentiel');
 
@@ -381,18 +387,19 @@ export default function TemporalTab({ data, psi }: Props) {
               {' · '}
               <span>{intInfo.label}</span>
               {potentielAction && potentielAction.delta !== 0 && (() => {
-                const p = getPotentielPalier(potentielAction.score);
-                return <span> · Potentiel <span style={{ fontWeight: 700, color: p.color }}>{potentielAction.score}</span> <span style={{ fontSize: 10, color: p.color }}>({p.label})</span></span>;
+                const _displayPotentiel = toD(potentielAction.score);
+                const p = getPotentielPalier(_displayPotentiel);
+                return <span> · Potentiel <span style={{ fontWeight: 700, color: p.color }}>{_displayPotentiel}</span> <span style={{ fontSize: 10, color: p.color }}>({p.label})</span></span>;
               })()}
             </div>
             {forecastCI?.ci7 && (
               <div style={{ fontSize: 11, color: P.textDim }}>
-                Lisibilité 7j : <span style={{ fontWeight: 600, color: ciColor(forecastCI.ci7.label) }}>{forecastCI.ci7.percent}% ({forecastCI.ci7.label})</span>
+                Fiabilité 7j : <span style={{ fontWeight: 600, color: ciColor(forecastCI.ci7.label) }}>{forecastCI.ci7.percent}% ({forecastCI.ci7.label})</span>
               </div>
             )}
             {forecast.next7.best.score >= 72 && (
               <div style={{ fontSize: 11, color: P.gold }}>
-                ✦ Prochaine fenêtre : <span style={{ fontWeight: 600 }}>{fmtDate(forecast.next7.best.date)}</span> (score {Math.round(forecast.next7.best.score)})
+                ✦ Prochaine fenêtre : <span style={{ fontWeight: 600 }}>{fmtDate(forecast.next7.best.date)}</span> (score {toD(forecast.next7.best.score)})
               </div>
             )}
           </div>
@@ -430,7 +437,7 @@ export default function TemporalTab({ data, psi }: Props) {
             </div>
             <div style={{ padding: '8px 10px', borderRadius: 8, background: P.surface, textAlign: 'center' }}>
               <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>Moyenne</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{Math.round(momentum.avgLast7)}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{toD(momentum.avgLast7)}</div>
             </div>
           </div>
           {momNarr && (
@@ -473,14 +480,15 @@ export default function TemporalTab({ data, psi }: Props) {
           {/* Potentiel d'Action */}
           {/* P2-3 : Potentiel d'action avec palier qualitatif calibré */}
           {potentielAction && potentielAction.delta !== 0 && (() => {
-            const palier = getPotentielPalier(potentielAction.score);
+            const _dpScore = toD(potentielAction.score);
+            const palier = getPotentielPalier(_dpScore);
             return (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: 18 }}>{palier.icon}</span>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: palier.color }}>
-                      Potentiel d'action : {potentielAction.score}
+                      Potentiel d'action : {_dpScore}
                     </span>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
@@ -490,7 +498,7 @@ export default function TemporalTab({ data, psi }: Props) {
                     </span>
                   </div>
                   <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                    Score du jour ({potentielAction.score - potentielAction.delta}) {potentielAction.delta > 0 ? 'amplifié' : 'atténué'} par tes cycles Année et Mois Personnels ({potentielAction.delta > 0 ? '+' : ''}{potentielAction.delta} pts)
+                    Score du jour ({toD(potentielAction.score - potentielAction.delta)}) {potentielAction.delta > 0 ? 'amplifié' : 'atténué'} par tes cycles Année et Mois Personnels ({potentielAction.delta > 0 ? '+' : ''}{potentielAction.delta} pts)
                   </div>
                 </div>
               </div>
@@ -520,18 +528,18 @@ export default function TemporalTab({ data, psi }: Props) {
               <div style={{ padding: '8px 10px', borderRadius: 8, background: '#4ade800a', border: '1px solid #4ade8018' }}>
                 <div style={{ fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: 1 }}>Meilleur</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80', marginTop: 2 }}>
-                  {Math.round(forecast.next7.best.score)}
+                  {toD(forecast.next7.best.score)}
                 </div>
                 <div style={{ fontSize: 10, color: P.textDim }}>{fmtDate(forecast.next7.best.date)}</div>
               </div>
               <div style={{ padding: '8px 10px', borderRadius: 8, background: P.surface }}>
                 <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>Moyenne</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{Math.round(forecast.next7.avg)}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginTop: 2 }}>{toD(forecast.next7.avg)}</div>
               </div>
               <div style={{ padding: '8px 10px', borderRadius: 8, background: '#ef44440a', border: '1px solid #ef444418' }}>
                 <div style={{ fontSize: 9, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1 }}>Score le plus bas</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', marginTop: 2 }}>
-                  {Math.round(forecast.next7.worst.score)}
+                  {toD(forecast.next7.worst.score)}
                 </div>
                 <div style={{ fontSize: 10, color: P.textDim }}>{fmtDate(forecast.next7.worst.date)}</div>
               </div>
@@ -556,7 +564,7 @@ export default function TemporalTab({ data, psi }: Props) {
             {/* Avertissement score élevé + fiabilité basse */}
             {forecast.next7.best.score > 90 && forecastCI?.ci7 && forecastCI.ci7.percent < 55 && (
               <div style={{ fontSize: 10, color: '#f59e0b', marginTop: 6, lineHeight: 1.5, fontStyle: 'italic' }}>
-                ⚠️ Score élevé mais lisibilité instable — cette fenêtre est prometteuse, reste attentif aux variations des prochains jours.
+                ⚠️ Score élevé mais fiabilité instable — cette fenêtre est prometteuse, reste attentif aux variations des prochains jours.
               </div>
             )}
           </div>
@@ -568,7 +576,7 @@ export default function TemporalTab({ data, psi }: Props) {
                 {forecast.next30.trend === 'favorable' ? '↗ Bonne fenêtre' : '↘ Exigeant'}
               </div>
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                Moy. {Math.round(forecast.next30.avg)} · {forecast.next30.goldDays} Alignement fort
+                Moy. {toD(forecast.next30.avg)} · {forecast.next30.goldDays} Alignement fort
                 {forecast.next30.cosmiqueDays > 0 && ` · ${forecast.next30.cosmiqueDays} Convergence rare`}
               </div>
               {forecastCI?.ci30 && (
@@ -580,7 +588,7 @@ export default function TemporalTab({ data, psi }: Props) {
             <div style={{ padding: '10px 12px', borderRadius: 8, background: P.surface }}>
               <div style={{ fontSize: 9, color: P.textDim, textTransform: 'uppercase', letterSpacing: 1 }}>90 jours</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginTop: 4 }}>
-                Moy. {Math.round(forecast.next90.avg)}
+                Moy. {toD(forecast.next90.avg)}
               </div>
               <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
                 {forecast.next90.goldDays} Alignement fort · {forecast.next90.majorEvents.length} Convergence rare
@@ -613,7 +621,7 @@ export default function TemporalTab({ data, psi }: Props) {
                   ? 'La fiabilité à court terme est faible — cette période présente une forte variabilité. Tes choix auront un poids supérieur à la moyenne : ton libre arbitre définit cet horizon.'
                   : forecastCI.ci30.isZoneMutation
                   ? 'La fiabilité à 30 jours est incertaine — les tendances peuvent se retourner. Reste flexible et ajuste ta stratégie au fil des jours.'
-                  : 'L\'horizon 90 jours est en zone de mutation — les prévisions longues sont moins fiables. Concentre-toi sur les fenêtres proches.'}
+                  : 'L\'horizon 90 jours est en phase de transition — les prévisions longues sont moins fiables. Concentre-toi sur les fenêtres proches.'}
               </div>
             </div>
           )}
@@ -650,14 +658,14 @@ export default function TemporalTab({ data, psi }: Props) {
                     {fmtDate(w.start)} → {fmtDate(w.end)}
                   </div>
                   <div style={{ fontSize: 10, color: P.textDim, marginTop: 2 }}>
-                    {w.days} jour{w.days > 1 ? 's' : ''} · Moy. {Math.round(w.avg)}
+                    {w.days} jour{w.days > 1 ? 's' : ''} · Moy. {toD(w.avg)}
                   </div>
                 </div>
                 <div style={{
                   padding: '4px 10px', borderRadius: 6,
                   background: `${P.gold}18`, color: P.gold,
                   fontSize: 10, fontWeight: 700,
-                }}>{Math.round(w.avg)}</div>
+                }}>{toD(w.avg)}</div>
               </div>
             ))}
             {forecast.windows.length > 3 && !showAllWindows && (
@@ -920,14 +928,13 @@ export default function TemporalTab({ data, psi }: Props) {
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            {m.score != null && (
-                              <div style={{ fontSize: 14, fontWeight: 800, color: m.score >= 65 ? '#4ade80' : m.score >= 45 ? P.gold : '#ef4444' }}>
-                                {m.score}%
-                              </div>
-                            )}
-                            <div style={{ fontSize: 10, fontWeight: 700, color: mColor, marginTop: 1 }}>
-                              {m.resonanceLabel}
-                            </div>
+                            {m.score != null && (() => {
+                              const _ds = toD(m.score);
+                              return <div style={{ fontSize: 14, fontWeight: 800, color: _ds >= 65 ? '#4ade80' : _ds >= 45 ? P.gold : '#ef4444' }}>
+                                {_ds}%
+                              </div>;
+                            })()}
+                            {/* resonanceLabel supprimé — redondant avec resonanceHuman affiché en description */}
                           </div>
                         </div>
                       );

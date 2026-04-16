@@ -8,6 +8,7 @@ interface ProfileSwitcherProps {
   onSwitch: (profile: UserProfile) => void;
   onAddProfile: () => void;
   onDeleteProfile: (profileId: string) => Promise<void>;
+  onSetMain?: (profileId: string) => Promise<void>;
   maxProfiles?: number;
 }
 
@@ -17,10 +18,12 @@ export default function ProfileSwitcher({
   onSwitch,
   onAddProfile,
   onDeleteProfile,
+  onSetMain,
   maxProfiles = 5,
 }: ProfileSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [settingMainId, setSettingMainId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
@@ -162,9 +165,42 @@ export default function ProfileSwitcher({
                     {profile.fn} {profile.ln}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {profile.isMain && (
-                    <span style={{ fontSize: 12, color: P.gold }}>★</span>
+                    <span style={{ fontSize: 12, color: P.gold }} title="Profil principal">★</span>
+                  )}
+                  {!profile.isMain && onSetMain && (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setSettingMainId(profile.id);
+                        try {
+                          await onSetMain(profile.id);
+                          onSwitch(profile); // basculer aussi vers ce profil
+                          setOpen(false);
+                        } finally {
+                          setSettingMainId(null);
+                        }
+                      }}
+                      disabled={settingMainId === profile.id}
+                      title="Définir comme profil principal (ouverture par défaut)"
+                      style={{
+                        background: 'none',
+                        border: `1px solid ${P.gold}44`,
+                        borderRadius: 4,
+                        color: P.gold,
+                        cursor: settingMainId === profile.id ? 'not-allowed' : 'pointer',
+                        fontSize: 10,
+                        padding: '2px 5px',
+                        opacity: settingMainId === profile.id ? 0.5 : 0.7,
+                        fontFamily: 'inherit',
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
+                    >
+                      ★
+                    </button>
                   )}
                   {!profile.isMain && (
                     <button
@@ -181,12 +217,8 @@ export default function ProfileSwitcher({
                         fontFamily: 'inherit',
                         transition: 'opacity 0.2s',
                       }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.opacity = '0.7';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.opacity = '1';
-                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
                     >
                       ✕
                     </button>

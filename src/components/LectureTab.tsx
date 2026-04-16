@@ -2,14 +2,15 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { sto } from '../engines/storage';
 import { type SoulData } from '../App';
 import { generateStrategicReading, type StrategicReading, type ReadingInsight, type Crossing, type ActionItem, type Contradiction, type MicroDetail } from '../engines/strategic-reading';
-import { type DayPreview } from '../engines/convergence';
-import { getCalibOffset } from '../engines/calibration';
+import { type DayPreview, getScoreMeta } from '../engines/convergence';
 import { Cd, P } from './ui';
+import { useTimeline } from '../contexts/TimelineContext'; // Ronde #35 S2 — source unique displayScore
 
 interface Props {
   data: SoulData;
   bd: string;
-  bt?: string;  // FIX COHÉRENCE — heure naissance pour natalCtx
+  bt?: string;      // FIX COHÉRENCE — heure naissance pour natalCtx
+  gender?: 'M' | 'F'; // accord féminin/masculin
   narr: string;
   narrLoad: boolean;
   genNarr: () => void;
@@ -117,12 +118,23 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Panchanga': 'Calendrier védique',
   'Transit Stellium': 'Concentration planétaire',
   'Jian Chu': 'Cycle des 12 Officiers',
+  'Ashtakavarga ☉': 'Force solaire védique',
+  'Ashtakavarga ♂': 'Force martiale védique',
+  'Ashtakavarga ☽+SAV': 'Force lunaire védique',
+  'Yoga Kartari': 'Protection planétaire',
+  'Nakshatra': 'Mansion lunaire',
+  'Chandra Yoga': 'Configuration lunaire',
+  'Vimshottari Dasha': 'Cycle de vie védique',
+  'Jieqi 节气': 'Saison solaire chinoise',
+  'Chandrabala': 'Force de la Lune',
+  'Tithi Lord': 'Jour lunaire védique',
+  'Graha Drishti': 'Regard planétaire',
   // ── Oracle chinois (Yi King) ──
   'Yi King': 'Yi King',
   'Yi King du jour': 'Yi King',
   'Yi King natal': 'Yi King natal',
   'Hexagramme Nucléaire': 'Courant profond',
-  'I Ching surface': 'Tendance immédiate',
+  'Yi King surface': 'Tendance immédiate',
   'Hex Nucléaire profondeur': 'Courant profond',
   'Ligne mutante': 'Message clé',
   // ── Astrologie chinoise (BaZi) ──
@@ -148,7 +160,38 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Opposition chinoise': 'Opposition énergétique',
   'Opposition zodiacale': 'Opposition des signes',
   'Peach Blossom': 'Fleur de romance',
+  'Résonance lunaire védique': 'Résonance lunaire',
+  'Éclipses Natales': 'Éclipses',
   'Shen Sha': 'Étoiles symboliques',
+  'Kong Wang': 'Étoile du Vide',
+  'Étoile du Vide': 'Étoile du Vide',
+  // ShenSha humanisés — traduction pinyin → français
+  'Tai Sui': 'Tension Annuelle',
+  'Tension Annuelle': 'Tension Annuelle',
+  'Sui Po': 'Opposition Annuelle',
+  'Opposition Annuelle': 'Opposition Annuelle',
+  'Wen Chang': 'Étoile Académique',
+  'Étoile Académique': 'Étoile Académique',
+  'Lu Shen': 'Étoile de Prospérité',
+  'Étoile de Prospérité': 'Étoile de Prospérité',
+  'Yang Ren': 'Lame Tranchante',
+  'Lame Tranchante': 'Lame Tranchante',
+  'Tao Hua': 'Fleur de Charme',
+  'Fleur de Charme': 'Fleur de Charme',
+  'Tian Xi': 'Joie Céleste',
+  'Joie Céleste': 'Joie Céleste',
+  'Jie Sha': 'Étoile de Perte',
+  'Étoile de Perte': 'Étoile de Perte',
+  'Zai Sha': 'Étoile d\'Obstacle',
+  'Étoile d\'Obstacle': 'Étoile d\'Obstacle',
+  'Gu Chen': 'Solitude Active',
+  'Solitude Active': 'Solitude Active',
+  'Gua Su': 'Solitude Contemplative',
+  'Solitude Contemplative': 'Solitude Contemplative',
+  'Xue Ren': 'Lame Vive',
+  'Lame Vive': 'Lame Vive',
+  'Fu Xing': 'Étoile du Bonheur',
+  'Étoile du Bonheur': 'Étoile du Bonheur',
   // ── Astrologie occidentale ──
   'Transits astrologiques': 'Transits planétaires',
   'Transits universels': 'Transits planétaires',
@@ -170,7 +213,7 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Opposition Uranus': 'Libération — Uranus',
   'Retour Chiron': 'Guérison profonde — Chiron',
   'Retour Saturne': 'Bilan de vie — Saturne',
-  'Carré Saturne': 'Épreuve structurante — Saturne',
+  'Carré Saturne': 'Défi structurant — Saturne',
   'Retour Nœuds': 'Cap de vie réactivé',
   'Retour des Nœuds': 'Réalignement profond',
   'Retour de Saturne': 'Cap de maturité',
@@ -188,7 +231,7 @@ const TAG_FRIENDLY: Record<string, string> = {
   // ── Score & analyse ──
   'Convergence (14+ systèmes)': 'Score global',
   'Convergence scoring': 'Score global',
-  'Confiance temporelle': 'Lisibilité',
+  'Confiance temporelle': 'Fiabilité',
   'Cycles longs': 'Cycles longs',
   'Forecast 36 mois': 'Prévision 36 mois',
   'Monte Carlo': 'Simulation statistique',
@@ -205,6 +248,56 @@ const TAG_FRIENDLY: Record<string, string> = {
   'Biorhythmes critiques': 'Énergie fluctuante',
   'Biorhythmes triple pic': 'Biorythmes (pic)',
   'Pinnacle = Expression': 'Phase de vie = Potentiel',
+  // ── Tags manquants détectés (session 16 avril 2026) ──
+  // Zodiaque chinois (sans suffixe V3)
+  'Zodiaque chinois': 'Zodiaque chinois',
+  // Phases lunaires
+  'Nouvelle Lune': 'Nouvelle Lune',
+  'Pleine Lune': 'Pleine Lune',
+  'Premier Quartier': 'Lune croissante',
+  'Dernier Quartier': 'Lune décroissante',
+  // Année personnelle (variantes casse)
+  'Année Personnelle': 'Thème de l\'année',
+  // Cycle 9 ans (variante sans tiret)
+  'Cycle 9 ans': 'Cycle de 9 ans',
+  'Cycle de 9 ans': 'Cycle de 9 ans',
+  // Transits (singulier)
+  'Transit universel': 'Transit planétaire',
+  // Qualités à développer (avec numéro)
+  'Qualité à développer 1': 'Qualité à développer',
+  'Qualité à développer 2': 'Qualité à développer',
+  'Qualité à développer 3': 'Qualité à développer',
+  'Qualité à développer 4': 'Qualité à développer',
+  'Qualité à développer 5': 'Qualité à développer',
+  'Qualité à développer 6': 'Qualité à développer',
+  'Qualité à développer 7': 'Qualité à développer',
+  'Qualité à développer 8': 'Qualité à développer',
+  'Qualité à développer 9': 'Qualité à développer',
+  // Maturité (avec numéro)
+  'Maturité 1': 'Cap d\'épanouissement',
+  'Maturité 2': 'Cap d\'épanouissement',
+  'Maturité 3': 'Cap d\'épanouissement',
+  'Maturité 4': 'Cap d\'épanouissement',
+  'Maturité 5': 'Cap d\'épanouissement',
+  'Maturité 6': 'Cap d\'épanouissement',
+  'Maturité 7': 'Cap d\'épanouissement',
+  'Maturité 8': 'Cap d\'épanouissement',
+  'Maturité 9': 'Cap d\'épanouissement',
+  'Maturité 11': 'Cap d\'épanouissement',
+  'Maturité 22': 'Cap d\'épanouissement',
+  // Nœud + signe zodiacal (toutes variantes)
+  'Nœud Bélier': 'Direction de vie — Bélier',
+  'Nœud Taureau': 'Direction de vie — Taureau',
+  'Nœud Gémeaux': 'Direction de vie — Gémeaux',
+  'Nœud Cancer': 'Direction de vie — Cancer',
+  'Nœud Lion': 'Direction de vie — Lion',
+  'Nœud Vierge': 'Direction de vie — Vierge',
+  'Nœud Balance': 'Direction de vie — Balance',
+  'Nœud Scorpion': 'Direction de vie — Scorpion',
+  'Nœud Sagittaire': 'Direction de vie — Sagittaire',
+  'Nœud Capricorne': 'Direction de vie — Capricorne',
+  'Nœud Verseau': 'Direction de vie — Verseau',
+  'Nœud Poissons': 'Direction de vie — Poissons',
 };
 
 function dedupTags(sources: string[]): string[] {
@@ -243,6 +336,11 @@ function friendlyTag(tag: string): string {
   if (tag.startsWith('Mois personnel')) return 'Mois personnel';
   if (tag.startsWith('Nœud Sud ')) return 'Acquis passés';
   if (tag.startsWith('Année ') && /^\d/.test(tag.slice(6))) return 'Année ' + tag.slice(6);
+  // Tags dynamiques numériques
+  if (/^Âge \d+$/.test(tag)) return 'Étape de vie'; // ex: "Âge 49" → "Étape de vie"
+  if (/^Qualité à développer \d+$/.test(tag)) return 'Qualité à développer';
+  if (/^Maturité \d+$/.test(tag)) return 'Cap d\'épanouissement';
+  if (/^Nœud (Nord |Sud )?\w+$/.test(tag)) return 'Direction de vie';
   // Dev warning : tag non traduit → visible en console pour détection
   if (process.env.NODE_ENV === 'development') {
     console.warn(`[TAG_FRIENDLY] Tag non traduit : "${tag}"`);
@@ -569,7 +667,7 @@ function getResonanceNarrative(): string | null {
       'Yi King nucléaire': 'le Yi King nucléaire',
       'Transits': 'les Transits planétaires',
       'Pinnacles': 'les Phases de vie',
-      'Nakshatras': 'les Nakshatras',
+      'Nakshatras': 'les Mansions lunaires',
       'BaZi': 'les Quatre Piliers',
       'Astrologie': 'l\'Astrologie',
       'Cycles': 'les Cycles',
@@ -862,7 +960,9 @@ function getYesterdaySnippet(todayScore: number, todayUndercurrent?: string, tod
 
     // Partie 3: Changement d'hexagramme du jour
     if (yesterday.hexName && todayHex && yesterday.hexName !== todayHex) {
-      parts.push(`Le Yi King est passé de ${yesterday.hexName} à ${todayHex}.`);
+      // Élision : 'de Attente' → 'd'Attente', etc.
+      const prep = /^[aeiouyAEIOUYÀÂÉÈÊËÎÏÔÙÛÜ]/i.test(yesterday.hexName) ? `d'` : `de `;
+      parts.push(`Le Yi King est passé ${prep}${yesterday.hexName} à ${todayHex}.`);
     }
 
     // Partie 4: Transition qualitative sur fenêtre glissante (Ronde #5)
@@ -901,12 +1001,12 @@ function getYesterdaySnippet(todayScore: number, todayUndercurrent?: string, tod
 // 10. Futur / Passé (accordéons)
 // 11. Portrait permanent contextualisé
 
-export default function LectureTab({ data, bd, bt, narr, narrLoad, genNarr, yearPreviews }: Props) {
+export default function LectureTab({ data, bd, bt, gender = 'M', narr, narrLoad, genNarr, yearPreviews }: Props) {
   // ═══ FIX COHÉRENCE RARETÉ — Même baseline que Pilotage/Calendrier ═══
   // Recalculer la rareté depuis les vrais scores soft-shiftés de l'année,
   // puis overrider conv.rarityIndex avant de le passer à generateStrategicReading.
-  const calibOff = getCalibOffset();
-  const displayScore = Math.max(0, Math.min(100, Math.round(data.conv.score + calibOff)));
+  // Ronde #35 S2 — displayScore via TimelineProvider (source unique)
+  const { displayScore, calibOffset: calibOff } = useTimeline();
 
   const dataWithCorrectedRarity = useMemo(() => {
     if (!yearPreviews || yearPreviews.length === 0) return data;
@@ -915,15 +1015,25 @@ export default function LectureTab({ data, bd, bt, narr, narrLoad, genNarr, year
       const higherOrEqual = yearScores.filter(s => s >= displayScore).length;
       const percentage = Math.max(0.1, (higherOrEqual / yearScores.length) * 100);
       const rank = yearScores.filter(s => s > displayScore).length + 1;
-      let label: string, icon: string;
-      if (percentage <= 1) { label = 'Extrêmement rare'; icon = '💎'; }
-      else if (percentage <= 5) { label = 'Rare'; icon = '🌟'; }
-      else if (percentage <= 15) { label = 'Peu commun'; icon = '✦'; }
-      else if (percentage <= 50) { label = 'Modéré'; icon = '◆'; }
-      else { label = 'Courant'; icon = '○'; }
+      // Aligner label/icon avec la charte 6 niveaux (getScoreMeta) — cohérence visuelle
+      const _scoreMeta = getScoreMeta(displayScore);
+      const label = _scoreMeta.label;
+      const icon = _scoreMeta.icon;
+      // ═══ FIX CALIBOFFSET COHÉRENCE — Propager displayScore et son label dans conv ═══
+      // strategic-reading utilise conv.score et conv.level : si on ne les override pas,
+      // un profil "Exigeant" (calibOffset -8) voit "Convergence rare" dans les textes
+      // alors que le displayScore est 85 (Alignement fort).
+      const _displayMeta = getScoreMeta(displayScore);
+      const _displayLevel = `${_displayMeta.icon} ${_displayMeta.label}`;
       return {
         ...data,
-        conv: { ...data.conv, rarityIndex: { ...data.conv.rarityIndex, percentage: Math.round(percentage * 10) / 10, label, icon, rank } },
+        conv: {
+          ...data.conv,
+          score: displayScore,
+          level: _displayLevel,
+          lCol: _displayMeta.color,
+          rarityIndex: { ...data.conv.rarityIndex, percentage: Math.round(percentage * 10) / 10, label, icon, rank },
+        },
       };
     } catch {
       return data;  // fallback MC si erreur
@@ -931,8 +1041,8 @@ export default function LectureTab({ data, bd, bt, narr, narrLoad, genNarr, year
   }, [yearPreviews, data, displayScore]);
 
   const reading = useMemo<StrategicReading>(
-    () => generateStrategicReading(dataWithCorrectedRarity, bd),
-    [dataWithCorrectedRarity, bd]
+    () => generateStrategicReading(dataWithCorrectedRarity, bd, undefined, gender),
+    [dataWithCorrectedRarity, bd, gender]
   );
 
   // GAP=0 : calibrer le score brut partout (identique Pilotage/Calendrier/Astro)
@@ -1220,7 +1330,7 @@ export default function LectureTab({ data, bd, bt, narr, narrLoad, genNarr, year
         )}
         {narrLoad && (
           <div style={{ textAlign: 'center', padding: 30 }}>
-            <div style={{ fontSize: 30, animation: 'pulse 1.5s infinite' }}>🔮</div>
+            <div style={{ fontSize: 28, color: P.gold, animation: 'pulse 1.5s infinite', fontWeight: 300 }}>✦</div>
             <div style={{ fontSize: 13, color: P.gold, marginTop: 10 }}>Kaironaute analyse les cycles...</div>
           </div>
         )}

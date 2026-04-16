@@ -11,7 +11,7 @@ export const P = {
   goldDim:  '#A08828',
   goldGlow: '#D4AF3744',
   text:     '#e4e4e7',
-  textMid:  '#a1a1aa',
+  textMid:  '#b3b3bb',  // was #a1a1aa — WCAG AA fix (ratio ~4.7:1 sur #09090b, seuil 4.5:1)
   textDim:  '#8B8B94',  // was #71717a — WCAG AA fix (ratio ~4.5:1 sur #09090b, distinct de textMid)
   green:    '#4ade80',
   orange:   '#f97316',
@@ -161,21 +161,27 @@ export function Cd({ children, sx }: { children: React.ReactNode; sx?: React.CSS
   );
 }
 
-// === SECTION GROUP (collapsible) — R27 ===
+// === SECTION GROUP (collapsible) — R27 + R30 WCAG AA ===
 export function SectionGroup({ icon, title, defaultOpen = true, count, children }: {
   icon: string; title: string; defaultOpen?: boolean; count?: number; children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
+  const toggle = () => setOpen(o => !o);
   return (
     <div style={{ marginTop: 28 }}>
       <div
-        onClick={() => setOpen(!open)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label={`${open ? 'Replier' : 'Déplier'} la section ${title}`}
+        onClick={toggle}
+        onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
         style={{
           display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
           padding: '10px 0',
         }}
       >
-        <span style={{ fontSize: 20 }}>{icon}</span>
+        <span style={{ fontSize: 20 }} aria-hidden="true">{icon}</span>
         <h2 style={{
           fontSize: 16, fontWeight: 800, color: P.gold, letterSpacing: 1.5,
           textTransform: 'uppercase', margin: 0, flex: 1,
@@ -185,13 +191,17 @@ export function SectionGroup({ icon, title, defaultOpen = true, count, children 
             {count}
           </span>
         )}
-        <span style={{ fontSize: 13, color: P.textDim, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+        <span style={{ fontSize: 13, color: P.textDim, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0)' }} aria-hidden="true">▼</span>
       </div>
       <div style={{ height: 1, background: `linear-gradient(90deg,${P.gold}40,transparent)`, marginBottom: 4 }} />
       {open && children}
       {!open && (
         <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Déplier la section ${title}`}
           onClick={() => setOpen(true)}
+          onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
           style={{ padding: '12px 0', fontSize: 12, color: P.textDim, textAlign: 'center', cursor: 'pointer' }}
         >
           Appuie pour voir cette section

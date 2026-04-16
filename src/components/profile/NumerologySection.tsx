@@ -11,13 +11,13 @@ export const D: Record<number, Record<string, Desc>> = {
   1: {
     cdv:  { q: 'Ta mission est de tracer ta propre voie et d\'initier le mouvement. Tu es ici pour oser en premier.', v: 'Le piège de ta mission : confondre indépendance et isolement. Leader n\'est pas solitaire.' },
     expr: { q: 'Tu t\'exprimes avec une force de conviction qui entraîne les autres. Ton mot-clé : initiative.', v: 'Ton talent peut intimider — apprends à doser ton intensité selon le contexte.' },
-    soul: { q: 'Au fond, tu es mû par un besoin viscéral d\'autonomie et de nouveauté. La routine t\'étouffe.', v: 'Cette soif d\'indépendance peut te couper des liens profonds dont tu as besoin.' },
-    pers: { q: 'On perçoit en toi quelqu\'un de déterminé, sûr de lui, qui sait où il va.', v: 'Cette image de force peut empêcher les autres de t\'offrir leur aide.' },
-    mat:  { q: 'Avec l\'âge, ta capacité à trancher et à mener s\'affine — tu deviens le capitaine naturel.', v: 'Maturité du 1 : accepter que diriger, c\'est aussi écouter.' },
+    soul: { q: 'Au fond, tu es {mû|mue} par un besoin viscéral d\'autonomie et de nouveauté. La routine t\'étouffe.', v: 'Cette soif d\'indépendance peut te couper des liens profonds dont tu as besoin.' },
+    pers: { q: 'On perçoit en toi quelqu\'un de déterminé{|e}, sûr{|e} de {lui|elle}, qui sait où il{|le} va.', v: 'Cette image de force peut empêcher les autres de t\'offrir leur aide.' },
+    mat:  { q: 'Avec l\'âge, ta capacité à trancher et à mener s\'affine — tu deviens {le capitaine naturel|la capitaine naturelle}.', v: 'Maturité du 1 : accepter que diriger, c\'est aussi écouter.' },
   },
   2: {
-    cdv:  { q: 'Ta mission est de créer des ponts entre les gens, d\'harmoniser et de faciliter. Tu es le liant invisible.', v: 'Le piège : t\'oublier dans la quête d\'harmonie. Ta paix intérieure compte autant que celle des autres.' },
-    expr: { q: 'Tu excelles dans la diplomatie, la médiation et l\'écoute active. Les gens se confient à toi naturellement.', v: 'Ce talent de médiateur peut devenir de l\'évitement de conflit — parfois il faut trancher.' },
+    cdv:  { q: 'Ta mission est de créer des ponts entre les gens, d\'harmoniser et de faciliter. Tu es {le|la} liant{|e} invisible.', v: 'Le piège : t\'oublier dans la quête d\'harmonie. Ta paix intérieure compte autant que celle des autres.' },
+    expr: { q: 'Tu excelles dans la diplomatie, la médiation et l\'écoute active. Les gens se confient à toi naturellement.', v: 'Ce talent de médiat{eur|rice} peut devenir de l\'évitement de conflit — parfois il faut trancher.' },
     soul: { q: 'Au fond, tu cherches la connexion authentique et la coopération vraie. L\'harmonie est ton carburant.', v: 'Attention à la codépendance — ta valeur ne dépend pas de l\'approbation des autres.' },
     pers: { q: 'On te perçoit comme quelqu\'un de doux, fiable et accessible. Ta présence rassure.', v: 'Cette image douce peut faire sous-estimer ta force réelle — montre tes limites.' },
     mat:  { q: 'Avec l\'âge, ton intuition relationnelle devient un super-pouvoir. Tu lis les gens sans effort.', v: 'Maturité du 2 : oser le conflit constructif plutôt que la paix de façade.' },
@@ -25,7 +25,7 @@ export const D: Record<number, Record<string, Desc>> = {
   3: {
     cdv:  { q: 'Ta mission est de créer, communiquer et inspirer. Tu es ici pour apporter lumière et joie.', v: 'Le piège : la dispersion créative. Trop d\'idées tuent l\'exécution.' },
     expr: { q: 'Tu communiques avec un enthousiasme contagieux. Ta créativité est ton plus grand atout professionnel.', v: 'Le talent sans discipline produit des feux d\'artifice, pas des cathédrales.' },
-    soul: { q: 'Au fond, tu es animé par le besoin de t\'exprimer et d\'être reconnu pour ton originalité.', v: 'Cette soif de reconnaissance peut te rendre dépendant des applaudissements.' },
+    soul: { q: 'Au fond, tu es {animé|animée} par le besoin de t\'exprimer et d\'être {reconnu|reconnue} pour ton originalité.', v: 'Cette soif de reconnaissance peut te rendre {dépendant|dépendante} des applaudissements.' },
     pers: { q: 'On perçoit en toi quelqu\'un de brillant, drôle et sociable. Ton charisme ouvre les portes.', v: 'L\'image du "toujours joyeux" peut masquer tes moments de doute — autorise-toi la vulnérabilité.' },
     mat:  { q: 'Avec l\'âge, ta créativité gagne en profondeur. Tu passes de l\'inspiration à l\'œuvre durable.', v: 'Maturité du 3 : choisir un projet et aller au bout plutôt que papillonner.' },
   },
@@ -33,15 +33,15 @@ export const D: Record<number, Record<string, Desc>> = {
     cdv:  { q: 'Ta mission est de construire du solide et du durable. Tu es l\'architecte qui transforme les rêves en réalité.', v: 'Le piège : la rigidité. Les meilleures fondations savent absorber les secousses.' },
     expr: { q: 'Tu excelles dans l\'organisation, la méthode et l\'exécution. Quand tu fais, c\'est bien fait.', v: 'Ton perfectionnisme peut ralentir la livraison — le bien est parfois l\'ennemi du parfait.' },
     soul: { q: 'Au fond, tu cherches la sécurité et l\'ordre. Le chaos te déstabilise profondément.', v: 'Ce besoin de contrôle peut t\'empêcher de saisir les opportunités imprévues.' },
-    pers: { q: 'On te perçoit comme fiable, carré, quelqu\'un sur qui on peut compter sans hésiter.', v: 'Cette image de rigueur peut paraître froide — montre aussi ton côté humain.' },
+    pers: { q: 'On te perçoit comme fiable, carr{é|ée}, quelqu\'un sur qui on peut compter sans hésiter.', v: 'Cette image de rigueur peut paraître froide — montre aussi ton côté humain.' },
     mat:  { q: 'Avec l\'âge, ton sens de la structure devient ta marque de fabrique. Tes réalisations parlent pour toi.', v: 'Maturité du 4 : apprendre que le lâcher-prise est aussi une forme de solidité.' },
   },
   5: {
-    cdv:  { q: 'Ta mission est d\'explorer, de transformer et de libérer. Tu es le catalyseur du changement.', v: 'Le piège : l\'instabilité permanente. La liberté sans racines devient errance.' },
+    cdv:  { q: 'Ta mission est d\'explorer, de transformer et de libérer. Tu es {le|la} catalyseur{|e} du changement.', v: 'Le piège : l\'instabilité permanente. La liberté sans racines devient errance.' },
     expr: { q: 'Tu t\'adaptes à tout, tu apprends vite et ta curiosité est magnétique.', v: 'Cette polyvalence peut devenir dispersion — choisir, c\'est aussi renoncer.' },
     soul: { q: 'Au fond, tu brûles pour la liberté et l\'expérience. L\'inconnu t\'attire irrésistiblement.', v: 'Cette soif d\'aventure peut saboter tes engagements — distingue fuite et exploration.' },
-    pers: { q: 'On perçoit en toi quelqu\'un de dynamique, magnétique, toujours en mouvement.', v: 'Cette image d\'aventurier peut inquiéter ceux qui cherchent de la stabilité chez toi.' },
-    mat:  { q: 'Avec l\'âge, tes expériences multiples deviennent une sagesse unique. Tu es le conseiller vécu.', v: 'Maturité du 5 : canaliser l\'énergie du changement dans un projet qui dure.' },
+    pers: { q: 'On perçoit en toi quelqu\'un de dynamique, magnétique, toujours en mouvement.', v: 'Cette image d\'aventuri{er|ère} peut inquiéter ceux qui cherchent de la stabilité chez toi.' },
+    mat:  { q: 'Avec l\'âge, tes expériences multiples deviennent une sagesse unique. Tu es {le|la} conseiller{|ère} vécu{|e}.', v: 'Maturité du 5 : canaliser l\'énergie du changement dans un projet qui dure.' },
   },
   6: {
     cdv:  { q: 'Ta mission est de protéger, d\'harmoniser et de prendre soin. Tu es le cœur battant de ton entourage.', v: 'Le piège : le sacrifice de soi. Tu ne peux pas remplir les autres depuis une coupe vide.' },
@@ -51,17 +51,17 @@ export const D: Record<number, Record<string, Desc>> = {
     mat:  { q: 'Avec l\'âge, ta sagesse du cœur devient ta force. Tes conseils sont recherchés.', v: 'Maturité du 6 : protéger sans étouffer, aimer sans s\'oublier.' },
   },
   7: {
-    cdv:  { q: 'Ta mission est de chercher la vérité profonde. Tu es le philosophe, l\'analyste, le sage.', v: 'Le piège : l\'intellectualisation de tout. Vivre, c\'est aussi ressentir sans comprendre.' },
+    cdv:  { q: 'Ta mission est de chercher la vérité profonde. Tu es {le|la} philosophe, l\'analyste, {le|la} sage.', v: 'Le piège : l\'intellectualisation de tout. Vivre, c\'est aussi ressentir sans comprendre.' },
     expr: { q: 'Tu excelles dans l\'analyse, la recherche et la réflexion stratégique. Ton esprit est ton arme.', v: 'Ce talent analytique peut devenir paralysie — parfois il faut agir avant de tout comprendre.' },
-    soul: { q: 'Au fond, tu es mû par une quête de sens et de vérité. Les réponses faciles ne te satisfont pas.', v: 'Cette quête peut devenir obsessionnelle — accepte que certains mystères n\'ont pas de réponse.' },
-    pers: { q: 'On perçoit en toi quelqu\'un de profond, un peu mystérieux, dont la pensée va loin.', v: 'Cette aura de mystère peut créer de la distance — laisse les autres voir qui tu es vraiment.' },
-    mat:  { q: 'Avec l\'âge, ta sagesse intérieure rayonne. Tu deviens le mentor que les gens cherchent.', v: 'Maturité du 7 : partager tes découvertes au lieu de les garder pour toi.' },
+    soul: { q: 'Au fond, tu es {mû|mue} par une quête de sens et de vérité. Les réponses faciles ne te satisfont pas.', v: 'Cette quête peut devenir obsessionnelle — accepte que certains mystères n\'ont pas de réponse.' },
+    pers: { q: 'On perçoit en toi quelqu\'un de profond, un peu mystérieux{|se}, dont la pensée va loin.', v: 'Cette aura de mystère peut créer de la distance — laisse les autres voir qui tu es vraiment.' },
+    mat:  { q: 'Avec l\'âge, ta sagesse intérieure rayonne. Tu deviens {le|la} mentor{|e} que les gens cherchent.', v: 'Maturité du 7 : partager tes découvertes au lieu de les garder pour toi.' },
   },
   8: {
-    cdv:  { q: 'Ta mission est de matérialiser, de bâtir du pouvoir et de l\'influence. Tu es le stratège de l\'action.', v: 'Le piège : la course au résultat. Le pouvoir sans éthique est une bombe à retardement.' },
+    cdv:  { q: 'Ta mission est de matérialiser, de bâtir du pouvoir et de l\'influence. Tu es {le|la} stratège de l\'action.', v: 'Le piège : la course au résultat. Le pouvoir sans éthique est une bombe à retardement.' },
     expr: { q: 'Tu excelles à transformer les visions en résultats concrets. L\'exécution est ta zone de génie.', v: 'Cette efficacité peut broyer les relations humaines — les gens ne sont pas des KPIs.' },
-    soul: { q: 'Au fond, tu es mû par l\'ambition de laisser une empreinte tangible dans le monde.', v: 'Ce besoin de réussir peut masquer une peur profonde de l\'insignifiance.' },
-    pers: { q: 'On perçoit en toi quelqu\'un d\'ambitieux, solide, qui inspire la confiance dans l\'action.', v: 'Cette image d\'autorité peut intimider — montre aussi ta vulnérabilité stratégique.' },
+    soul: { q: 'Au fond, tu es {mû|mue} par l\'ambition de laisser une empreinte tangible dans le monde.', v: 'Ce besoin de réussir peut masquer une peur profonde de l\'insignifiance.' },
+    pers: { q: 'On perçoit en toi quelqu\'un d\'ambitieu{x|se}, solide, qui inspire la confiance dans l\'action.', v: 'Cette image d\'autorité peut intimider — montre aussi ta vulnérabilité stratégique.' },
     mat:  { q: 'Avec l\'âge, ton sens stratégique devient redoutable. Tu sais exactement où frapper.', v: 'Maturité du 8 : utiliser le pouvoir acquis pour élever les autres, pas seulement soi.' },
   },
   9: {
@@ -74,22 +74,22 @@ export const D: Record<number, Record<string, Desc>> = {
   11: {
     cdv:  { q: 'Ta mission est de canaliser une intuition hors norme pour guider et éclairer les autres. Tu captes ce que personne ne voit.', v: 'Le piège du 11 : l\'hypersensibilité peut paralyser. Ton don demande un ancrage solide pour ne pas te consumer.' },
     expr: { q: 'Tu communiques avec une profondeur qui touche les gens au-delà des mots. Ta présence seule inspire.', v: 'Ce talent peut te submerger d\'émotions des autres — protège ton énergie avec des limites claires.' },
-    soul: { q: 'Au plus profond, tu es mû par un besoin de transcendance et de connexion à quelque chose de plus grand.', v: 'Cette quête spirituelle peut te déconnecter du quotidien — ta mission se vit aussi dans le concret.' },
-    pers: { q: 'Les autres perçoivent en toi une aura magnétique, presque mystique. Ton regard semble lire au-delà des apparences.', v: 'Cette intensité peut déstabiliser — tout le monde n\'est pas prêt à être vu aussi profondément.' },
+    soul: { q: 'Au plus profond, tu es {mû|mue} par un besoin de transcendance et de connexion à quelque chose de plus grand.', v: 'Cette quête spirituelle peut te déconnecter du quotidien — ta mission se vit aussi dans le concret.' },
+    pers: { q: 'Les autres perçoivent en toi une aura magnétique, presque mystique. Ton regard semble lire au-delà des apparences.', v: 'Cette intensité peut déstabiliser — tout le monde n\'est pas prêt à être {vu|vue} aussi profondément.' },
     mat:  { q: 'Avec l\'âge, ton intuition visionnaire devient ton plus grand atout stratégique. Tu vois venir avant les autres.', v: 'Maturité du 11 : faire confiance à ta vision même quand personne ne la comprend encore.' },
   },
   22: {
-    cdv:  { q: 'Ta mission est titanesque : concrétiser des visions qui transforment le collectif. Bâtisseur d\'empires.', v: 'La pression du 22 est immense — sans fondations solides (énergie du 4), tout peut s\'effondrer.' },
-    expr: { q: 'Tu as la rare capacité de transformer les grandes idées en réalisations concrètes à grande échelle.', v: 'Ce talent de maître bâtisseur peut mener au surmenage — délègue, tu n\'es pas obligé de tout porter.' },
+    cdv:  { q: 'Ta mission est titanesque : concrétiser des visions qui transforment le collectif. Bâtisseu{r|se} d\'empires.', v: 'La pression du 22 est immense — sans fondations solides (énergie du 4), tout peut s\'effondrer.' },
+    expr: { q: 'Tu as la rare capacité de transformer les grandes idées en réalisations concrètes à grande échelle.', v: 'Ce talent de construction à grande échelle peut mener au surmenage — délègue, tu n\'es pas {obligé|obligée} de tout porter.' },
     soul: { q: 'Au fond, tu aspires à laisser un héritage durable qui dépasse ta propre vie.', v: 'Cette ambition peut t\'écraser — accepte que Rome ne s\'est pas construite en un jour.' },
-    pers: { q: 'On perçoit en toi une force tranquille capable de soulever des montagnes.', v: 'Cette image de puissance peut créer une pression impossible — montre que tu es humain aussi.' },
+    pers: { q: 'On perçoit en toi une force tranquille capable de soulever des montagnes.', v: 'Cette image de puissance peut créer une pression impossible — montre que tu es {humain|humaine} aussi.' },
     mat:  { q: 'Avec l\'âge, ta capacité de réalisation atteint des sommets. Tes projets prennent une dimension collective.', v: 'Maturité du 22 : bâtir pour les autres, pas seulement pour prouver que tu peux.' },
   },
   33: {
     cdv:  { q: 'Ta mission est l\'amour inconditionnel et l\'enseignement. Le plus rare et le plus exigeant des chemins.', v: 'Le don de soi total peut mener à l\'épuisement — poser ses limites est vital, même pour un 33.' },
-    expr: { q: 'Tu as un don de guérison par les mots, la présence et l\'enseignement. Ta bienveillance est thérapeutique.', v: 'Ce talent de guérisseur peut attirer des personnes toxiques — protège ton espace.' },
+    expr: { q: 'Tu as un don de guérison par les mots, la présence et l\'enseignement. Ta bienveillance est thérapeutique.', v: 'Ce talent de guéri{sseur|sseuse} peut attirer des personnes toxiques — protège ton espace.' },
     soul: { q: 'Au fond, tu aspires à un amour universel et à l\'élévation de la conscience collective.', v: 'Cette compassion infinie peut te vider — recharge-toi avant de donner encore.' },
-    pers: { q: 'On perçoit en toi un être de lumière, un guide naturel dont la sagesse apaise.', v: 'Cette image de sainteté peut être un fardeau — tu as le droit d\'être imparfait.' },
+    pers: { q: 'On perçoit en toi un être de lumière, un guide naturel dont la sagesse apaise.', v: 'Cette image de sainteté peut être un fardeau — tu as le droit d\'être imparfait{|e}.' },
     mat:  { q: 'Avec l\'âge, ta sagesse d\'amour universel rayonne avec une puissance rare.', v: 'Maturité du 33 : enseigner par l\'exemple, sans te sacrifier sur l\'autel du service.' },
   },
 };
@@ -107,9 +107,9 @@ function getDesc(domain: string, v: number): Desc | null {
 const CY: Record<number, { y: string; m: string; d: string }> = {
   1:  { y: 'Année de nouveaux départs — lance les projets que tu repousses. L\'énergie d\'initiative est maximale cette année.', m: 'Ce mois favorise les prises de décision rapides. Ose proposer, trancher, avancer sans attendre la permission.', d: 'Aujourd\'hui, prends l\'initiative. Un premier pas décisif vaut mieux qu\'un plan parfait jamais exécuté.' },
   2:  { y: 'Année de partenariats et de patience. Les résultats viendront par la collaboration, pas par la force.', m: 'Ce mois invite à écouter avant de parler, à négocier plutôt qu\'imposer. Les alliances se renforcent.', d: 'Aujourd\'hui, mise sur le dialogue. Une main tendue rapportera plus qu\'un coup de force.' },
-  3:  { y: 'Année de créativité et de visibilité. Ta capacité à communiquer et à inspirer est amplifiée.', m: 'Ce mois est propice à l\'expression créative. Partage tes idées, publie, présente — ton message porte.', d: 'Aujourd\'hui, exprime-toi. Un pitch, un post, une conversation — ta créativité touche juste.' },
+  3:  { y: 'Année de créativité et de visibilité. Ta capacité à communiquer et à inspirer est amplifiée.', m: 'Ce mois est propice à l\'expression créative. Partage tes idées, publie, présente — ton message porte.', d: 'Aujourd\'hui, exprime-toi. Une présentation, un message, une conversation — ta créativité touche juste.' },
   4:  { y: 'Année de construction méthodique. Pose les fondations — le travail structuré de cette année portera ses fruits longtemps.', m: 'Ce mois appelle de la rigueur et de l\'organisation. Fais le tri, structure, documente.', d: 'Aujourd\'hui, concentre-toi sur l\'exécution. Pas de raccourcis — la qualité du travail parle d\'elle-même.' },
-  5:  { y: 'Année de changement et d\'expansion. Sois mobile, curieux, ouvert aux opportunités inattendues.', m: 'Ce mois apporte du mouvement — voyages, rencontres, pivots. Surfe sur les changements au lieu de les subir.', d: 'Aujourd\'hui, sors de ta zone de confort. L\'imprévu est ton meilleur allié.' },
+  5:  { y: 'Année de changement et d\'expansion. Sois mobile, {curieux|curieuse}, {ouvert|ouverte} aux opportunités inattendues.', m: 'Ce mois apporte du mouvement — voyages, rencontres, pivots. Surfe sur les changements au lieu de les subir.', d: 'Aujourd\'hui, sors de ta zone de confort. L\'imprévu est ton meilleur allié.' },
   6:  { y: 'Année centrée sur la famille, la responsabilité et l\'harmonie. Investis dans tes relations proches.', m: 'Ce mois te ramène vers l\'essentiel : le foyer, les proches, l\'équilibre entre donner et se préserver.', d: 'Aujourd\'hui, prends soin — de toi d\'abord, des autres ensuite. L\'harmonie commence par l\'intérieur.' },
   7:  { y: 'Année d\'introspection et de recherche de sens. Prends du recul pour mieux voir le chemin.', m: 'Ce mois invite à l\'analyse et à la réflexion. Lis, étudie, médite — les réponses sont à l\'intérieur.', d: 'Aujourd\'hui, creuse avant de conclure. L\'intuition te guide si tu prends le temps de l\'écouter.' },
   8:  { y: 'Année de récolte et de pouvoir. Tes efforts passés se concrétisent — saisis les récompenses.', m: 'Ce mois est favorable aux négociations financières, aux décisions stratégiques et à l\'affirmation de ta position.', d: 'Aujourd\'hui, pense résultat. Chaque action doit servir un objectif concret et mesurable.' },
@@ -143,10 +143,10 @@ const LS_DEEP: Record<number, { present: string; missing: string }> = {
   3: { present: 'L\'imagination est ton terrain de jeu — tu vois des possibilités là où d\'autres voient des murs.', missing: 'La créativité pure n\'est pas ton mode par défaut — tu innoves plutôt par amélioration que par invention.' },
   4: { present: 'L\'ordre et la méthode sont dans ton ADN — tes processus sont tes fondations.', missing: 'L\'organisation ne vient pas naturellement — mais une fois mise en place, elle te libère plus que les autres.' },
   5: { present: 'Le 5 au centre de la grille fait de toi un pont entre toutes les énergies — tu es le liant.', missing: 'Sans le 5 central, tu peux avoir du mal à connecter tes différentes forces entre elles — cherche un unificateur.' },
-  6: { present: 'Le sens des responsabilités t\'ancre — les gens comptent sur toi, et tu assumes.', missing: 'La responsabilité domestique n\'est pas ton moteur premier — tu es plus tourné vers l\'extérieur.' },
+  6: { present: 'Le sens des responsabilités t\'ancre — les gens comptent sur toi, et tu assumes.', missing: 'La responsabilité domestique n\'est pas ton moteur premier — tu es plus tourné{|e} vers l\'extérieur.' },
   7: { present: 'La réflexion et l\'analyse sont tes alliées — tu comprends les choses en profondeur avant d\'agir.', missing: 'L\'introspection analytique n\'est pas ton premier réflexe — tu apprends davantage par l\'expérience que par la théorie.' },
   8: { present: 'Le sens du détail et de l\'efficacité matérielle te donne un avantage concret dans l\'exécution.', missing: 'La précision opérationnelle est à développer — entoure-toi de profils « exécutants » pour compléter ta vision.' },
-  9: { present: 'Tu portes naturellement une vision large et ambitieuse — le petit ne te intéresse pas.', missing: 'La vision panoramique n\'est pas innée — développe-la en prenant régulièrement du recul sur tes projets.' },
+  9: { present: 'Tu portes naturellement une vision large et ambitieuse — le détail ne t\'intéresse pas autant que la direction.', missing: 'La vision panoramique n\'est pas innée — développe-la en prenant régulièrement du recul sur tes projets.' },
 };
 
 const LS_PLAN_ADVICE: Record<string, string> = {
@@ -167,7 +167,7 @@ const PINNACLE_DESC: Record<number, string> = {
   5: 'Période d\'aventure — tu explores, voyages (intérieurement ou physiquement) et accueilles le changement.',
   6: 'Période d\'harmonie — tu es centré sur la famille, les responsabilités et le soin des autres.',
   7: 'Période de réflexion — tu cherches des réponses profondes, développe ton intuition et ta sagesse.',
-  8: 'Période de pouvoir — tu développes ton ambition, ton sens des affaires et ton leadership.',
+  8: 'Période de pouvoir — tu développes ton ambition, ton sens des affaires et ta capacité à diriger.',
   9: 'Période d\'accomplissement — tu te donnes au monde, avec compassion, générosité et vision large.',
   11: 'Période d\'illumination — ton intuition est décuplée, tu inspires les autres par ta vision.',
   22: 'Période de maître bâtisseur — tu réalises des projets d\'envergure qui marquent durablement.',
@@ -180,7 +180,7 @@ const PINNACLE_DESC_POS: Record<number, Record<number, string>> = {
   1: {
     0: 'Jeunesse d\'indépendance — les premières années t\'ont forgé dans l\'affirmation et l\'initiative personnelle.',
     1: 'Affirmation adulte — tu consolides ton identité propre et ta capacité à décider seul.',
-    2: 'Leadership affirmé — ta maturité t\'impose naturellement comme initiateur dans tes cercles.',
+    2: 'Autorité affirmée — ta maturité t\'impose naturellement comme initiateur dans tes cercles.',
     3: 'Héritage d\'autonomie — tu transmets ta capacité à tracer sa propre voie, sans modèle préétabli.',
   },
   2: {
@@ -222,7 +222,7 @@ const PINNACLE_DESC_POS: Record<number, Record<number, string>> = {
   8: {
     0: 'Ambition de jeunesse — le sens du pouvoir et de la réussite s\'est développé tôt en toi.',
     1: 'Puissance adulte — tu matérialises ta vision et construis ton influence avec méthode.',
-    2: 'Leadership accompli — ton autorité est reconnue ; tu gères avec maturité les responsabilités.',
+    2: 'Autorité accomplie — ton influence est reconnue ; tu gères avec maturité les responsabilités.',
     3: 'Héritage stratégique — les structures de pouvoir que tu as bâties continuent de rayonner.',
   },
   9: {
@@ -344,7 +344,7 @@ const CHALLENGE_DESC_POS: Record<number, Record<number, string>> = {
 };
 
 const CHALLENGE_ORIGIN: string[] = [
-  'actif en ce moment', 'actif en ce moment', 'actif à long terme', 'actif à long terme',
+  'tes interactions du moment', 'ton rapport à toi-même', 'ta trajectoire longue', 'ta leçon de fond',
 ];
 
 export const PY_DESC: Record<number, { name: string; theme: string; conseil: string }> = {
@@ -367,9 +367,13 @@ interface NumerologySectionProps {
   pd: ProfileData;
   num: SoulData['num'];
   fn: string;
+  gender?: 'M' | 'F';
 }
 
-export default function NumerologySection({ pd, num, fn }: NumerologySectionProps) {
+export default function NumerologySection({ pd, num, fn, gender = 'M' }: NumerologySectionProps) {
+  const isF = gender === 'F';
+  // Helper : résout {masculin|féminin} selon le genre du profil
+  const genderize = (s: string): string => s.replace(/\{([^|{}]*)\|([^|{}]*)\}/g, (_m, m, f) => isF ? f : m);
   // FIX: Exclure les cycles temporels (py, pm, ppd) — ce ne sont pas des nombres natals permanents
   const TEMPORAL_KEYS = new Set(['bday', 'py', 'pm', 'ppd']);
   const masterList = (Object.entries(num) as [string, any][])
@@ -467,22 +471,22 @@ export default function NumerologySection({ pd, num, fn }: NumerologySectionProp
               {desc && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11, color: P.gold, fontWeight: 600, marginBottom: 4 }}>Forces</div>
-                  <div style={intro}>{desc.q}</div>
+                  <div style={intro}>{genderize(desc.q)}</div>
                   <div style={{ fontSize: 11, color: P.textDim, fontWeight: 600, marginBottom: 4, marginTop: 8 }}>Vigilance</div>
-                  <div style={intro}>{desc.v}</div>
+                  <div style={intro}>{genderize(desc.v)}</div>
                 </div>
               )}
               <div style={{ padding: '10px 12px', borderRadius: 8, background: '#ffffff04', border: `1px solid ${P.cardBdr}` }}>
                 <div style={{ fontSize: 10, color: P.gold, fontWeight: 700, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>Dynamique annuelle, mensuelle, quotidienne</div>
                 {angle && <div style={{ fontSize: 9, color: P.textDim, fontStyle: 'italic', marginBottom: 8, lineHeight: 1.4 }}>{angle} :</div>}
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.7 }}>
-                  <b style={{ color: P.textMid }}>Cette année :</b> {getCycleText(v, 'y')}
+                  <b style={{ color: P.textMid }}>Cette année :</b> {genderize(getCycleText(v, 'y'))}
                 </div>
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.7, marginTop: 8 }}>
-                  <b style={{ color: P.textMid }}>Ce mois :</b> {getCycleText(v, 'm')}
+                  <b style={{ color: P.textMid }}>Ce mois :</b> {genderize(getCycleText(v, 'm'))}
                 </div>
                 <div style={{ fontSize: 11, color: P.textDim, lineHeight: 1.7, marginTop: 8 }}>
-                  <b style={{ color: P.textMid }}>Aujourd'hui :</b> {getCycleText(v, 'd')}
+                  <b style={{ color: P.textMid }}>Aujourd'hui :</b> {genderize(getCycleText(v, 'd'))}
                 </div>
               </div>
             </Cd>
@@ -628,11 +632,11 @@ export default function NumerologySection({ pd, num, fn }: NumerologySectionProp
                 <div style={{ fontSize: 10, color: P.textDim, lineHeight: 1.5 }}>
                   {hasNum ? (
                     <>
-                      <b style={{ color: P.textMid }}>Tu possèdes :</b> {reading.present}
+                      <b style={{ color: P.textMid }}>Tu possèdes :</b> {genderize(reading.present)}
                     </>
                   ) : (
                     <>
-                      <b style={{ color: P.textMid }}>À développer :</b> {reading.missing}
+                      <b style={{ color: P.textMid }}>À développer :</b> {genderize(reading.missing)}
                     </>
                   )}
                 </div>

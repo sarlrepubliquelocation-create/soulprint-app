@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 interface AuthModalProps {
@@ -17,6 +17,36 @@ export default function AuthModal({ open, onClose, onSuccess }: AuthModalProps) 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { error: authError, signUpEmail, signInEmail, signInGoogle, resetPassword } = useAuth();
+
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap + Escape key — WCAG AA
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    // Focus first input on open
+    setTimeout(() => {
+      const first = modalRef.current?.querySelector<HTMLElement>('input, button');
+      first?.focus();
+    }, 50);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, input, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      prev?.focus();
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -184,9 +214,9 @@ export default function AuthModal({ open, onClose, onSuccess }: AuthModalProps) 
   });
 
   return (
-    <div style={bgStyle}>
-      <div className="auth-modal-inner" style={modalStyle}>
-        <h2 style={titleStyle}>
+    <div style={bgStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div ref={modalRef} className="auth-modal-inner" style={modalStyle} role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <h2 id="auth-modal-title" style={titleStyle}>
           {mode === 'signin' ? 'Se connecter' : 'Créer un compte'}
         </h2>
 
